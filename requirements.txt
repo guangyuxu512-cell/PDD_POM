@@ -1,0 +1,15 @@
+fastapi
+uvicorn[standard]
+playwright
+celery
+celery-redbeat>=2.0.0
+redis>=5.0.0
+httpx
+python-dotenv
+pydantic
+pydantic-settings
+aiosqlite
+cryptography
+nest_asyncio
+pytest
+pytest-asyncio
