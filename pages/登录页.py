@@ -1,23 +1,18 @@
-"""
-登录页模块
-
-抖店登录页面的页面对象模型，使用 Playwright 录制的真实选择器。
-"""
+"""拼多多商家后台登录页面的页面对象模型"""
 import inspect
 import json
 from pathlib import Path
-from typing import List, Dict, Any
 from pages.基础页 import 基础页
 from backend.配置 import 配置实例
 
 
 class 登录页(基础页):
-    """抖店登录页 POM"""
+    """拼多多商家后台登录页 POM"""
 
     def __init__(self, 页面):
         super().__init__(页面)
-        self.登录地址 = "https://fxg.jinritemai.com/login/common"
-        self.首页地址 = "https://fxg.jinritemai.com/ffa/mshop/homepage/index"
+        self.登录地址 = "https://mms.pinduoduo.com/login/"
+        self.首页地址 = "https://mms.pinduoduo.com/home"
 
     # === 导航 ===
 
@@ -115,7 +110,7 @@ class 登录页(基础页):
 
             # 检查当前 URL 是否在首页
             当前URL = self.页面.url
-            if "/ffa/mshop/" in 当前URL:
+            if "mms.pinduoduo.com/home" in 当前URL:
                 print(f"✓ Cookie 有效，当前 URL: {当前URL}")
                 return True
             else:
@@ -128,32 +123,19 @@ class 登录页(基础页):
 
     # === 登录操作 ===
 
-    async def 切换邮箱登录(self) -> None:
-        """点击'邮箱登录'标签"""
-        await self.安全点击_文本("邮箱登录")
+    async def 切换账号登录(self) -> None:
+        """点击'账号登录'标签"""
+        await self.安全点击_文本("账号登录")
         await self.随机延迟(0.5, 1)
 
-    async def 勾选协议(self) -> None:
-        """勾选用户协议"""
-        协议框 = self.页面.get_by_label("")
-        if inspect.isawaitable(协议框):
-            协议框 = await 协议框
-        try:
-            if not await 协议框.is_checked():
-                await 协议框.check()
-                await self.随机延迟(0.3, 0.8)
-        except Exception:
-            # 协议框可能已勾选或不存在，忽略
-            pass
-
-    async def 填写邮箱(self, 邮箱: str) -> None:
+    async def 填写手机号(self, 手机号: str) -> None:
         """
-        填写邮箱
+        填写手机号或账号名
 
         Args:
-            邮箱: 邮箱地址
+            手机号: 手机号或账号名
         """
-        await self.安全填写_占位符("请输入邮箱", 邮箱)
+        await self.安全填写_占位符("请输入账号名/手机号", 手机号)
 
     async def 填写密码(self, 密码: str) -> None:
         """
@@ -162,11 +144,11 @@ class 登录页(基础页):
         Args:
             密码: 密码
         """
-        await self.安全填写_占位符("密码", 密码)
+        await self.安全填写_占位符("请输入密码", 密码)
 
     async def 点击登录(self) -> None:
         """点击登录按钮"""
-        登录按钮 = self.页面.get_by_role("button", name="登录")
+        登录按钮 = self.页面.get_by_test_id("beast-core-button")
         if inspect.isawaitable(登录按钮):
             登录按钮 = await 登录按钮
         await 登录按钮.click()
@@ -187,9 +169,9 @@ class 登录页(基础页):
         """
         try:
             # 等待页面跳转到首页
-            await self.页面.wait_for_url("**/ffa/mshop/**", timeout=10000)
+            await self.页面.wait_for_url("**/home**", timeout=10000)
             当前URL = self.页面.url
-            return isinstance(当前URL, str) and "/ffa/mshop/" in 当前URL
+            return isinstance(当前URL, str) and "mms.pinduoduo.com/home" in 当前URL
         except Exception as e:
             错误信息 = str(e).lower()
 
@@ -202,7 +184,7 @@ class 登录页(基础页):
                 try:
                     # 检查当前 URL 是否在首页
                     当前URL = self.页面.url
-                    if "/ffa/mshop/" in 当前URL:
+                    if "mms.pinduoduo.com/home" in 当前URL:
                         print(f"✓ 页面已跳转到首页: {当前URL}")
                         return True
                 except Exception as e2:
@@ -222,14 +204,16 @@ class 登录页(基础页):
         滑块 = await self.页面.query_selector(".captcha-container, .captcha-slider, .sc-jrQzAO, #captcha_container")
         return 滑块 is not None
 
-    async def 检测邮箱验证码(self) -> bool:
+    async def 检测短信验证码(self) -> bool:
         """
-        检测是否需要邮箱验证码
+        检测是否出现短信验证码输入框
 
         Returns:
-            bool: 是否需要邮箱验证码
+            bool: 是否出现短信验证码输入框
         """
-        验证码输入 = await self.页面.query_selector("[placeholder*='验证码'], [placeholder*='请输入验证码']")
+        验证码输入 = await self.页面.query_selector(
+            "[placeholder*='请输入短信验证码'], [placeholder*='短信验证码']"
+        )
         return 验证码输入 is not None
 
     async def 截图登录状态(self) -> str:

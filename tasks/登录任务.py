@@ -1,8 +1,5 @@
-"""
-登录任务模块
-
-完整的登录流程：优先 Cookie 登录 → 失败则账号密码登录 → 保存 Cookie。
-"""
+"""拼多多登录流程：优先 Cookie 登录 → 失败则手机号密码登录 → 处理短信验证码 → 保存 Cookie。"""
+import asyncio
 from pathlib import Path
 from backend.配置 import 配置实例
 from browser.反检测 import 真人模拟器
@@ -16,7 +13,7 @@ from tasks.注册表 import register_task
 
 @register_task("登录", "打开浏览器并登录店铺后台")
 class 登录任务(基础任务):
-    """完整的登录流程：优先 Cookie 登录 → 失败则账号密码登录 → 保存 Cookie"""
+    """完整的登录流程：优先 Cookie 登录 → 失败则账号密码登录 → 处理短信验证码 → 保存 Cookie"""
 
     @自动回调("登录")
     async def 执行(self, 页面, 店铺配置: dict) -> str:
@@ -29,7 +26,7 @@ class 登录任务(基础任务):
 
         返回:
             "成功" — 登录成功
-            "需要邮箱验证码" — 需要邮箱验证码
+            "需要验证码" — 需要人工处理滑块验证码
             "失败" — 登录失败
             失败时抛出异常，装饰器自动回调 failed
         """
@@ -48,7 +45,7 @@ class 登录任务(基础任务):
             await 登录.访问首页()
             当前URL = 页面.url
 
-            if isinstance(当前URL, str) and "login" not in 当前URL:
+            if isinstance(当前URL, str) and "mms.pinduoduo.com/home" in 当前URL:
                 await 上报("[成功] 已登录状态，跳过登录流程", 店铺ID)
                 return "成功"
             else:
@@ -83,17 +80,13 @@ class 登录任务(基础任务):
         await 上报("打开登录页", 店铺ID)
         await 登录.导航()
 
-        await 上报("切换到邮箱登录", 店铺ID)
-        await 登录.切换邮箱登录()
+        await 上报("切换到账号登录", 店铺ID)
+        await 登录.切换账号登录()
 
-        await 上报("勾选用户协议", 店铺ID)
-        await 登录.勾选协议()
-
-        # 脱敏显示邮箱
-        邮箱 = 店铺配置["username"]
-        脱敏邮箱 = 邮箱[:3] + "***" if len(邮箱) > 3 else "***"
-        await 上报(f"填写邮箱: {脱敏邮箱}", 店铺ID)
-        await 登录.填写邮箱(邮箱)
+        手机号 = 店铺配置["username"]
+        脱敏手机号 = 手机号[:3] + "****" + 手机号[-4:] if len(手机号) >= 7 else "***"
+        await 上报(f"填写手机号: {脱敏手机号}", 店铺ID)
+        await 登录.填写手机号(手机号)
 
         await 上报("填写密码", 店铺ID)
         await 登录.填写密码(店铺配置["password"])
@@ -126,28 +119,55 @@ class 登录任务(基础任务):
             else:
                 raise
 
-        if 店铺配置.get("smtp_host"):
-            try:
-                await 上报("检测是否需要邮箱验证码", 店铺ID)
-                if await 登录.检测邮箱验证码():
-                    await 上报("需要邮箱验证码，等待用户输入", 店铺ID)
+        try:
+            await 上报("检测是否需要短信验证码", 店铺ID)
+            if await 登录.检测短信验证码():
+                await 上报("需要短信验证码，等待人工输入（最多等待120秒）", 店铺ID)
+                await 登录.截图登录状态()
+
+                已成功 = False
+                for _ in range(40):
+                    await asyncio.sleep(3)
+                    try:
+                        当前URL = 页面.url
+                        if "mms.pinduoduo.com/home" in 当前URL:
+                            已成功 = True
+                            break
+                    except Exception:
+                        continue
+
+                if 已成功:
+                    await 上报("[成功] 短信验证码验证通过，已跳转到首页", 店铺ID)
+                    try:
+                        await 登录.保存Cookie(店铺ID)
+                        await 上报("[成功] Cookie 已保存到文件", 店铺ID)
+                    except Exception as e:
+                        await 上报(f"[警告] Cookie 保存失败: {str(e)}", 店铺ID)
+
+                    try:
+                        await 登录.截图登录状态()
+                    except Exception:
+                        pass
+
+                    return "成功"
+
+                await 上报("[失败] 等待短信验证码超时（120秒）", 店铺ID)
+                try:
                     await 登录.截图登录状态()
-                    return "需要邮箱验证码"
-            except Exception as e:
-                错误信息 = str(e).lower()
-                if "context" in 错误信息 or "destroyed" in 错误信息:
-                    await 上报("页面已跳转，跳过邮箱验证码检测", 店铺ID)
-                else:
-                    raise
+                except Exception:
+                    pass
+                return "失败"
+        except Exception as e:
+            错误信息 = str(e).lower()
+            if "context" in 错误信息 or "destroyed" in 错误信息:
+                await 上报("页面已跳转，跳过短信验证码检测", 店铺ID)
+            else:
+                raise
 
         # === 步骤 4：检查登录结果 ===
         await 上报("检查登录结果", 店铺ID)
         try:
             是否成功 = await 登录.是否登录成功()
-
-            if not 是否成功:
-                成功标志 = await 页面.query_selector(".user-info")
-                是否成功 = 成功标志 is not None
 
             if 是否成功:
                 await 上报("[成功] 登录成功，保存 Cookie", 店铺ID)
@@ -170,7 +190,7 @@ class 登录任务(基础任务):
                 await 上报("检测到页面跳转，验证登录状态", 店铺ID)
                 try:
                     当前URL = 页面.url
-                    if "/ffa/mshop/" in 当前URL:
+                    if "mms.pinduoduo.com/home" in 当前URL:
                         await 上报("[成功] 登录成功（页面已跳转到首页），保存 Cookie", 店铺ID)
                         try:
                             await 登录.保存Cookie(店铺ID)

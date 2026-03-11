@@ -1,0 +1,5 @@
+2026/03/11-16:54:04.245 5d1c Reusing MANIFEST E:\pdd_zd\data\profiles\8eec98e4-89b9-49d5-ab1f-c72be3c405f6\Default\Local Storage\leveldb/MANIFEST-000001
+2026/03/11-16:54:04.249 5d1c Recovering log #3
+2026/03/11-16:54:04.251 5d1c Level-0 table #3: started
+2026/03/11-16:54:04.300 5d1c Level-0 table #3: 154822 bytes OK
+2026/03/11-16:54:04.321 5d1c Delete type=0 #3

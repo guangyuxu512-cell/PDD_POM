@@ -1309,3 +1309,27 @@
 - [x] 新增 `tests/单元测试/测试_任务回调.py`，覆盖任务回调的鉴权头和业务失败静默吞吐
 - [x] 验证通过：`python -m pytest -c tests/pytest.ini tests/单元测试/测试_Celery桥接.py tests/单元测试/测试_批量执行回调.py tests/单元测试/测试_心跳服务.py tests/单元测试/测试_任务回调.py -q`
 - [x] 验证通过：`python -m pytest -c tests/pytest.ini -q`
+
+## Prompt 49：拼多多登录流程改造 ✅
+
+- [x] 更新 `pages/登录页.py`，将登录页 POM 从抖店邮箱登录切换为拼多多账号登录
+- [x] 更新 `pages/登录页.py`，登录地址改为 `https://mms.pinduoduo.com/login/`，首页地址改为 `https://mms.pinduoduo.com/home`
+- [x] 更新 `pages/登录页.py`，删除邮箱登录/协议勾选/邮箱验证码相关方法，新增 `切换账号登录()`、`填写手机号()`、`检测短信验证码()`
+- [x] 更新 `pages/登录页.py`，登录按钮改为 `get_by_test_id("beast-core-button")`，登录成功和 Cookie 有效性统一改为判定 `/home`
+- [x] 更新 `tasks/登录任务.py`，将登录流程改为 Cookie 优先 → 手机号密码登录 → 滑块验证码 → 短信验证码 → 保存 Cookie
+- [x] 更新 `tasks/登录任务.py`，移除 `smtp_host` 邮箱验证码分支与任务层 `.user-info` 选择器依赖
+- [x] 更新 `tasks/登录任务.py`，短信验证码分支返回值改为 `需要短信验证码`
+- [x] 新增 `tests/单元测试/测试_登录页.py`，覆盖拼多多登录页 POM 的新接口与首页 URL 判定
+- [x] 更新 `tests/单元测试/测试_登录任务.py`，覆盖 Cookie 有效、手机号密码登录成功、滑块验证码、短信验证码与 `context destroyed` 分支
+- [x] 验证通过：`python -m pytest -c tests/pytest.ini tests/单元测试/测试_登录页.py tests/单元测试/测试_登录任务.py -q`
+- [x] 验证通过：`python -m pytest -c tests/pytest.ini -q`
+
+## Prompt 50：短信验证码输入后继续判断登录结果 ✅
+
+- [x] 更新 `tasks/登录任务.py`，短信验证码检测后不再直接返回，改为最长等待 `120` 秒轮询首页跳转
+- [x] 更新 `tasks/登录任务.py`，人工输入验证码后跳转到 `https://mms.pinduoduo.com/home` 时返回 `成功` 并保存 Cookie
+- [x] 更新 `tasks/登录任务.py`，超时未跳转时返回 `失败` 并补截图日志
+- [x] 更新 `tests/单元测试/测试_登录任务.py`，覆盖短信验证码验证通过后成功保存 Cookie
+- [x] 更新 `tests/单元测试/测试_登录任务.py`，覆盖短信验证码等待超时返回失败
+- [x] 验证通过：`python -m pytest -c tests/pytest.ini tests/单元测试/测试_登录任务.py tests/单元测试/测试_登录页.py -q`
+- [x] 验证通过：`python -m pytest -c tests/pytest.ini -q`
