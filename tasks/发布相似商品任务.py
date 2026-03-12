@@ -1,10 +1,9 @@
 """发布相似商品任务模块"""
-from backend.配置 import 配置实例
+import asyncio
+import random
+
 from backend.services.任务参数服务 import 任务参数服务实例
-from browser.反检测 import 真人模拟器
 from browser.任务回调 import 自动回调, 上报
-from browser.验证码识别 import 验证码识别器
-from browser.滑块验证码 import 滑块处理器
 from pages.发布商品页 import 发布商品页
 from pages.商品列表页 import 商品列表页
 from tasks.基础任务 import 基础任务
@@ -35,10 +34,14 @@ class 发布相似商品任务(基础任务):
                 结果=结果 or {},
                 错误信息=错误信息,
             )
-        except Exception as e:
-            print(f"[发布相似商品任务] 回填任务参数失败: {e}")
+        except Exception as 异常:
+            print(f"[发布相似商品任务] 回填任务参数失败: {异常}")
 
-    async def _安全截图并关闭(self, 发布页对象: 发布商品页 | None) -> None:
+    async def _安全截图并关闭(
+        self,
+        发布页对象: 发布商品页 | None,
+        商品列表对象: 商品列表页 | None = None,
+    ) -> None:
         """安全截图并关闭发布页。"""
         if 发布页对象 is None:
             return
@@ -49,115 +52,136 @@ class 发布相似商品任务(基础任务):
             pass
 
         try:
-            await 发布页对象.关闭页面()
+            await 发布页对象.关闭当前标签页()
         except Exception:
             pass
 
+        if 商品列表对象 is not None:
+            try:
+                await 商品列表对象.切回前台()
+            except Exception:
+                pass
+
+    @staticmethod
+    def _读取参数(任务参数: dict, 中文键名: str, 英文键名: str) -> str:
+        """兼容中文任务单与当前 task_params 注入结构。"""
+        return str(任务参数.get(中文键名) or 任务参数.get(英文键名) or "").strip()
+
+    async def _步骤间延迟(self) -> None:
+        """在任务步骤之间加入思考停顿。"""
+        await asyncio.sleep(random.uniform(1.0, 3.0))
+
     @自动回调("发布相似商品")
     async def 执行(self, 页面, 店铺配置: dict) -> str:
-        """执行发布相似商品流程。"""
+        """严格执行单次发布相似商品流程。"""
         self._执行结果 = {}
 
         任务参数 = 店铺配置.get("task_param") or {}
-        父商品ID = str(任务参数.get("parent_product_id") or "").strip()
-        新标题 = str(任务参数.get("new_title") or "").strip()
+        父商品ID = self._读取参数(任务参数, "父商品ID", "parent_product_id")
+        新标题 = self._读取参数(任务参数, "新标题", "new_title")
         任务参数ID = 任务参数.get("task_param_id")
         店铺ID = 店铺配置.get("shop_id") or 店铺配置.get("username") or "临时店铺"
 
         if not 父商品ID:
-            raise ValueError("parent_product_id 不能为空")
+            raise ValueError("父商品ID不能为空")
 
-        await self._回填任务参数(任务参数ID, "running", {"parent_product_id": 父商品ID})
+        await self._回填任务参数(任务参数ID, "running", {"父商品ID": 父商品ID})
 
         商品列表对象 = 商品列表页(页面)
         发布页对象: 发布商品页 | None = None
         初始新商品ID = ""
+        实际标题 = ""
 
         try:
             await 上报("打开商品列表页", 店铺ID)
-            await 商品列表对象.导航()
+            await 商品列表对象.导航到商品列表()
+            await self._步骤间延迟()
 
             await 上报(f"搜索商品: {父商品ID}", 店铺ID)
-            await 商品列表对象.搜索商品(父商品ID)
+            await 商品列表对象.输入商品ID(父商品ID)
+            await 商品列表对象.点击查询()
+            await 商品列表对象.等待搜索结果()
+            await self._步骤间延迟()
 
             await 上报("点击发布相似品", 店铺ID)
-            新页面 = await 商品列表对象.点击发布相似品()
+            async with 页面.expect_popup() as 弹窗信息:
+                await 商品列表对象.点击发布相似()
+                await 商品列表对象.确认发布相似弹窗()
+            新页面 = await 弹窗信息.value
+            await self._步骤间延迟()
 
-            await 上报("初始化发布页", 店铺ID)
+            await 上报("等待发布页加载", 店铺ID)
+            await 新页面.wait_for_load_state("domcontentloaded")
             发布页对象 = 发布商品页(新页面)
-            await 发布页对象.初始化页面()
+            await 发布页对象.关闭所有弹窗()
+            await self._步骤间延迟()
 
-            初始新商品ID = 发布页对象.从URL提取新商品ID()
+            初始新商品ID = await 发布页对象.提取商品ID()
             await 上报(f"新商品ID: {初始新商品ID or '未获取到'}", 店铺ID)
+
+            await 上报("调整主图顺序", 店铺ID)
+            主图列表 = await 发布页对象.获取主图列表()
+            if len(主图列表) > 1:
+                最大索引 = min(4, len(主图列表) - 1)
+                源索引 = random.randint(1, 最大索引)
+                await 发布页对象.拖拽主图(源索引, 0)
+                await 上报(f"已将第{源索引 + 1}张图拖到第1位", 店铺ID)
+            else:
+                await 上报("只有1张主图，跳过拖拽", 店铺ID)
+            await self._步骤间延迟()
 
             if 新标题:
                 await 上报("修改标题", 店铺ID)
-                await 发布页对象.修改标题(新标题)
+                await 发布页对象.输入商品标题(新标题)
+                实际标题 = 新标题
             else:
                 await 上报("不修改标题", 店铺ID)
+                实际标题 = await 发布页对象.获取商品标题()
+            await self._步骤间延迟()
 
             await 上报("点击提交并上架", 店铺ID)
             await 发布页对象.点击提交并上架()
-
-            await 上报("检测是否出现滑块验证码", 店铺ID)
-            try:
-                if await 发布页对象.检测滑块验证码():
-                    if not 配置实例.CAPTCHA_API_KEY:
-                        await 上报("检测到滑块验证码，等待人工处理", 店铺ID)
-                        try:
-                            await 发布页对象.截图当前状态()
-                        except Exception:
-                            pass
-                        await self._回填任务参数(
-                            任务参数ID,
-                            "failed",
-                            {"parent_product_id": 父商品ID},
-                            "需要验证码",
-                        )
-                        return "需要验证码"
-
-                    await 上报("检测到滑块验证码，开始处理", 店铺ID)
-                    识别器 = 验证码识别器(配置实例.CAPTCHA_PROVIDER, 配置实例.CAPTCHA_API_KEY)
-                    模拟器 = 真人模拟器(新页面)
-                    滑块处理 = 滑块处理器(识别器, 模拟器)
-                    await 滑块处理.处理(新页面)
-                    await 上报("滑块验证码处理完成", 店铺ID)
-            except Exception as e:
-                错误信息 = str(e).lower()
-                if "context" in 错误信息 or "destroyed" in 错误信息:
-                    await 上报("页面已跳转，跳过验证码检测", 店铺ID)
-                else:
-                    raise
+            await self._步骤间延迟()
 
             await 上报("检查发布结果", 店铺ID)
-            if await 发布页对象.是否发布成功():
-                成功商品ID = 发布页对象.从成功页提取商品ID() or 初始新商品ID
+            if await 发布页对象.等待发布成功():
+                成功商品ID = await 发布页对象.提取商品ID() or 初始新商品ID
                 self._执行结果 = {
-                    "new_product_id": 成功商品ID,
-                    "parent_product_id": 父商品ID,
+                    "新商品ID": 成功商品ID,
+                    "父商品ID": 父商品ID,
+                    "标题": 实际标题,
                 }
                 await 上报(f"[成功] 发布成功，新商品ID: {成功商品ID or '未获取到'}", 店铺ID)
                 await self._回填任务参数(任务参数ID, "success", self._执行结果)
-                await self._安全截图并关闭(发布页对象)
+                await self._安全截图并关闭(发布页对象, 商品列表对象)
                 return "成功"
 
+            self._执行结果 = {
+                "父商品ID": 父商品ID,
+                "标题": 实际标题,
+            }
             await 上报("[失败] 发布失败", 店铺ID)
             await self._回填任务参数(
                 任务参数ID,
                 "failed",
-                {"parent_product_id": 父商品ID},
+                self._执行结果,
                 "发布失败",
             )
-            await self._安全截图并关闭(发布页对象)
+            await self._安全截图并关闭(发布页对象, 商品列表对象)
             return "失败"
 
-        except Exception as e:
-            await 上报(f"[失败] 发布相似商品异常: {str(e)}", 店铺ID)
+        except Exception as 异常:
+            if not self._执行结果:
+                self._执行结果 = {
+                    "父商品ID": 父商品ID,
+                    "标题": 实际标题,
+                }
+            await 上报(f"[失败] 发布相似商品异常: {异常}", 店铺ID)
             await self._回填任务参数(
                 任务参数ID,
                 "failed",
-                {"parent_product_id": 父商品ID},
-                str(e),
+                self._执行结果,
+                str(异常),
             )
-            await self._安全截图并关闭(发布页对象)
+            await self._安全截图并关闭(发布页对象, 商品列表对象)
             return "失败"

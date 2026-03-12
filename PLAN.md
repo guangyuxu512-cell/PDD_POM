@@ -1486,3 +1486,66 @@
 - [x] 针对性验证通过：`python -m pytest -c tests/pytest.ini -q tests/单元测试/测试_选择器提取.py tests/单元测试/测试_商品列表页.py tests/单元测试/测试_发布商品页.py tests/单元测试/测试_登录页.py tests/单元测试/测试_基础页.py`
 - [x] 全量验证通过：PowerShell 临时设置 `timeBeginPeriod(1)` 并提高 `python` 进程优先级后执行 `python -m pytest tests/ -x`
 - [x] 全量验证结果：`175 passed, 16 warnings`（10 条为第三方 `openpyxl` 警告，6 条为现有 Celery 警告）
+
+## Prompt 62：选择器文件改为 dataclass 配置模式并补回老值 ✅
+
+- [x] 新增 `selectors/选择器配置.py`，提供 `主选择器`、`备选选择器` 和 `所有选择器()`
+- [x] 更新 `selectors/基础页选择器.py`，将通用弹窗关闭按钮改为 `选择器配置` 并新增 `首页URL`、`登录页URL`
+- [x] 更新 `selectors/登录页选择器.py`，改为 `选择器配置` 模式并补回老版本账号/密码/登录/验证码相关选择器值
+- [x] 更新 `selectors/商品列表页选择器.py`，改为 `选择器配置` 模式并补回老版本商品 ID 搜索、查询、发布相似、商品列表相关选择器值
+- [x] 更新 `selectors/发布商品页选择器.py`，改为 `选择器配置` 模式并补回老版本标题输入、提交、图片、发布成功相关选择器值
+- [x] 更新 `pages/登录页.py`、`pages/商品列表页.py`、`pages/发布商品页.py`、`pages/基础页.py`，将选择器引用从 `list[str][0]` 切到 `.主选择器 / .所有选择器()`
+- [x] 更新 `tests/单元测试/测试_选择器提取.py`、`tests/单元测试/测试_登录页.py`、`tests/单元测试/测试_商品列表页.py`、`tests/单元测试/测试_发布商品页.py` 以适配配置对象模式
+- [x] 针对性验证通过：`python -m pytest -c tests/pytest.ini -q tests/单元测试/测试_选择器提取.py tests/单元测试/测试_登录页.py tests/单元测试/测试_商品列表页.py tests/单元测试/测试_发布商品页.py tests/单元测试/测试_基础页.py`
+- [x] 全量验证通过：PowerShell 临时设置 `timeBeginPeriod(1)` 并提高 `python` 进程优先级后执行 `python -m pytest tests/ -x`
+- [x] 全量验证结果：`177 passed, 16 warnings`（10 条为第三方 `openpyxl` 警告，6 条为现有 Celery 警告）
+
+## Prompt 63：发布相似商品任务改为严格单次发布并回填中文结果 ✅
+
+- [x] 恢复 `selectors/商品列表页选择器.py`，将被误写成任务说明文本的文件恢复为当前 `选择器配置` 结构
+- [x] 更新 `pages/发布商品页.py`，新增 `获取商品标题()`，用于未改标题场景读取实际标题
+- [x] 更新 `pages/商品列表页.py`，新增 `切回前台()`，在关闭编辑页后尽量显式切回商品列表标签
+- [x] 重写 `tasks/发布相似商品任务.py`，按“导航 -> 搜索 -> 发布相似品 -> 初始化发布页 -> 提取新商品ID -> 调整主图 -> 可选改标题 -> 提交 -> 校验成功 -> 关闭并切回”的顺序执行
+- [x] 更新 `tasks/发布相似商品任务.py`，兼容读取 `父商品ID/新标题` 与 `parent_product_id/new_title`
+- [x] 更新 `tasks/发布相似商品任务.py`，成功结果统一回填为 `新商品ID/父商品ID/标题`
+- [x] 去掉 `tasks/发布相似商品任务.py` 中与本任务单无关的验证码处理分支
+- [x] 更新 `tests/单元测试/测试_发布相似商品任务.py`，覆盖英文/中文参数兼容、主图调整、原标题回填和失败回填
+- [x] 更新 `tests/单元测试/测试_发布商品页.py`，新增 `获取商品标题()` 用例
+- [x] 更新 `tests/单元测试/测试_商品列表页.py`，新增搜索结果刷新等待用例
+- [x] 针对性验证通过：`python -m pytest -c tests/pytest.ini -q tests/单元测试/测试_发布相似商品任务.py tests/单元测试/测试_发布商品页.py tests/单元测试/测试_商品列表页.py tests/单元测试/测试_选择器提取.py`
+- [x] 针对性验证结果：`26 passed`
+- [x] 邻近回归验证通过：`python -m pytest -c tests/pytest.ini -q tests/单元测试/测试_任务服务.py tests/单元测试/测试_发布换图商品任务.py`
+- [x] 邻近回归验证结果：`7 passed`
+- [x] 全量验证通过：PowerShell 临时设置 `timeBeginPeriod(1)` 并提高 `python` 进程优先级后执行 `python -m pytest -c tests/pytest.ini tests/ -x`
+- [x] 全量验证结果：`181 passed, 16 warnings`（10 条为第三方 `openpyxl` 警告，6 条为现有 Celery 警告）
+
+## Prompt 64：商品列表页拆成原子方法并移除下拉逻辑 ✅
+
+- [x] 更新 `selectors/商品列表页选择器.py`，删除 `搜索类型下拉` 和 `商品ID选项` 配置
+- [x] 更新 `pages/商品列表页.py`，新增 `导航到商品列表()`、`输入商品ID()`、`点击查询()`、`等待搜索结果()`、`点击发布相似()`、`确认发布相似弹窗()` 原子方法
+- [x] 更新 `pages/商品列表页.py`，删除 `_点击搜索类型下拉()`、`_选择商品ID选项()` 和 `搜索商品()` 大方法
+- [x] 更新 `tasks/发布相似商品任务.py`，改为按商品列表页原子步骤顺序编排
+- [x] 更新 `pages/发布商品页.py`，补充 `获取当前URL()`、`提取商品ID()`、`获取主图列表()`、`拖拽主图()`、`输入商品标题()`、`等待发布成功()`、`关闭当前标签页()` 等原子接口
+- [x] 由于 `搜索商品()` 被删除，最小化更新 `tasks/发布换图商品任务.py` 以接入新的商品列表页原子方法，避免运行时断链
+- [x] 更新 `tests/单元测试/测试_商品列表页.py`、`tests/单元测试/测试_选择器提取.py`、`tests/单元测试/测试_发布商品页.py`、`tests/单元测试/测试_发布相似商品任务.py`、`tests/单元测试/测试_发布换图商品任务.py`
+- [x] 针对性验证通过：`python -m pytest -c tests/pytest.ini -q tests/单元测试/测试_商品列表页.py tests/单元测试/测试_选择器提取.py tests/单元测试/测试_发布商品页.py tests/单元测试/测试_发布相似商品任务.py tests/单元测试/测试_发布换图商品任务.py`
+- [x] 针对性验证结果：`35 passed`
+- [x] 相邻回归验证通过：`python -m pytest -c tests/pytest.ini -q tests/单元测试/测试_任务服务.py tests/单元测试/测试_任务注册表.py`
+- [x] 相邻回归验证结果：`10 passed`
+- [x] 全量验证通过：PowerShell 临时设置 `timeBeginPeriod(1)` 并提高 `python` 进程优先级后执行 `python -m pytest -c tests/pytest.ini tests/ -x`
+- [x] 全量验证结果：`187 passed, 16 warnings`（10 条为第三方 `openpyxl` 警告，6 条为现有 Celery 警告）
+
+## Prompt 65：Task 23c 浏览器最大化 + 主图拖拽 + 全局随机延迟 ✅
+
+- [x] 更新 `browser/管理器.py`，将持久化上下文启动参数改为 `viewport=None`，并加入 `--start-maximized`
+- [x] 更新 `pages/基础页.py`，新增 `操作前延迟()`、`操作后延迟()`、`页面加载延迟()` 三个通用延迟包装方法
+- [x] 更新 `pages/商品列表页.py`，为原子方法补齐前后随机延迟和页面加载延迟
+- [x] 更新 `pages/发布商品页.py`，为标题输入、主图拖拽、提交、成功等待和关闭标签页补齐延迟逻辑
+- [x] 更新 `pages/发布商品页.py`，将主图拖拽改为基于鼠标移动轨迹的平滑拖拽，移动步数 `8~15` 步
+- [x] 更新 `tasks/发布相似商品任务.py`，新增“调整主图顺序”步骤与 `_步骤间延迟()`，在关键任务步骤间随机停顿 `1~3` 秒
+- [x] 更新 `tests/单元测试/测试_基础页.py`、`tests/单元测试/测试_商品列表页.py`、`tests/单元测试/测试_发布商品页.py`、`tests/单元测试/测试_发布相似商品任务.py`
+- [x] 新增 `tests/单元测试/测试_浏览器管理器.py`，覆盖浏览器最大化启动参数
+- [x] 针对性验证通过：`python -m pytest -c tests/pytest.ini -q tests/单元测试/测试_基础页.py tests/单元测试/测试_商品列表页.py tests/单元测试/测试_发布商品页.py tests/单元测试/测试_发布相似商品任务.py tests/单元测试/测试_浏览器管理器.py`
+- [x] 针对性验证结果：`44 passed`
+- [x] 全量验证通过：PowerShell 临时设置 `timeBeginPeriod(1)` 并提高 `python` 进程优先级后执行 `python -m pytest -c tests/pytest.ini tests/ -x`
+- [x] 全量验证结果：`196 passed, 16 warnings`（10 条为第三方 `openpyxl` 警告，6 条为现有 Celery 警告）

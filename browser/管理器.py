@@ -91,10 +91,11 @@ class 浏览器管理器:
         启动参数 = {
             "channel": "chrome",
             "headless": headless模式,
-            "viewport": {"width": 1366, "height": 768},
+            "viewport": None,
             "args": [
                 "--disable-blink-features=AutomationControlled",
-                "--disable-infobars"
+                "--disable-infobars",
+                "--start-maximized",
             ]
         }
 

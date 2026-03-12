@@ -1,3 +1,5 @@
-2026/03/12-08:11:47.302 64b4 Reusing MANIFEST E:\pdd_zd\data\profiles\8eec98e4-89b9-49d5-ab1f-c72be3c405f6\Default\Local Storage\leveldb/MANIFEST-000001
-2026/03/12-08:11:47.309 64b4 Recovering log #36
-2026/03/12-08:11:47.311 64b4 Reusing old log E:\pdd_zd\data\profiles\8eec98e4-89b9-49d5-ab1f-c72be3c405f6\Default\Local Storage\leveldb/000036.log 
+2026/03/12-12:55:48.848 7f94 Reusing MANIFEST E:\pdd_zd\data\profiles\8eec98e4-89b9-49d5-ab1f-c72be3c405f6\Default\Local Storage\leveldb/MANIFEST-000001
+2026/03/12-12:55:48.854 7f94 Recovering log #55
+2026/03/12-12:55:48.856 7f94 Reusing old log E:\pdd_zd\data\profiles\8eec98e4-89b9-49d5-ab1f-c72be3c405f6\Default\Local Storage\leveldb/000055.log 
+2026/03/12-12:56:27.395 7eac Level-0 table #59: started
+2026/03/12-12:56:27.584 7eac Level-0 table #59: 15896 bytes OK

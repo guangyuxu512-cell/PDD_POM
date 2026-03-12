@@ -2,9 +2,27 @@
 发布换图商品任务单元测试
 """
 import importlib
+import asyncio
 from copy import deepcopy
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
+
+
+class 模拟弹窗信息:
+    def __init__(self, 新页面):
+        self.value = asyncio.Future()
+        self.value.set_result(新页面)
+
+
+class 模拟弹窗上下文:
+    def __init__(self, 新页面):
+        self.信息 = 模拟弹窗信息(新页面)
+
+    async def __aenter__(self):
+        return self.信息
+
+    async def __aexit__(self, exc_type, exc, tb):
+        return False
 
 
 class 测试_发布换图商品任务:
@@ -16,14 +34,18 @@ class 测试_发布换图商品任务:
 
     @pytest.fixture
     def 模拟发布页面(self):
-        return MagicMock()
+        页面 = MagicMock()
+        return 页面
 
     @pytest.fixture
-    def 模拟商品列表页(self, 模拟发布页面):
+    def 模拟商品列表页(self):
         商品列表对象 = MagicMock()
-        商品列表对象.导航 = AsyncMock()
-        商品列表对象.搜索商品 = AsyncMock()
-        商品列表对象.点击发布相似品 = AsyncMock(return_value=模拟发布页面)
+        商品列表对象.导航到商品列表 = AsyncMock()
+        商品列表对象.输入商品ID = AsyncMock()
+        商品列表对象.点击查询 = AsyncMock()
+        商品列表对象.等待搜索结果 = AsyncMock()
+        商品列表对象.点击发布相似 = AsyncMock()
+        商品列表对象.确认发布相似弹窗 = AsyncMock()
         return 商品列表对象
 
     @pytest.fixture
@@ -64,12 +86,14 @@ class 测试_发布换图商品任务:
         self,
         模拟回调,
         模拟页面,
+        模拟发布页面,
         模拟商品列表页,
         模拟发布页,
     ):
         """图片路径和标题为空时应跳过上传与修改标题。"""
         from tasks.发布换图商品任务 import 发布换图商品任务
 
+        模拟页面.expect_popup.return_value = 模拟弹窗上下文(模拟发布页面)
         with patch("tasks.发布换图商品任务.上报", new_callable=AsyncMock), \
                 patch("tasks.发布换图商品任务.商品列表页", return_value=模拟商品列表页), \
                 patch("tasks.发布换图商品任务.发布商品页", return_value=模拟发布页), \
@@ -91,6 +115,7 @@ class 测试_发布换图商品任务:
         模拟发布页.上传主图.assert_not_called()
         模拟发布页.修改标题.assert_not_called()
         模拟发布页.随机调整主图到第一位.assert_awaited_once()
+        模拟商品列表页.输入商品ID.assert_awaited_once_with("3001")
 
     @pytest.mark.asyncio
     @patch("browser.任务回调._回调", new_callable=AsyncMock)
@@ -98,6 +123,7 @@ class 测试_发布换图商品任务:
         self,
         模拟回调,
         模拟页面,
+        模拟发布页面,
         模拟商品列表页,
         模拟发布页,
     ):
@@ -106,6 +132,7 @@ class 测试_发布换图商品任务:
 
         模拟发布页.随机调整主图到第一位.return_value = "第3张调到第1位（共5张）"
 
+        模拟页面.expect_popup.return_value = 模拟弹窗上下文(模拟发布页面)
         with patch("tasks.发布换图商品任务.上报", new_callable=AsyncMock), \
                 patch("tasks.发布换图商品任务.商品列表页", return_value=模拟商品列表页), \
                 patch("tasks.发布换图商品任务.发布商品页", return_value=模拟发布页), \

@@ -79,3 +79,22 @@ class 测试_基础页:
         模拟页面.query_selector.return_value = None
         基础 = 基础页(模拟页面)
         assert await 基础.元素是否存在("#el") == False
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        ("方法名", "最小秒", "最大秒"),
+        [
+            ("操作前延迟", 0.3, 0.8),
+            ("操作后延迟", 0.8, 2.0),
+            ("页面加载延迟", 1.5, 3.0),
+        ],
+    )
+    async def test_延迟包装方法(self, 模拟页面, 方法名, 最小秒, 最大秒):
+        from pages.基础页 import 基础页
+
+        基础 = 基础页(模拟页面)
+        基础.随机延迟 = AsyncMock()
+
+        await getattr(基础, 方法名)()
+
+        基础.随机延迟.assert_awaited_once_with(最小秒, 最大秒)

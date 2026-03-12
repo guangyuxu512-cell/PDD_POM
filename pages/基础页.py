@@ -41,7 +41,7 @@ class 基础页:
         """
         self.页面 = 页面
         self.模拟器 = 真人模拟器(页面)
-        self.通用弹窗关闭按钮选择器 = 基础页选择器.通用弹窗关闭按钮
+        self.通用弹窗关闭按钮选择器 = 基础页选择器.通用弹窗关闭按钮.所有选择器()
 
     async def 导航(self, 网址: str, 等待加载: bool = True) -> None:
         """
@@ -132,6 +132,18 @@ class 基础页:
             最大秒: 最大延迟秒数
         """
         await self.模拟器.随机延迟(最小秒, 最大秒)
+
+    async def 操作前延迟(self) -> None:
+        """每次页面操作前的短延迟。"""
+        await self.随机延迟(0.3, 0.8)
+
+    async def 操作后延迟(self) -> None:
+        """每次页面操作后的延迟。"""
+        await self.随机延迟(0.8, 2.0)
+
+    async def 页面加载延迟(self) -> None:
+        """等待页面加载或跳转后的延迟。"""
+        await self.随机延迟(1.5, 3.0)
 
     async def 安全点击_文本(self, 文本: str) -> None:
         """

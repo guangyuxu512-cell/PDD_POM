@@ -13,6 +13,7 @@ class 测试_发布商品页:
     @pytest.fixture
     def 模拟页面(self):
         页面 = MagicMock()
+        页面.click = AsyncMock()
         页面.url = "https://mms.pinduoduo.com/goods/goods_add/index?goods_id=9988"
         页面.wait_for_load_state = AsyncMock()
         页面.wait_for_url = AsyncMock()
@@ -22,6 +23,7 @@ class 测试_发布商品页:
         页面.get_by_text = MagicMock()
         页面.get_by_placeholder = MagicMock()
         页面.get_by_test_id = MagicMock()
+        页面.locator = MagicMock()
         页面.screenshot = AsyncMock()
         页面.close = AsyncMock()
         页面.mouse = MagicMock()
@@ -73,13 +75,49 @@ class 测试_发布商品页:
         assert 页面对象.从URL提取新商品ID() == ""
 
     @pytest.mark.asyncio
+    async def test_获取当前URL与提取商品ID(self, 模拟页面):
+        from pages.发布商品页 import 发布商品页
+
+        页面对象 = 发布商品页(模拟页面)
+
+        assert await 页面对象.获取当前URL() == "https://mms.pinduoduo.com/goods/goods_add/index?goods_id=9988"
+        assert await 页面对象.提取商品ID() == "9988"
+
+    @pytest.mark.asyncio
+    async def test_输入商品标题_前后延迟并填写(self, 模拟页面):
+        from pages.发布商品页 import 发布商品页
+
+        标题输入框 = MagicMock()
+        标题输入框.click = AsyncMock()
+        标题输入框.fill = AsyncMock()
+        标题定位器 = MagicMock()
+        标题定位器.first = 标题输入框
+        模拟页面.locator.return_value = 标题定位器
+
+        页面对象 = 发布商品页(模拟页面)
+        页面对象.操作前延迟 = AsyncMock()
+        页面对象.操作后延迟 = AsyncMock()
+        页面对象.随机延迟 = AsyncMock()
+
+        await 页面对象.输入商品标题("新的标题")
+
+        页面对象.操作前延迟.assert_awaited_once()
+        模拟页面.keyboard.press.assert_awaited_once_with("Control+A")
+        页面对象.随机延迟.assert_awaited_once_with(0.2, 0.5)
+        标题输入框.fill.assert_awaited_once_with("新的标题")
+        页面对象.操作后延迟.assert_awaited_once()
+
+    @pytest.mark.asyncio
     async def test_修改标题_先全选再填写(self, 模拟页面):
         from pages.发布商品页 import 发布商品页
 
         标题输入框 = MagicMock()
         标题输入框.click = AsyncMock()
         标题输入框.fill = AsyncMock()
-        模拟页面.get_by_placeholder.return_value = 标题输入框
+        标题输入框.count = AsyncMock(return_value=1)
+        标题定位器 = MagicMock()
+        标题定位器.first = 标题输入框
+        模拟页面.locator.return_value = 标题定位器
 
         页面对象 = 发布商品页(模拟页面)
         页面对象.随机延迟 = AsyncMock()
@@ -88,21 +126,74 @@ class 测试_发布商品页:
 
         模拟页面.keyboard.press.assert_awaited_once_with("Control+A")
         标题输入框.fill.assert_awaited_once_with("新的标题")
+        模拟页面.locator.assert_called_with("input[data-tracking-click-viewid='title_input_area']")
+
+    @pytest.mark.asyncio
+    async def test_获取商品标题_优先读取输入框值(self, 模拟页面):
+        from pages.发布商品页 import 发布商品页
+
+        标题输入框 = MagicMock()
+        标题输入框.input_value = AsyncMock(return_value="当前标题")
+        标题定位器 = MagicMock()
+        标题定位器.first = 标题输入框
+        模拟页面.locator.return_value = 标题定位器
+
+        页面对象 = 发布商品页(模拟页面)
+
+        assert await 页面对象.获取商品标题() == "当前标题"
 
     @pytest.mark.asyncio
     async def test_获取主图数量(self, 模拟页面):
         from pages.发布商品页 import 发布商品页
 
-        模拟页面.query_selector_all.return_value = [MagicMock(), MagicMock(), MagicMock()]
+        模拟页面.query_selector_all.side_effect = [[MagicMock(), MagicMock(), MagicMock()]]
         页面对象 = 发布商品页(模拟页面)
 
         assert await 页面对象.获取主图数量() == 3
 
     @pytest.mark.asyncio
-    async def test_随机调整主图到第一位_单图跳过(self, 模拟页面):
+    async def test_获取主图列表与拖拽主图(self, 模拟页面):
+        from pages.发布商品页 import 发布商品页
+
+        图片列表 = [MagicMock() for _ in range(3)]
+        图片列表[0].bounding_box = AsyncMock(return_value={"x": 20, "y": 40, "width": 40, "height": 40})
+        图片列表[2].bounding_box = AsyncMock(return_value={"x": 100, "y": 80, "width": 40, "height": 40})
+        模拟页面.query_selector_all.side_effect = [图片列表, 图片列表]
+        页面对象 = 发布商品页(模拟页面)
+        页面对象.操作前延迟 = AsyncMock()
+        页面对象.操作后延迟 = AsyncMock()
+        页面对象.随机延迟 = AsyncMock()
+
+        assert await 页面对象.获取主图列表() == 图片列表
+        with patch("pages.发布商品页.random.uniform", return_value=0), \
+                patch("pages.发布商品页.random.randint", return_value=8):
+            await 页面对象.拖拽主图(2, 0)
+
+        页面对象.操作前延迟.assert_awaited_once()
+        assert 模拟页面.mouse.move.await_count == 9
+        assert 模拟页面.mouse.move.await_args_list[0].args == (120.0, 100.0)
+        assert 模拟页面.mouse.move.await_args_list[-1].args == (40.0, 60.0)
+        模拟页面.mouse.down.assert_awaited_once()
+        模拟页面.mouse.up.assert_awaited_once()
+        assert 页面对象.随机延迟.await_count == 8
+        页面对象.操作后延迟.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_拖拽主图_索引越界抛异常(self, 模拟页面):
         from pages.发布商品页 import 发布商品页
 
         模拟页面.query_selector_all.return_value = [MagicMock()]
+        页面对象 = 发布商品页(模拟页面)
+        页面对象.操作前延迟 = AsyncMock()
+
+        with pytest.raises(RuntimeError, match="索引超出范围"):
+            await 页面对象.拖拽主图(1, 0)
+
+    @pytest.mark.asyncio
+    async def test_随机调整主图到第一位_单图跳过(self, 模拟页面):
+        from pages.发布商品页 import 发布商品页
+
+        模拟页面.query_selector_all.side_effect = [[MagicMock()]]
         页面对象 = 发布商品页(模拟页面)
 
         assert await 页面对象.随机调整主图到第一位() == "跳过"
@@ -112,18 +203,30 @@ class 测试_发布商品页:
         from pages.发布商品页 import 发布商品页
 
         图片列表 = [MagicMock() for _ in range(5)]
-        图片列表[2].drag_to = AsyncMock()
-        图片列表[0].drag_to = AsyncMock()
-        模拟页面.query_selector_all.return_value = 图片列表
+        模拟页面.query_selector_all.side_effect = [图片列表]
 
         页面对象 = 发布商品页(模拟页面)
-        页面对象.随机延迟 = AsyncMock()
+        页面对象.拖拽主图 = AsyncMock()
 
         with patch("pages.发布商品页.random.randint", return_value=2):
             结果 = await 页面对象.随机调整主图到第一位()
 
         assert 结果 == "第3张调到第1位（共5张）"
-        图片列表[2].drag_to.assert_awaited_once_with(图片列表[0])
+        页面对象.拖拽主图.assert_awaited_once_with(2, 0)
+
+    @pytest.mark.asyncio
+    async def test_点击提交并上架_前置延迟后等待加载(self, 模拟页面):
+        from pages.发布商品页 import 发布商品页
+
+        页面对象 = 发布商品页(模拟页面)
+        页面对象.操作前延迟 = AsyncMock()
+        页面对象.页面加载延迟 = AsyncMock()
+
+        await 页面对象.点击提交并上架()
+
+        页面对象.操作前延迟.assert_awaited_once()
+        模拟页面.click.assert_awaited_once_with("#submit_button", timeout=10000)
+        页面对象.页面加载延迟.assert_awaited_once()
 
     @pytest.mark.asyncio
     async def test_上传主图_文件不存在抛异常(self, 模拟页面):
@@ -145,12 +248,15 @@ class 测试_发布商品页:
         选择图片按钮.set_input_files = AsyncMock()
         确认按钮 = MagicMock()
         确认按钮.count = AsyncMock(return_value=1)
-        确认按钮.first = MagicMock()
-        确认按钮.first.click = AsyncMock()
-        模拟页面.get_by_role.side_effect = lambda role, name: {
-            ("button", "选择图片"): 选择图片按钮,
-            ("button", "确认"): 确认按钮,
-        }[(role, name)]
+        确认按钮.click = AsyncMock()
+        选择图片定位器 = MagicMock()
+        选择图片定位器.first = 选择图片按钮
+        确认定位器 = MagicMock()
+        确认定位器.first = 确认按钮
+        模拟页面.locator.side_effect = lambda selector: {
+            "button:has-text('选择图片')": 选择图片定位器,
+            "button:has-text('确认')": 确认定位器,
+        }[selector]
 
         页面对象 = 发布商品页(模拟页面)
         页面对象.随机延迟 = AsyncMock()
@@ -158,7 +264,7 @@ class 测试_发布商品页:
         await 页面对象.上传主图(str(图片文件))
 
         选择图片按钮.set_input_files.assert_awaited_once_with(str(图片文件))
-        确认按钮.first.click.assert_awaited_once()
+        确认按钮.click.assert_awaited_once()
 
     @pytest.mark.asyncio
     async def test_是否发布成功_支持成功页URL与文本兜底(self, 模拟页面):
@@ -168,7 +274,9 @@ class 测试_发布商品页:
         模拟页面.wait_for_url.side_effect = Exception("timeout")
         空文本 = MagicMock()
         空文本.count = AsyncMock(return_value=0)
-        模拟页面.get_by_text.return_value = 空文本
+        空定位器 = MagicMock()
+        空定位器.first = 空文本
+        模拟页面.locator.return_value = 空定位器
         assert await 页面对象.是否发布成功() is False
 
         模拟页面.url = "https://mms.pinduoduo.com/goods/goods_add/success?goods_id=9988"
@@ -177,8 +285,38 @@ class 测试_发布商品页:
         模拟页面.url = "https://mms.pinduoduo.com/goods/goods_add/index?goods_id=9988"
         成功文本 = MagicMock()
         成功文本.count = AsyncMock(return_value=1)
-        模拟页面.get_by_text.return_value = 成功文本
+        成功定位器 = MagicMock()
+        成功定位器.first = 成功文本
+        模拟页面.locator.return_value = 成功定位器
         assert await 页面对象.是否发布成功() is True
+
+    @pytest.mark.asyncio
+    async def test_等待发布成功_支持成功页URL与文本兜底(self, 模拟页面):
+        from pages.发布商品页 import 发布商品页
+
+        页面对象 = 发布商品页(模拟页面)
+        页面对象.随机延迟 = AsyncMock()
+        模拟页面.wait_for_url.side_effect = Exception("timeout")
+        空文本 = MagicMock()
+        空文本.count = AsyncMock(return_value=0)
+        空定位器 = MagicMock()
+        空定位器.first = 空文本
+        模拟页面.locator.return_value = 空定位器
+        assert await 页面对象.等待发布成功() is False
+
+        模拟页面.url = "https://mms.pinduoduo.com/goods/goods_add/success?goods_id=9988"
+        assert await 页面对象.等待发布成功() is True
+        页面对象.随机延迟.assert_awaited_once_with(1.0, 2.0)
+
+        页面对象.随机延迟.reset_mock()
+        模拟页面.url = "https://mms.pinduoduo.com/goods/goods_add/index?goods_id=9988"
+        成功文本 = MagicMock()
+        成功文本.count = AsyncMock(return_value=1)
+        成功定位器 = MagicMock()
+        成功定位器.first = 成功文本
+        模拟页面.locator.return_value = 成功定位器
+        assert await 页面对象.等待发布成功() is True
+        页面对象.随机延迟.assert_awaited_once_with(1.0, 2.0)
 
     @pytest.mark.asyncio
     async def test_检测滑块验证码与关闭页面(self, 模拟页面):
@@ -186,7 +324,9 @@ class 测试_发布商品页:
 
         模拟页面.query_selector.return_value = MagicMock()
         页面对象 = 发布商品页(模拟页面)
+        页面对象.操作前延迟 = AsyncMock()
 
         assert await 页面对象.检测滑块验证码() is True
-        await 页面对象.关闭页面()
+        await 页面对象.关闭当前标签页()
+        页面对象.操作前延迟.assert_awaited_once()
         模拟页面.close.assert_awaited_once()

@@ -1,3 +1,3 @@
-2026/03/12-08:12:12.292 d40 Reusing MANIFEST E:\pdd_zd\data\profiles\8eec98e4-89b9-49d5-ab1f-c72be3c405f6\Default\IndexedDB\https_mms.pinduoduo.com_0.indexeddb.leveldb/MANIFEST-000001
-2026/03/12-08:12:12.293 d40 Recovering log #4
-2026/03/12-08:12:12.294 d40 Reusing old log E:\pdd_zd\data\profiles\8eec98e4-89b9-49d5-ab1f-c72be3c405f6\Default\IndexedDB\https_mms.pinduoduo.com_0.indexeddb.leveldb/000004.log 
+2026/03/12-12:58:08.992 5374 Reusing MANIFEST E:\pdd_zd\data\profiles\8eec98e4-89b9-49d5-ab1f-c72be3c405f6\Default\IndexedDB\https_mms.pinduoduo.com_0.indexeddb.leveldb/MANIFEST-000001
+2026/03/12-12:58:08.993 5374 Recovering log #4
+2026/03/12-12:58:08.998 5374 Reusing old log E:\pdd_zd\data\profiles\8eec98e4-89b9-49d5-ab1f-c72be3c405f6\Default\IndexedDB\https_mms.pinduoduo.com_0.indexeddb.leveldb/000004.log 

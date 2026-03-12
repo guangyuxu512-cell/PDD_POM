@@ -1,8 +1,8 @@
 """拼多多商家后台登录页面的页面对象模型"""
-import inspect
 import json
 from pathlib import Path
 from pages.基础页 import 基础页
+from selectors.基础页选择器 import 基础页选择器
 from selectors.登录页选择器 import 登录页选择器
 from backend.配置 import 配置实例
 
@@ -12,8 +12,8 @@ class 登录页(基础页):
 
     def __init__(self, 页面):
         super().__init__(页面)
-        self.登录地址 = "https://mms.pinduoduo.com/login/"
-        self.首页地址 = "https://mms.pinduoduo.com/home"
+        self.登录地址 = 基础页选择器.登录页URL
+        self.首页地址 = 基础页选择器.首页URL
 
     # === 导航 ===
 
@@ -126,8 +126,15 @@ class 登录页(基础页):
 
     async def 切换账号登录(self) -> None:
         """点击'账号登录'标签"""
-        await self.安全点击_文本(登录页选择器.账号登录文本列表[0])
-        await self.随机延迟(0.5, 1)
+        最后异常 = None
+        for 选择器 in 登录页选择器.账号登录.所有选择器():
+            try:
+                await self.页面.click(选择器, timeout=5000)
+                await self.随机延迟(0.5, 1)
+                return
+            except Exception as 异常:
+                最后异常 = 异常
+        raise RuntimeError(f"点击账号登录失败: {最后异常}")
 
     async def 填写手机号(self, 手机号: str) -> None:
         """
@@ -136,7 +143,14 @@ class 登录页(基础页):
         Args:
             手机号: 手机号或账号名
         """
-        await self.安全填写_占位符(登录页选择器.手机号输入框占位符列表[0], 手机号)
+        最后异常 = None
+        for 选择器 in 登录页选择器.账号输入框.所有选择器():
+            try:
+                await self.安全填写(选择器, 手机号)
+                return
+            except Exception as 异常:
+                最后异常 = 异常
+        raise RuntimeError(f"填写账号失败: {最后异常}")
 
     async def 填写密码(self, 密码: str) -> None:
         """
@@ -145,15 +159,26 @@ class 登录页(基础页):
         Args:
             密码: 密码
         """
-        await self.安全填写_占位符(登录页选择器.密码输入框占位符列表[0], 密码)
+        最后异常 = None
+        for 选择器 in 登录页选择器.密码输入框.所有选择器():
+            try:
+                await self.安全填写(选择器, 密码)
+                return
+            except Exception as 异常:
+                最后异常 = 异常
+        raise RuntimeError(f"填写密码失败: {最后异常}")
 
     async def 点击登录(self) -> None:
         """点击登录按钮"""
-        登录按钮 = self.页面.get_by_test_id(登录页选择器.登录按钮测试ID列表[0])
-        if inspect.isawaitable(登录按钮):
-            登录按钮 = await 登录按钮
-        await 登录按钮.click()
-        await self.随机延迟(2, 4)
+        最后异常 = None
+        for 选择器 in 登录页选择器.登录按钮.所有选择器():
+            try:
+                await self.页面.click(选择器, timeout=5000)
+                await self.随机延迟(2, 4)
+                return
+            except Exception as 异常:
+                最后异常 = 异常
+        raise RuntimeError(f"点击登录失败: {最后异常}")
 
     # === 状态检测 ===
 
@@ -202,7 +227,7 @@ class 登录页(基础页):
         Returns:
             bool: 是否出现滑块验证码
         """
-        滑块 = await self.页面.query_selector(", ".join(登录页选择器.滑块验证码选择器列表))
+        滑块 = await self.页面.query_selector(", ".join(登录页选择器.滑块验证码.所有选择器()))
         return 滑块 is not None
 
     async def 检测短信验证码(self) -> bool:
@@ -212,7 +237,7 @@ class 登录页(基础页):
         Returns:
             bool: 是否出现短信验证码输入框
         """
-        验证码输入 = await self.页面.query_selector(", ".join(登录页选择器.短信验证码输入框选择器列表))
+        验证码输入 = await self.页面.query_selector(", ".join(登录页选择器.短信验证码输入框.所有选择器()))
         return 验证码输入 is not None
 
     async def 截图登录状态(self) -> str:

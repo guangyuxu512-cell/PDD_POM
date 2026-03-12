@@ -1,20 +1,47 @@
+from selectors.选择器配置 import 选择器配置
+
+
 class 发布商品页选择器:
     """发布商品页元素选择器"""
 
-    弹窗关闭按钮列表: list[str] = [
-        ".MaterialModalButton_v2_actionBox__1v6rw > div:nth-child(3)",
-        ".ant-modal-close",
-    ]
-    弹窗关闭文本列表: list[str] = ["我知道了", "关闭"]
-    商品标题输入框占位符列表: list[str] = ["商品标题组成：商品描述+规格，最多输入30个汉字（60"]
-    提交并上架按钮文本列表: list[str] = ["提交并上架"]
-    发布成功页URL特征: list[str] = ["goods_add/success"]
-    发布成功页文本列表: list[str] = ["提交成功"]
-    图片容器选择器列表: list[str] = [".MaterialModalButton_v2_imageBox__1NfrZ"]
-    图片更换按钮文本列表: list[str] = ["选择图片"]
-    图片确认按钮文本列表: list[str] = ["确认"]
-    滑块验证码选择器列表: list[str] = [
-        "#slide-button",
-        ".captcha-container",
-        ".captcha-slider",
-    ]
+    弹窗关闭按钮 = 选择器配置(
+        主选择器=".MaterialModalButton_v2_actionBox__1v6rw > div:nth-child(3)",
+        备选选择器=[".ant-modal-close"],
+    )
+    弹窗关闭文本 = 选择器配置(
+        主选择器="button:has-text('我知道了')",
+        备选选择器=["button:has-text('关闭')"],
+    )
+    商品标题输入框 = 选择器配置(
+        主选择器="input[data-tracking-click-viewid='title_input_area']",
+        备选选择器=[
+            "input[placeholder*='商品标题组成']",
+            "input[data-testid='beast-core-input-htmlInput'][maxlength='60']",
+        ],
+    )
+    提交并上架按钮 = 选择器配置(
+        主选择器="#submit_button",
+        备选选择器=["button:has-text('提交并上架')"],
+    )
+    商品图片_所有图片项 = 选择器配置(
+        主选择器="div[class='MaterialModalButton_v2_imageWrapper']",
+        备选选择器=["span[class='MaterialModalButton_v2_imgContainer'] >> xpath=.."],
+    )
+    图片容器 = 选择器配置(
+        主选择器="div[class*='MaterialModalButton_v2_imageBox']",
+    )
+    图片更换按钮文本 = 选择器配置(
+        主选择器="button:has-text('选择图片')",
+    )
+    图片确认按钮文本 = 选择器配置(
+        主选择器="button:has-text('确认')",
+    )
+    发布成功提示 = 选择器配置(
+        主选择器=".success-title:has-text('提交成功')",
+        备选选择器=[".success-wrapper", "svg[data-testid='beast-core-icon-check-circle_filled']"],
+    )
+    发布成功页URL特征: str = "goods_add/success"
+    滑块验证码 = 选择器配置(
+        主选择器="#slide-button",
+        备选选择器=[".captcha-container", ".captcha-slider"],
+    )
