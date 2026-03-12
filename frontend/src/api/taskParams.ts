@@ -1,6 +1,7 @@
 import { api } from './index'
 import type {
   PaginatedList,
+  TaskParamBatchOption,
   TaskParamBatchPayload,
   TaskParam,
   TaskParamFilters,
@@ -16,6 +17,11 @@ function buildQuery(filters: TaskParamFilters = {}) {
   if (filters.shop_id) params.set('shop_id', filters.shop_id)
   if (filters.task_name) params.set('task_name', filters.task_name)
   if (filters.status) params.set('status', filters.status)
+  if (filters.batch_id) params.set('batch_id', filters.batch_id)
+  if (filters.updated_from) params.set('updated_from', filters.updated_from)
+  if (filters.updated_to) params.set('updated_to', filters.updated_to)
+  if (filters.sort_by) params.set('sort_by', filters.sort_by)
+  if (filters.sort_order) params.set('sort_order', filters.sort_order)
 
   const query = params.toString()
   return query ? `?${query}` : ''
@@ -23,6 +29,10 @@ function buildQuery(filters: TaskParamFilters = {}) {
 
 export function listTaskParams(filters: TaskParamFilters = {}) {
   return api.get<PaginatedList<TaskParam>>(`/api/task-params${buildQuery(filters)}`)
+}
+
+export function listTaskParamBatchOptions(filters: TaskParamFilters = {}) {
+  return api.get<TaskParamBatchOption[]>(`/api/task-params/batch-options${buildQuery(filters)}`)
 }
 
 export function createTaskParam(payload: TaskParamPayload) {

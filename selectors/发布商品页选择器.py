@@ -5,8 +5,8 @@ class 发布商品页选择器:
     """发布商品页元素选择器"""
 
     弹窗关闭按钮 = 选择器配置(
-        主选择器=".MaterialModalButton_v2_actionBox__1v6rw > div:nth-child(3)",
-        备选选择器=[".ant-modal-close"],
+        主选择器=".ant-modal-close",
+        备选选择器=["button[aria-label='Close']", "[data-testid='beast-core-icon-close']"],
     )
     弹窗关闭文本 = 选择器配置(
         主选择器="button:has-text('我知道了')",
@@ -44,4 +44,11 @@ class 发布商品页选择器:
     滑块验证码 = 选择器配置(
         主选择器="#slide-button",
         备选选择器=[".captcha-container", ".captcha-slider"],
+    )
+    主图拖拽目标 = 选择器配置(
+        主选择器="//form//div[contains(@class, 'col')]//span/div[contains(@class, 'imageBox')]",
+        备选选择器=[
+            "div[class*='MaterialModalButton_v2_imageBox']",
+            "div[class*='imageBox']"
+        ]
     )

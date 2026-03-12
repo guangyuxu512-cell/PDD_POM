@@ -235,3 +235,111 @@ class 测试_任务参数服务:
         """所有候选编码都无法解码时应返回明确提示。"""
         with pytest.raises(ValueError, match="CSV 文件编码不支持，请另存为 UTF-8 格式"):
             任务参数服务实例._解析CSV内容(b"\xff\xff\xff")
+
+    @pytest.mark.asyncio
+    async def test_分页查询_支持批次日期范围和更新时间倒序(self, 临时环境: Path):
+        """任务参数分页查询应支持 batch_id、日期范围和 updated_at 排序。"""
+        店铺 = await 店铺服务实例.创建({"name": "筛选店铺", "username": "svc7", "password": "pwd"})
+        店铺ID = 店铺["id"]
+
+        记录1 = await 任务参数服务实例.创建(
+            {
+                "shop_id": 店铺ID,
+                "task_name": "发布相似商品",
+                "params": {"parent_product_id": "9001"},
+                "status": "success",
+                "result": {"new_product_id": "new-1"},
+                "batch_id": "batch-a",
+            }
+        )
+        记录2 = await 任务参数服务实例.创建(
+            {
+                "shop_id": 店铺ID,
+                "task_name": "发布相似商品",
+                "params": {"parent_product_id": "9002"},
+                "status": "failed",
+                "result": {},
+                "batch_id": "batch-a",
+            }
+        )
+        await 任务参数服务实例.创建(
+            {
+                "shop_id": 店铺ID,
+                "task_name": "发布相似商品",
+                "params": {"parent_product_id": "9003"},
+                "status": "success",
+                "result": {"new_product_id": "new-3"},
+                "batch_id": "batch-b",
+            }
+        )
+
+        with sqlite3.connect(临时环境) as 连接:
+            连接.execute("UPDATE task_params SET updated_at = ? WHERE id = ?", ("2026-03-10 09:00:00", 记录1["id"]))
+            连接.execute("UPDATE task_params SET updated_at = ? WHERE id = ?", ("2026-03-11 18:30:00", 记录2["id"]))
+            连接.commit()
+
+        查询结果 = await 任务参数服务实例.分页查询(
+            task_name="发布相似商品",
+            status="success,failed",
+            batch_id="batch-a",
+            updated_from="2026-03-10",
+            updated_to="2026-03-11",
+            sort_by="updated_at",
+            sort_order="desc",
+        )
+
+        assert 查询结果["total"] == 2
+        assert [记录["id"] for 记录 in 查询结果["list"]] == [记录2["id"], 记录1["id"]]
+
+    @pytest.mark.asyncio
+    async def test_获取批次选项_按筛选条件聚合(self, 临时环境: Path):
+        """批次下拉选项应返回批次计数和最近更新时间。"""
+        店铺 = await 店铺服务实例.创建({"name": "批次店铺", "username": "svc8", "password": "pwd"})
+        店铺ID = 店铺["id"]
+
+        记录1 = await 任务参数服务实例.创建(
+            {
+                "shop_id": 店铺ID,
+                "task_name": "发布相似商品",
+                "params": {"parent_product_id": "9101"},
+                "status": "success",
+                "batch_id": "batch-x",
+            }
+        )
+        记录2 = await 任务参数服务实例.创建(
+            {
+                "shop_id": 店铺ID,
+                "task_name": "发布相似商品",
+                "params": {"parent_product_id": "9102"},
+                "status": "failed",
+                "batch_id": "batch-x",
+            }
+        )
+        await 任务参数服务实例.创建(
+            {
+                "shop_id": 店铺ID,
+                "task_name": "发布相似商品",
+                "params": {"parent_product_id": "9103"},
+                "status": "pending",
+                "batch_id": "batch-y",
+            }
+        )
+
+        with sqlite3.connect(临时环境) as 连接:
+            连接.execute("UPDATE task_params SET updated_at = ? WHERE id = ?", ("2026-03-12 11:00:00", 记录1["id"]))
+            连接.execute("UPDATE task_params SET updated_at = ? WHERE id = ?", ("2026-03-12 12:00:00", 记录2["id"]))
+            连接.commit()
+
+        批次选项 = await 任务参数服务实例.获取批次选项(
+            shop_id=店铺ID,
+            task_name="发布相似商品",
+            status="success,failed",
+        )
+
+        assert 批次选项 == [
+            {
+                "batch_id": "batch-x",
+                "record_count": 2,
+                "latest_updated_at": "2026-03-12 12:00:00",
+            }
+        ]

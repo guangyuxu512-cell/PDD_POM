@@ -41,6 +41,15 @@ class 任务参数服务:
         if 状态 not in 允许状态集合:
             raise ValueError(f"不支持的状态: {状态}")
 
+    def _解析状态筛选(self, 状态: Optional[str]) -> List[str]:
+        if not 状态:
+            return []
+
+        状态列表 = [项.strip() for 项 in str(状态).split(",") if 项.strip()]
+        for 当前状态 in 状态列表:
+            self._校验状态(当前状态)
+        return 状态列表
+
     def _序列化JSON(self, 数据: Optional[Dict[str, Any]]) -> str:
         return json.dumps(数据 or {}, ensure_ascii=False)
 
@@ -248,6 +257,7 @@ class 任务参数服务:
         task_name: Optional[str] = None,
         status: Optional[str] = None,
         状态集合: Optional[List[str]] = None,
+        batch_id: Optional[str] = None,
     ) -> Tuple[str, List[Any], bool]:
         条件列表: List[str] = []
         参数列表: List[Any] = []
@@ -261,6 +271,10 @@ class 任务参数服务:
             条件列表.append("task_name = ?")
             参数列表.append(task_name)
             是否包含筛选 = True
+        if batch_id:
+            条件列表.append("batch_id = ?")
+            参数列表.append(batch_id)
+            是否包含筛选 = True
 
         if 状态集合:
             占位符 = ", ".join("?" for _ in 状态集合)
@@ -268,9 +282,16 @@ class 任务参数服务:
             参数列表.extend(状态集合)
             是否包含筛选 = True
         elif status:
-            条件列表.append("status = ?")
-            参数列表.append(status)
-            是否包含筛选 = True
+            状态列表 = self._解析状态筛选(status)
+            if len(状态列表) == 1:
+                条件列表.append("status = ?")
+                参数列表.append(状态列表[0])
+                是否包含筛选 = True
+            elif 状态列表:
+                占位符 = ", ".join("?" for _ in 状态列表)
+                条件列表.append(f"status IN ({占位符})")
+                参数列表.extend(状态列表)
+                是否包含筛选 = True
 
         条件SQL = f"WHERE {' AND '.join(条件列表)}" if 条件列表 else ""
         return 条件SQL, 参数列表, 是否包含筛选
@@ -282,6 +303,11 @@ class 任务参数服务:
         shop_id: Optional[str] = None,
         task_name: Optional[str] = None,
         status: Optional[str] = None,
+        batch_id: Optional[str] = None,
+        updated_from: Optional[str] = None,
+        updated_to: Optional[str] = None,
+        sort_by: str = "created_at",
+        sort_order: str = "desc",
     ) -> Dict[str, Any]:
         """分页查询任务参数记录。"""
         page = max(page, 1)
@@ -289,6 +315,7 @@ class 任务参数服务:
 
         条件列表: List[str] = []
         参数列表: List[Any] = []
+        状态列表 = self._解析状态筛选(status)
 
         if shop_id:
             条件列表.append("tp.shop_id = ?")
@@ -296,11 +323,31 @@ class 任务参数服务:
         if task_name:
             条件列表.append("tp.task_name = ?")
             参数列表.append(task_name)
-        if status:
+        if batch_id:
+            条件列表.append("tp.batch_id = ?")
+            参数列表.append(batch_id)
+        if len(状态列表) == 1:
             条件列表.append("tp.status = ?")
-            参数列表.append(status)
+            参数列表.append(状态列表[0])
+        elif 状态列表:
+            占位符 = ", ".join("?" for _ in 状态列表)
+            条件列表.append(f"tp.status IN ({占位符})")
+            参数列表.extend(状态列表)
+        if updated_from:
+            条件列表.append("DATE(tp.updated_at) >= DATE(?)")
+            参数列表.append(updated_from)
+        if updated_to:
+            条件列表.append("DATE(tp.updated_at) <= DATE(?)")
+            参数列表.append(updated_to)
 
         条件SQL = f"WHERE {' AND '.join(条件列表)}" if 条件列表 else ""
+        排序字段映射 = {
+            "created_at": "tp.created_at",
+            "updated_at": "tp.updated_at",
+            "id": "tp.id",
+        }
+        排序字段 = 排序字段映射.get(sort_by, "tp.created_at")
+        排序方向 = "ASC" if str(sort_order).lower() == "asc" else "DESC"
 
         async with 获取连接() as 连接:
             async with 连接.execute(
@@ -322,7 +369,7 @@ class 任务参数服务:
                 FROM task_params tp
                 LEFT JOIN shops s ON s.id = tp.shop_id
                 {条件SQL}
-                ORDER BY tp.created_at DESC, tp.id DESC
+                ORDER BY {排序字段} {排序方向}, tp.id DESC
                 LIMIT ? OFFSET ?
                 """,
                 查询参数,
@@ -336,6 +383,58 @@ class 任务参数服务:
             "page": page,
             "page_size": page_size,
         }
+
+    async def 获取批次选项(
+        self,
+        shop_id: Optional[str] = None,
+        task_name: Optional[str] = None,
+        status: Optional[str] = None,
+    ) -> List[Dict[str, Any]]:
+        """按当前筛选条件聚合可选批次。"""
+        条件列表 = ["tp.batch_id IS NOT NULL", "tp.batch_id != ''"]
+        参数列表: List[Any] = []
+        状态列表 = self._解析状态筛选(status)
+
+        if shop_id:
+            条件列表.append("tp.shop_id = ?")
+            参数列表.append(shop_id)
+        if task_name:
+            条件列表.append("tp.task_name = ?")
+            参数列表.append(task_name)
+        if len(状态列表) == 1:
+            条件列表.append("tp.status = ?")
+            参数列表.append(状态列表[0])
+        elif 状态列表:
+            占位符 = ", ".join("?" for _ in 状态列表)
+            条件列表.append(f"tp.status IN ({占位符})")
+            参数列表.extend(状态列表)
+
+        条件SQL = f"WHERE {' AND '.join(条件列表)}"
+
+        async with 获取连接() as 连接:
+            async with 连接.execute(
+                f"""
+                SELECT
+                    tp.batch_id,
+                    COUNT(*) AS record_count,
+                    MAX(COALESCE(tp.updated_at, tp.created_at)) AS latest_updated_at
+                FROM task_params tp
+                {条件SQL}
+                GROUP BY tp.batch_id
+                ORDER BY latest_updated_at DESC, tp.batch_id DESC
+                """,
+                参数列表,
+            ) as 游标:
+                行列表 = await 游标.fetchall()
+
+        return [
+            {
+                "batch_id": 行["batch_id"],
+                "record_count": int(行["record_count"] or 0),
+                "latest_updated_at": 行["latest_updated_at"],
+            }
+            for 行 in 行列表
+        ]
 
     async def 创建(self, 数据: Dict[str, Any]) -> Dict[str, Any]:
         """创建单条任务参数记录。"""
@@ -473,22 +572,15 @@ class 任务参数服务:
         shop_id: Optional[str] = None,
         task_name: Optional[str] = None,
         status: Optional[str] = None,
+        batch_id: Optional[str] = None,
     ) -> int:
         """按条件删除多条记录并返回删除数量。"""
-        条件列表: List[str] = []
-        参数列表: List[Any] = []
-
-        if shop_id:
-            条件列表.append("shop_id = ?")
-            参数列表.append(shop_id)
-        if task_name:
-            条件列表.append("task_name = ?")
-            参数列表.append(task_name)
-        if status:
-            条件列表.append("status = ?")
-            参数列表.append(status)
-
-        条件SQL = f"WHERE {' AND '.join(条件列表)}" if 条件列表 else ""
+        条件SQL, 参数列表, _ = self._构建条件SQL(
+            shop_id=shop_id,
+            task_name=task_name,
+            status=status,
+            batch_id=batch_id,
+        )
 
         async with 获取连接() as 连接:
             游标 = await 连接.execute(
@@ -592,11 +684,11 @@ class 任务参数服务:
         shop_id: Optional[str] = None,
         task_name: Optional[str] = None,
         status: Optional[str] = None,
+        batch_id: Optional[str] = None,
     ) -> int:
         """按筛选条件批量重置记录。"""
         if status:
-            self._校验状态(status)
-            目标状态集合 = [status]
+            目标状态集合 = self._解析状态筛选(status)
         else:
             目标状态集合 = ["success", "failed"]
 
@@ -604,6 +696,7 @@ class 任务参数服务:
             shop_id=shop_id,
             task_name=task_name,
             状态集合=目标状态集合,
+            batch_id=batch_id,
         )
         if not 条件SQL:
             raise ValueError("批量重置必须至少包含一个筛选条件")
@@ -625,14 +718,14 @@ class 任务参数服务:
         shop_id: Optional[str] = None,
         task_name: Optional[str] = None,
         status: Optional[str] = None,
+        batch_id: Optional[str] = None,
     ) -> int:
         """按筛选条件批量启用记录。"""
-        if status:
-            self._校验状态(status)
         条件SQL, 参数列表, 是否包含筛选 = self._构建条件SQL(
             shop_id=shop_id,
             task_name=task_name,
             status=status,
+            batch_id=batch_id,
         )
         if not 是否包含筛选:
             raise ValueError("批量启用必须至少提供一个筛选条件")
@@ -652,14 +745,14 @@ class 任务参数服务:
         shop_id: Optional[str] = None,
         task_name: Optional[str] = None,
         status: Optional[str] = None,
+        batch_id: Optional[str] = None,
     ) -> int:
         """按筛选条件批量禁用记录。"""
-        if status:
-            self._校验状态(status)
         条件SQL, 参数列表, 是否包含筛选 = self._构建条件SQL(
             shop_id=shop_id,
             task_name=task_name,
             status=status,
+            batch_id=batch_id,
         )
         if not 是否包含筛选:
             raise ValueError("批量禁用必须至少提供一个筛选条件")

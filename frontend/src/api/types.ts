@@ -179,6 +179,11 @@ export interface TaskParamFilters {
   shop_id?: string
   task_name?: string
   status?: string
+  batch_id?: string
+  updated_from?: string
+  updated_to?: string
+  sort_by?: string
+  sort_order?: 'asc' | 'desc'
 }
 
 export interface TaskParamImportResult {
@@ -191,4 +196,11 @@ export interface TaskParamBatchPayload {
   shop_id?: string
   task_name?: string
   status?: string
+  batch_id?: string
+}
+
+export interface TaskParamBatchOption {
+  batch_id: string
+  record_count: number
+  latest_updated_at?: string | null
 }

@@ -33,36 +33,59 @@ class 发布商品页(基础页):
         print(f"[发布商品页] 页面标题: {await self._获取页面标题()}")
 
     async def 关闭所有弹窗(self, 最大尝试次数: int = 3) -> None:
-        """按优先级关闭发布页常见弹窗。"""
+        """优先尝试关闭按钮，其次再检查弹窗文本按钮。"""
+        弹窗容器选择器列表 = [
+            ".ant-modal-wrap:not([style*='display: none'])",
+            "div[data-testid='beast-core-modal']",
+            "div[class*='Modal'][class*='visible']",
+        ]
+
         for 次数 in range(1, 最大尝试次数 + 1):
             已处理 = False
-
             for 选择器 in 发布商品页选择器.弹窗关闭按钮.所有选择器():
-                元素 = await self.页面.query_selector(选择器)
-                if 元素 is not None:
-                    print(f"[发布商品页] 关闭弹窗: 第{次数}次, 匹配到: {选择器}")
-                    await 元素.click()
-                    await self.随机延迟(0.3, 0.8)
-                    已处理 = True
-                    break
-
-            if 已处理:
-                continue
-
-            for 选择器 in 发布商品页选择器.弹窗关闭文本.所有选择器():
                 try:
-                    定位器 = self.页面.locator(选择器).first
-                    if await 定位器.count() > 0:
+                    元素 = await self.页面.query_selector(选择器)
+                    if 元素:
                         print(f"[发布商品页] 关闭弹窗: 第{次数}次, 匹配到: {选择器}")
-                        await 定位器.click()
+                        await 元素.click()
                         await self.随机延迟(0.3, 0.8)
                         已处理 = True
                         break
                 except Exception:
                     continue
 
+            if 已处理:
+                continue
+
+            弹窗存在 = False
+            for 容器选择器 in 弹窗容器选择器列表:
+                try:
+                    容器 = await self.页面.query_selector(容器选择器)
+                    if 容器:
+                        弹窗存在 = True
+                        break
+                except Exception:
+                    continue
+
+            if not 弹窗存在:
+                print("[发布商品页] 无弹窗容器，退出")
+                break
+
             if not 已处理:
-                print("[发布商品页] 无弹窗，退出")
+                for 选择器 in 发布商品页选择器.弹窗关闭文本.所有选择器():
+                    try:
+                        定位器 = self.页面.locator(选择器).first
+                        if await 定位器.count() > 0:
+                            print(f"[发布商品页] 关闭弹窗: 第{次数}次, 匹配到: {选择器}")
+                            await 定位器.click()
+                            await self.随机延迟(0.3, 0.8)
+                            已处理 = True
+                            break
+                    except Exception:
+                        continue
+
+            if not 已处理:
+                print("[发布商品页] 弹窗容器存在但未找到关闭按钮，退出")
                 break
 
     def 从URL提取新商品ID(self) -> str:
@@ -143,71 +166,58 @@ class 发布商品页(基础页):
                     continue
         return []
 
+    async def 获取主图数量(self) -> int:
+        """获取当前主图数量。"""
+        return len(await self.获取主图列表())
+
     async def 拖拽主图(self, 源索引: int, 目标索引: int) -> None:
         """将指定主图拖拽到目标位置。"""
         await self.操作前延迟()
-        图片列表 = await self.获取主图列表()
+
+        # 用内层 img 元素定位，避免触发悬浮层
+        图片列表 = []
+        for 选择器 in 发布商品页选择器.主图拖拽目标.所有选择器():
+            try:
+                图片列表 = await self.页面.query_selector_all(选择器)
+                if 图片列表:
+                    break
+            except Exception:
+                continue
+
+        if not 图片列表:
+            print("[发布商品页] 拖拽主图: 未找到图片元素，跳过")
+            return
 
         if 源索引 < 0 or 目标索引 < 0 or 源索引 >= len(图片列表) or 目标索引 >= len(图片列表):
-            raise RuntimeError("主图拖拽失败: 索引超出范围")
+            raise RuntimeError(f"索引超出范围，共{len(图片列表)}张")
+
         源框 = await 图片列表[源索引].bounding_box()
         目标框 = await 图片列表[目标索引].bounding_box()
         if not 源框 or not 目标框:
-            raise RuntimeError("主图拖拽失败: 无法获取元素位置")
+            print("[发布商品页] 拖拽主图: 无法获取元素位置，跳过")
+            return
 
-        起点X = 源框["x"] + 源框["width"] / 2 + random.uniform(-3, 3)
-        起点Y = 源框["y"] + 源框["height"] / 2 + random.uniform(-3, 3)
-        终点X = 目标框["x"] + 目标框["width"] / 2 + random.uniform(-3, 3)
-        终点Y = 目标框["y"] + 目标框["height"] / 2 + random.uniform(-3, 3)
+        起点X = 源框["x"] + 源框["width"] / 2
+        起点Y = 源框["y"] + 源框["height"] / 2
+        终点X = 目标框["x"] + 目标框["width"] / 2
+        终点Y = 目标框["y"] + 目标框["height"] / 2
 
-        步数 = random.randint(8, 15)
+        # move 和 down 紧跟，不给悬浮层出现的时间
         await self.页面.mouse.move(起点X, 起点Y)
         await self.页面.mouse.down()
+
+        # 平滑拖动到目标位置
+        步数 = random.randint(8, 15)
         for 步骤序号 in range(1, 步数 + 1):
             比例 = 步骤序号 / 步数
             当前X = 起点X + (终点X - 起点X) * 比例 + random.uniform(-2, 2)
             当前Y = 起点Y + (终点Y - 起点Y) * 比例 + random.uniform(-2, 2)
             await self.页面.mouse.move(当前X, 当前Y)
             await self.随机延迟(0.02, 0.06)
+
         await self.页面.mouse.up()
         await self.操作后延迟()
-
-    async def 获取主图数量(self) -> int:
-        """获取当前主图数量。"""
-        图片列表 = await self._获取图片列表()
-        return len(图片列表)
-
-    async def _获取图片列表(self):
-        """按优先级获取页面中的图片列表。"""
-        return await self.获取主图列表()
-
-    async def 上传主图(self, 图片路径: str) -> None:
-        """上传主图文件。"""
-        文件路径 = Path(图片路径)
-        if not 文件路径.exists():
-            raise FileNotFoundError(f"图片不存在: {文件路径}")
-
-        最后异常 = None
-        for 选择器 in 发布商品页选择器.图片更换按钮文本.所有选择器():
-            try:
-                选择图片按钮 = self.页面.locator(选择器).first
-                await 选择图片按钮.set_input_files(str(文件路径))
-                await self.随机延迟(0.5, 1)
-                break
-            except Exception as 异常:
-                最后异常 = 异常
-        else:
-            raise RuntimeError(f"选择图片失败: {最后异常}")
-
-        for 选择器 in 发布商品页选择器.图片确认按钮文本.所有选择器():
-            try:
-                确认按钮 = self.页面.locator(选择器).first
-                if await 确认按钮.count() > 0:
-                    await 确认按钮.click()
-                    await self.随机延迟(0.5, 1)
-                    break
-            except Exception:
-                continue
+        print(f"[发布商品页] 拖拽主图: 第{源索引+1}张 → 第{目标索引+1}张 完成")    
 
     async def 随机调整主图到第一位(self) -> str:
         """随机将第 2~5 张主图拖到第 1 位。"""
@@ -219,6 +229,37 @@ class 发布商品页(基础页):
         目标索引 = random.randint(1, min(数量 - 1, 4))
         await self.拖拽主图(目标索引, 0)
         return f"第{目标索引 + 1}张调到第1位（共{数量}张）"
+
+    async def 上传主图(self, 图片路径: str) -> None:
+        """上传主图并确认。"""
+        图片文件 = Path(图片路径)
+        if not 图片文件.exists():
+            raise FileNotFoundError(图片路径)
+
+        选择图片按钮 = None
+        for 选择器 in 发布商品页选择器.图片更换按钮文本.所有选择器():
+            try:
+                选择图片按钮 = self.页面.locator(选择器).first
+                break
+            except Exception:
+                continue
+
+        if 选择图片按钮 is None:
+            raise RuntimeError("未找到选择图片按钮")
+
+        await 选择图片按钮.set_input_files(str(图片文件))
+        await self.随机延迟(0.3, 0.8)
+
+        for 选择器 in 发布商品页选择器.图片确认按钮文本.所有选择器():
+            try:
+                确认按钮 = self.页面.locator(选择器).first
+                if await 确认按钮.count() > 0:
+                    await 确认按钮.click()
+                    return
+            except Exception:
+                continue
+
+        raise RuntimeError("未找到图片确认按钮")
 
     async def 点击提交并上架(self) -> None:
         """点击提交并上架按钮。"""

@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import asyncio
+import sqlite3
 from pathlib import Path
 from unittest.mock import patch
 
@@ -165,3 +166,79 @@ class 测试_任务参数接口:
         assert 响应.status_code == 200
         assert 响应.json()["code"] == 1
         assert "店铺不存在" in 响应.json()["msg"]
+
+    def test_列表查询_支持批次筛选日期范围和批次选项(self, 客户端: TestClient):
+        """列表接口应支持 batch_id、更新时间范围和批次聚合查询。"""
+        店铺ID = 创建店铺(客户端, 名称="筛选接口店铺")
+
+        创建1 = 客户端.post(
+            "/api/task-params",
+            json={
+                "shop_id": 店铺ID,
+                "task_name": "发布相似商品",
+                "params": {"parent_product_id": "1001"},
+                "status": "success",
+                "result": {"new_product_id": "new-1"},
+                "batch_id": "batch-api",
+            },
+        ).json()["data"]
+        创建2 = 客户端.post(
+            "/api/task-params",
+            json={
+                "shop_id": 店铺ID,
+                "task_name": "发布相似商品",
+                "params": {"parent_product_id": "1002"},
+                "status": "failed",
+                "result": {},
+                "batch_id": "batch-api",
+            },
+        ).json()["data"]
+        客户端.post(
+            "/api/task-params",
+            json={
+                "shop_id": 店铺ID,
+                "task_name": "发布相似商品",
+                "params": {"parent_product_id": "1003"},
+                "status": "success",
+                "result": {"new_product_id": "new-3"},
+                "batch_id": "batch-other",
+            },
+        )
+
+        数据库文件 = 数据库模块.数据库路径
+        with sqlite3.connect(数据库文件) as 连接:
+            连接.execute("UPDATE task_params SET updated_at = ? WHERE id = ?", ("2026-03-11 08:00:00", 创建1["id"]))
+            连接.execute("UPDATE task_params SET updated_at = ? WHERE id = ?", ("2026-03-12 10:00:00", 创建2["id"]))
+            连接.commit()
+
+        列表响应 = 客户端.get(
+            "/api/task-params",
+            params={
+                "shop_id": 店铺ID,
+                "task_name": "发布相似商品",
+                "status": "success,failed",
+                "batch_id": "batch-api",
+                "updated_from": "2026-03-11",
+                "updated_to": "2026-03-12",
+                "sort_by": "updated_at",
+                "sort_order": "desc",
+            },
+        )
+
+        assert 列表响应.status_code == 200
+        列表数据 = 列表响应.json()["data"]
+        assert [记录["id"] for 记录 in 列表数据["list"]] == [创建2["id"], 创建1["id"]]
+
+        批次响应 = 客户端.get(
+            "/api/task-params/batch-options",
+            params={
+                "shop_id": 店铺ID,
+                "task_name": "发布相似商品",
+                "status": "success,failed",
+            },
+        )
+
+        assert 批次响应.status_code == 200
+        批次数据 = 批次响应.json()["data"]
+        assert 批次数据[0]["batch_id"] == "batch-api"
+        assert 批次数据[0]["record_count"] == 2

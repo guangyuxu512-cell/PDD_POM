@@ -14,12 +14,14 @@ import {
   disableTaskParam,
   enableTaskParam,
   importTaskParamsCsv,
+  listTaskParamBatchOptions,
   listTaskParams,
   resetTaskParam,
 } from '../api/taskParams'
 import type {
   Shop,
   TaskParam,
+  TaskParamBatchOption,
   TaskParamBatchPayload,
   TaskParamFilters,
   TaskParamImportResult,
@@ -27,14 +29,20 @@ import type {
 import { toast } from '../utils/toast'
 
 type BatchActionKey = '' | 'reset' | 'enable' | 'disable'
+type TabKey = 'taskList' | 'resultList'
 
 const taskOptions = ['发布相似商品', '发布换图商品']
 const pageSize = 10
 
 const shops = ref<Shop[]>([])
+const batchOptions = ref<TaskParamBatchOption[]>([])
 const taskParams = ref<TaskParam[]>([])
-const total = ref(0)
-const currentPage = ref(1)
+const resultTaskParams = ref<TaskParam[]>([])
+const taskParamTotal = ref(0)
+const resultTotal = ref(0)
+const taskListPage = ref(1)
+const resultPage = ref(1)
+const activeTab = ref<TabKey>('taskList')
 const loading = ref(false)
 const showImportModal = ref(false)
 const showClearConfirm = ref(false)
@@ -45,13 +53,29 @@ const importSummary = ref<TaskParamImportResult | null>(null)
 const rowActioningIds = ref<number[]>([])
 const batchAction = ref<BatchActionKey>('')
 
-const filters = ref({
+const taskListFilters = ref({
   task_name: '',
   status: '',
   shop_id: '',
+  batch_id: '',
 })
 
-const totalPages = computed(() => Math.max(1, Math.ceil(total.value / pageSize)))
+const resultFilters = ref({
+  task_name: '',
+  status: '',
+  shop_id: '',
+  batch_id: '',
+  updated_from: '',
+  updated_to: '',
+})
+
+const isTaskListTab = computed(() => activeTab.value === 'taskList')
+const totalPages = computed(() => {
+  const totalCount = isTaskListTab.value ? taskParamTotal.value : resultTotal.value
+  return Math.max(1, Math.ceil(totalCount / pageSize))
+})
+const currentPage = computed(() => (isTaskListTab.value ? taskListPage.value : resultPage.value))
+const currentTotal = computed(() => (isTaskListTab.value ? taskParamTotal.value : resultTotal.value))
 
 const currentTemplateColumns = computed(() => {
   if (importTaskName.value === '发布换图商品') {
@@ -60,26 +84,70 @@ const currentTemplateColumns = computed(() => {
   return ['店铺ID', '父商品ID', '新标题', '发布次数']
 })
 
-function buildFilters(page = currentPage.value): TaskParamFilters {
+const shopNameMap = computed<Record<string, string>>(() =>
+  Object.fromEntries(shops.value.map((shop) => [shop.id, shop.name])),
+)
+
+function buildTaskListFilters(page = taskListPage.value): TaskParamFilters {
   return {
     page,
     page_size: pageSize,
-    shop_id: filters.value.shop_id || undefined,
-    task_name: filters.value.task_name || undefined,
-    status: filters.value.status || undefined,
+    shop_id: taskListFilters.value.shop_id || undefined,
+    task_name: taskListFilters.value.task_name || undefined,
+    status: taskListFilters.value.status || undefined,
+    batch_id: taskListFilters.value.batch_id || undefined,
+    sort_by: 'created_at',
+    sort_order: 'desc',
+  }
+}
+
+function buildResultFilters(page = resultPage.value): TaskParamFilters {
+  return {
+    page,
+    page_size: pageSize,
+    shop_id: resultFilters.value.shop_id || undefined,
+    task_name: resultFilters.value.task_name || undefined,
+    status: resultFilters.value.status || 'success,failed',
+    batch_id: resultFilters.value.batch_id || undefined,
+    updated_from: resultFilters.value.updated_from || undefined,
+    updated_to: resultFilters.value.updated_to || undefined,
+    sort_by: 'updated_at',
+    sort_order: 'desc',
   }
 }
 
 function buildBatchPayload(): TaskParamBatchPayload {
   return {
-    shop_id: filters.value.shop_id || undefined,
-    task_name: filters.value.task_name || undefined,
-    status: filters.value.status || undefined,
+    shop_id: taskListFilters.value.shop_id || undefined,
+    task_name: taskListFilters.value.task_name || undefined,
+    status: taskListFilters.value.status || undefined,
+    batch_id: taskListFilters.value.batch_id || undefined,
+  }
+}
+
+function buildBatchOptionFilters(): TaskParamFilters {
+  if (activeTab.value === 'taskList') {
+    return {
+      shop_id: taskListFilters.value.shop_id || undefined,
+      task_name: taskListFilters.value.task_name || undefined,
+      status: taskListFilters.value.status || undefined,
+    }
+  }
+
+  return {
+    shop_id: resultFilters.value.shop_id || undefined,
+    task_name: resultFilters.value.task_name || undefined,
+    status: resultFilters.value.status || 'success,failed',
   }
 }
 
 function hasExplicitBatchFilter() {
-  return Boolean(filters.value.shop_id || filters.value.task_name || filters.value.status)
+  return Boolean(
+    taskListFilters.value.shop_id
+      || taskListFilters.value.task_name
+      || taskListFilters.value.status
+      || taskListFilters.value.batch_id,
+  )
 }
 
 function isRowActioning(id: number) {
@@ -97,8 +165,146 @@ function setRowActioning(id: number, actioning: boolean) {
   rowActioningIds.value = rowActioningIds.value.filter((itemId) => itemId !== id)
 }
 
+function normalizeJson(value: unknown): Record<string, unknown> {
+  if (value && typeof value === 'object' && !Array.isArray(value)) {
+    return value as Record<string, unknown>
+  }
+
+  if (typeof value === 'string') {
+    try {
+      const parsed = JSON.parse(value)
+      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+        return parsed as Record<string, unknown>
+      }
+    } catch {
+      return {}
+    }
+  }
+
+  return {}
+}
+
+function pickValue(source: unknown, keys: string[]) {
+  const record = normalizeJson(source)
+  for (const key of keys) {
+    const value = record[key]
+    if (value === undefined || value === null) {
+      continue
+    }
+
+    const text = String(value).trim()
+    if (text) {
+      return text
+    }
+  }
+
+  return ''
+}
+
+function formatJsonTooltip(source: unknown) {
+  const record = normalizeJson(source)
+  if (!Object.keys(record).length) {
+    return '-'
+  }
+  return JSON.stringify(record, null, 2)
+}
+
+function formatParamSummary(params: unknown) {
+  const 字段列表: Array<[string, string]> = [
+    ['父商品ID', pickValue(params, ['父商品ID', 'parent_product_id'])],
+    ['新标题', pickValue(params, ['新标题', 'new_title'])],
+    ['折扣', pickValue(params, ['折扣', 'discount'])],
+    ['投产比', pickValue(params, ['投产比', 'roi'])],
+    ['发布次数', pickValue(params, ['发布次数', 'publish_count'])],
+  ]
+
+  const 有效字段 = 字段列表
+    .filter(([, 值]) => Boolean(值))
+    .map(([标签, 值]) => `${标签}: ${值}`)
+
+  return 有效字段.length ? 有效字段.join(' / ') : '-'
+}
+
+function formatResultSummary(result: unknown) {
+  const message = pickValue(result, ['message', 'msg'])
+  if (message) {
+    return message
+  }
+
+  const goodsId = pickValue(result, ['goods_id'])
+  if (goodsId) {
+    return `商品ID: ${goodsId}`
+  }
+
+  const newProductId = pickValue(result, ['新商品ID', 'new_product_id'])
+  if (newProductId) {
+    return `新商品ID: ${newProductId}`
+  }
+
+  return '-'
+}
+
+function formatExecutionResult(result: unknown) {
+  const newProductId = pickValue(result, ['新商品ID', 'new_product_id'])
+  const parentProductId = pickValue(result, ['父商品ID', 'parent_product_id'])
+  const parts: string[] = []
+
+  if (newProductId) {
+    parts.push(`新ID: ${newProductId}`)
+  }
+  if (parentProductId) {
+    parts.push(`父ID: ${parentProductId}`)
+  }
+
+  return parts.length ? parts.join(' / ') : '-'
+}
+
+function formatFieldValue(source: unknown, keys: string[]) {
+  return pickValue(source, keys) || '-'
+}
+
+function parseDateTime(value?: string | null) {
+  if (!value) {
+    return null
+  }
+
+  const date = new Date(value.replace(' ', 'T'))
+  if (Number.isNaN(date.getTime())) {
+    return null
+  }
+
+  return date
+}
+
+function formatDateTime(value?: string | null) {
+  const date = parseDateTime(value)
+  if (!date) {
+    return '--'
+  }
+
+  return date.toLocaleString('zh-CN', {
+    hour12: false,
+  })
+}
+
+function formatBatchOptionLabel(option: TaskParamBatchOption) {
+  const latestDate = option.latest_updated_at ? option.latest_updated_at.slice(0, 10) : '--'
+  return `批次 ${option.batch_id} (${latestDate}, ${option.record_count}条)`
+}
+
+function formatShopLabel(taskParam: TaskParam) {
+  const shopName = shopNameMap.value[taskParam.shop_id] || taskParam.shop_name
+  if (!shopName) {
+    return `#${taskParam.shop_id}`
+  }
+  return `${shopName}（#${taskParam.shop_id}）`
+}
+
 function replaceTaskParam(updatedTaskParam: TaskParam) {
   taskParams.value = taskParams.value.map((taskParam) =>
+    taskParam.id === updatedTaskParam.id ? updatedTaskParam : taskParam,
+  )
+  resultTaskParams.value = resultTaskParams.value.map((taskParam) =>
     taskParam.id === updatedTaskParam.id ? updatedTaskParam : taskParam,
   )
 }
@@ -113,13 +319,22 @@ async function loadShops() {
   }
 }
 
-async function loadTaskParams(page = currentPage.value) {
+async function loadBatchOptions() {
+  try {
+    batchOptions.value = await listTaskParamBatchOptions(buildBatchOptionFilters())
+  } catch (error) {
+    const message = error instanceof Error ? error.message : '加载批次列表失败'
+    toast.error(message)
+  }
+}
+
+async function loadTaskParams(page = taskListPage.value) {
   loading.value = true
   try {
-    const result = await listTaskParams(buildFilters(page))
-    currentPage.value = page
+    const result = await listTaskParams(buildTaskListFilters(page))
+    taskListPage.value = page
     taskParams.value = result.list
-    total.value = result.total
+    taskParamTotal.value = result.total
   } catch (error) {
     const message = error instanceof Error ? error.message : '加载任务参数失败'
     toast.error(message)
@@ -128,12 +343,73 @@ async function loadTaskParams(page = currentPage.value) {
   }
 }
 
-function handleSearch() {
+async function loadResultTaskParams(page = resultPage.value) {
+  if (
+    resultFilters.value.updated_from
+    && resultFilters.value.updated_to
+    && resultFilters.value.updated_from > resultFilters.value.updated_to
+  ) {
+    resultTaskParams.value = []
+    resultTotal.value = 0
+    toast.warning('开始日期不能晚于结束日期')
+    return
+  }
+
+  loading.value = true
+  try {
+    const result = await listTaskParams(buildResultFilters(page))
+    resultPage.value = page
+    resultTaskParams.value = result.list
+    resultTotal.value = result.total
+  } catch (error) {
+    const message = error instanceof Error ? error.message : '加载执行结果失败'
+    toast.error(message)
+  } finally {
+    loading.value = false
+  }
+}
+
+function handleTaskListSearch() {
+  void loadBatchOptions()
   void loadTaskParams(1)
 }
 
+function handleResultSearch() {
+  void loadBatchOptions()
+  void loadResultTaskParams(1)
+}
+
+function handleTabChange(tab: TabKey) {
+  if (activeTab.value === tab) {
+    return
+  }
+
+  activeTab.value = tab
+  void loadBatchOptions()
+
+  if (tab === 'taskList') {
+    void loadTaskParams(1)
+    return
+  }
+
+  void loadResultTaskParams(1)
+}
+
+function handlePageChange(page: number) {
+  if (page < 1 || page > totalPages.value) {
+    return
+  }
+
+  if (activeTab.value === 'taskList') {
+    void loadTaskParams(page)
+    return
+  }
+
+  void loadResultTaskParams(page)
+}
+
 function openImportModal() {
-  importTaskName.value = filters.value.task_name || '发布相似商品'
+  importTaskName.value = taskListFilters.value.task_name || '发布相似商品'
   selectedFile.value = null
   importSummary.value = null
   showImportModal.value = true
@@ -156,6 +432,7 @@ async function handleImport() {
     importSummary.value = result
     toast.success(`导入完成：成功 ${result.success_count} 条，跳过 ${result.failed_count} 条`)
     await loadTaskParams(1)
+    await loadBatchOptions()
   } catch (error) {
     const message = error instanceof Error ? error.message : '导入 CSV 失败'
     toast.error(message)
@@ -175,7 +452,7 @@ async function handleToggleEnabled(taskParam: TaskParam) {
   } catch (error) {
     const message = error instanceof Error ? error.message : '切换启用状态失败'
     toast.error(message)
-    await loadTaskParams(currentPage.value)
+    await loadTaskParams(taskListPage.value)
   } finally {
     setRowActioning(taskParam.id, false)
   }
@@ -200,11 +477,12 @@ async function handleDelete(id: number) {
   try {
     await deleteTaskParam(id)
     toast.success('记录已删除')
-    if (taskParams.value.length === 1 && currentPage.value > 1) {
-      await loadTaskParams(currentPage.value - 1)
-      return
+    if (taskParams.value.length === 1 && taskListPage.value > 1) {
+      await loadTaskParams(taskListPage.value - 1)
+    } else {
+      await loadTaskParams(taskListPage.value)
     }
-    await loadTaskParams()
+    await loadBatchOptions()
   } catch (error) {
     const message = error instanceof Error ? error.message : '删除记录失败'
     toast.error(message)
@@ -215,10 +493,11 @@ async function handleDelete(id: number) {
 
 async function handleClear() {
   try {
-    const result = await clearTaskParams(buildFilters())
+    const result = await clearTaskParams(buildTaskListFilters())
     toast.success(`已清空 ${result.deleted_count} 条记录`)
     showClearConfirm.value = false
     await loadTaskParams(1)
+    await loadBatchOptions()
   } catch (error) {
     const message = error instanceof Error ? error.message : '清空记录失败'
     toast.error(message)
@@ -251,6 +530,7 @@ async function runBatchAction(action: Exclude<BatchActionKey, ''>) {
     }
 
     await loadTaskParams(1)
+    await loadBatchOptions()
   } catch (error) {
     const actionLabel = action === 'reset' ? '批量重置' : action === 'enable' ? '批量启用' : '批量禁用'
     const message = error instanceof Error ? error.message : `${actionLabel}失败`
@@ -258,35 +538,6 @@ async function runBatchAction(action: Exclude<BatchActionKey, ''>) {
   } finally {
     batchAction.value = ''
   }
-}
-
-function formatParams(params: Record<string, any>) {
-  const parts: string[] = []
-  if (params.parent_product_id) parts.push(`父商品ID：${params.parent_product_id}`)
-  if (params.new_title) parts.push(`新标题：${params.new_title}`)
-  if (params.image_path) parts.push(`图片路径：${params.image_path}`)
-  if (params.batch_index) parts.push(`批次序号：${params.batch_index}`)
-  return parts.length ? parts.join(' / ') : '-'
-}
-
-function formatResult(result: Record<string, any>) {
-  const parts: string[] = []
-  if (result.new_product_id) parts.push(`新商品ID：${result.new_product_id}`)
-  if (result.goods_id) parts.push(`商品ID：${result.goods_id}`)
-  if (result.message) parts.push(String(result.message))
-  return parts.length ? parts.join(' / ') : '-'
-}
-
-const shopNameMap = computed<Record<string, string>>(() =>
-  Object.fromEntries(shops.value.map((shop) => [shop.id, shop.name])),
-)
-
-function formatShopLabel(taskParam: TaskParam) {
-  const shopName = shopNameMap.value[taskParam.shop_id] || taskParam.shop_name
-  if (!shopName) {
-    return `#${taskParam.shop_id}`
-  }
-  return `${shopName}（#${taskParam.shop_id}）`
 }
 
 function downloadTemplate() {
@@ -306,6 +557,7 @@ function downloadTemplate() {
 
 onMounted(() => {
   void loadShops()
+  void loadBatchOptions()
   void loadTaskParams()
 })
 </script>
@@ -315,21 +567,38 @@ onMounted(() => {
     <div class="header">
       <div>
         <h1>任务参数管理</h1>
-        <p class="header-tip">导入后的记录会长期保留，可按需禁用、重置或再次执行。</p>
+        <p class="header-tip">导入后的记录会长期保留，可按需禁用、重置或查看执行结果。</p>
       </div>
-      <div class="header-actions">
+      <div v-if="isTaskListTab" class="header-actions">
         <button class="btn btn-secondary" @click="showClearConfirm = true">清空</button>
         <button class="btn btn-primary" @click="openImportModal">导入CSV</button>
       </div>
     </div>
 
-    <div class="filters">
-      <select v-model="filters.task_name" class="filter-select" @change="handleSearch">
+    <div class="tabs">
+      <button
+        class="tab-button"
+        :class="{ 'is-active': activeTab === 'taskList' }"
+        @click="handleTabChange('taskList')"
+      >
+        任务列表
+      </button>
+      <button
+        class="tab-button"
+        :class="{ 'is-active': activeTab === 'resultList' }"
+        @click="handleTabChange('resultList')"
+      >
+        执行结果
+      </button>
+    </div>
+
+    <div v-if="isTaskListTab" class="filters">
+      <select v-model="taskListFilters.task_name" class="filter-select" @change="handleTaskListSearch">
         <option value="">全部任务类型</option>
         <option v-for="task in taskOptions" :key="task" :value="task">{{ task }}</option>
       </select>
 
-      <select v-model="filters.status" class="filter-select" @change="handleSearch">
+      <select v-model="taskListFilters.status" class="filter-select" @change="handleTaskListSearch">
         <option value="">全部状态</option>
         <option value="pending">待执行</option>
         <option value="running">执行中</option>
@@ -338,15 +607,62 @@ onMounted(() => {
         <option value="skipped">跳过</option>
       </select>
 
-      <select v-model="filters.shop_id" class="filter-select" @change="handleSearch">
+      <select v-model="taskListFilters.shop_id" class="filter-select" @change="handleTaskListSearch">
         <option value="">全部店铺</option>
         <option v-for="shop in shops" :key="shop.id" :value="shop.id">{{ shop.name }}（#{{ shop.id }}）</option>
       </select>
 
-      <button class="btn btn-light" @click="handleSearch">刷新</button>
+      <select v-model="taskListFilters.batch_id" class="filter-select" @change="handleTaskListSearch">
+        <option value="">全部批次</option>
+        <option v-for="option in batchOptions" :key="option.batch_id" :value="option.batch_id">
+          {{ formatBatchOptionLabel(option) }}
+        </option>
+      </select>
+
+      <button class="btn btn-light" @click="handleTaskListSearch">刷新</button>
     </div>
 
-    <div class="toolbar">
+    <div v-else class="filters">
+      <select v-model="resultFilters.task_name" class="filter-select" @change="handleResultSearch">
+        <option value="">全部任务类型</option>
+        <option v-for="task in taskOptions" :key="task" :value="task">{{ task }}</option>
+      </select>
+
+      <select v-model="resultFilters.status" class="filter-select" @change="handleResultSearch">
+        <option value="">全部执行状态</option>
+        <option value="success">成功</option>
+        <option value="failed">失败</option>
+      </select>
+
+      <select v-model="resultFilters.shop_id" class="filter-select" @change="handleResultSearch">
+        <option value="">全部店铺</option>
+        <option v-for="shop in shops" :key="shop.id" :value="shop.id">{{ shop.name }}（#{{ shop.id }}）</option>
+      </select>
+
+      <select v-model="resultFilters.batch_id" class="filter-select" @change="handleResultSearch">
+        <option value="">全部批次</option>
+        <option v-for="option in batchOptions" :key="option.batch_id" :value="option.batch_id">
+          {{ formatBatchOptionLabel(option) }}
+        </option>
+      </select>
+
+      <input
+        v-model="resultFilters.updated_from"
+        class="filter-date"
+        type="date"
+        @change="handleResultSearch"
+      />
+      <input
+        v-model="resultFilters.updated_to"
+        class="filter-date"
+        type="date"
+        @change="handleResultSearch"
+      />
+
+      <button class="btn btn-light" @click="handleResultSearch">刷新</button>
+    </div>
+
+    <div v-if="isTaskListTab" class="toolbar">
       <div class="toolbar-actions">
         <button
           class="btn btn-light"
@@ -374,7 +690,7 @@ onMounted(() => {
     </div>
 
     <div class="table-container">
-      <table class="task-param-table">
+      <table v-if="isTaskListTab" class="task-param-table">
         <thead>
           <tr>
             <th>ID</th>
@@ -385,6 +701,7 @@ onMounted(() => {
             <th>状态</th>
             <th>已执行次数</th>
             <th>结果</th>
+            <th>执行结果</th>
             <th>错误信息</th>
             <th>创建时间</th>
             <th>操作</th>
@@ -392,71 +709,129 @@ onMounted(() => {
         </thead>
         <tbody>
           <tr v-if="loading">
-            <td colspan="11" class="empty-state">加载中...</td>
+            <td colspan="12" class="empty-state">加载中...</td>
           </tr>
           <tr v-else-if="taskParams.length === 0">
-            <td colspan="11" class="empty-state">暂无任务参数记录</td>
+            <td colspan="12" class="empty-state">暂无任务参数记录</td>
           </tr>
-          <tr
-            v-for="taskParam in taskParams"
-            :key="taskParam.id"
-            :class="{ 'is-disabled': !taskParam.enabled }"
-          >
-            <td>{{ taskParam.id }}</td>
-            <td class="cell-wrap">{{ formatShopLabel(taskParam) }}</td>
-            <td>{{ taskParam.task_name }}</td>
-            <td>
-              <label class="switch">
-                <input
-                  type="checkbox"
-                  :checked="taskParam.enabled"
-                  :disabled="isRowActioning(taskParam.id)"
-                  @change="handleToggleEnabled(taskParam)"
-                />
-                <span class="switch-slider" />
-                <span class="switch-label">{{ taskParam.enabled ? '启用' : '禁用' }}</span>
-              </label>
-            </td>
-            <td class="cell-wrap">{{ formatParams(taskParam.params) }}</td>
-            <td>
-              <StatusBadge :status="taskParam.status" type="task" />
-            </td>
-            <td>{{ taskParam.run_count }}</td>
-            <td class="cell-wrap">{{ formatResult(taskParam.result) }}</td>
-            <td class="cell-wrap error-text">{{ taskParam.error || '-' }}</td>
-            <td>{{ taskParam.created_at || '-' }}</td>
-            <td>
-              <div class="action-group">
-                <button
-                  v-if="taskParam.status !== 'pending'"
-                  class="btn-action btn-reset"
-                  :disabled="isRowActioning(taskParam.id)"
-                  @click="handleResetTaskParam(taskParam)"
-                >
-                  重置
-                </button>
-                <button
-                  class="btn-action btn-delete"
-                  :disabled="isRowActioning(taskParam.id)"
-                  @click="handleDelete(taskParam.id)"
-                >
-                  删除
-                </button>
-              </div>
-            </td>
+          <template v-else>
+            <tr
+              v-for="taskParam in taskParams"
+              :key="taskParam.id"
+              :class="{ 'is-disabled': !taskParam.enabled }"
+            >
+              <td>{{ taskParam.id }}</td>
+              <td class="cell-wrap">{{ formatShopLabel(taskParam) }}</td>
+              <td>{{ taskParam.task_name }}</td>
+              <td>
+                <label class="switch">
+                  <input
+                    type="checkbox"
+                    :checked="taskParam.enabled"
+                    :disabled="isRowActioning(taskParam.id)"
+                    @change="handleToggleEnabled(taskParam)"
+                  />
+                  <span class="switch-slider" />
+                  <span class="switch-label">{{ taskParam.enabled ? '启用' : '禁用' }}</span>
+                </label>
+              </td>
+              <td class="cell-ellipsis cell-wide" :title="formatJsonTooltip(taskParam.params)">
+                {{ formatParamSummary(taskParam.params) }}
+              </td>
+              <td>
+                <StatusBadge :status="taskParam.status" type="task" />
+              </td>
+              <td>{{ taskParam.run_count }}</td>
+              <td class="cell-ellipsis" :title="formatJsonTooltip(taskParam.result)">
+                {{ formatResultSummary(taskParam.result) }}
+              </td>
+              <td class="cell-ellipsis" :title="formatJsonTooltip(taskParam.result)">
+                {{ formatExecutionResult(taskParam.result) }}
+              </td>
+              <td class="cell-ellipsis error-text" :title="taskParam.error || '-'">
+                {{ taskParam.error || '-' }}
+              </td>
+              <td>{{ formatDateTime(taskParam.created_at) }}</td>
+              <td>
+                <div class="action-group">
+                  <button
+                    v-if="taskParam.status !== 'pending'"
+                    class="btn-action btn-reset"
+                    :disabled="isRowActioning(taskParam.id)"
+                    @click="handleResetTaskParam(taskParam)"
+                  >
+                    重置
+                  </button>
+                  <button
+                    class="btn-action btn-delete"
+                    :disabled="isRowActioning(taskParam.id)"
+                    @click="handleDelete(taskParam.id)"
+                  >
+                    删除
+                  </button>
+                </div>
+              </td>
+            </tr>
+          </template>
+        </tbody>
+      </table>
+
+      <table v-else class="task-param-table">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>店铺</th>
+            <th>任务类型</th>
+            <th>父商品ID</th>
+            <th>新商品ID</th>
+            <th>折扣</th>
+            <th>投产比</th>
+            <th>状态</th>
+            <th>错误信息</th>
+            <th>执行时间</th>
           </tr>
+        </thead>
+        <tbody>
+          <tr v-if="loading">
+            <td colspan="10" class="empty-state">加载中...</td>
+          </tr>
+          <tr v-else-if="resultTaskParams.length === 0">
+            <td colspan="10" class="empty-state">暂无执行结果记录</td>
+          </tr>
+          <template v-else>
+            <tr v-for="taskParam in resultTaskParams" :key="taskParam.id">
+              <td>{{ taskParam.id }}</td>
+              <td class="cell-wrap">{{ formatShopLabel(taskParam) }}</td>
+              <td>{{ taskParam.task_name }}</td>
+              <td class="cell-ellipsis" :title="formatJsonTooltip(taskParam.params)">
+                {{ formatFieldValue(taskParam.params, ['父商品ID', 'parent_product_id']) }}
+              </td>
+              <td class="cell-ellipsis" :title="formatJsonTooltip(taskParam.result)">
+                {{ formatFieldValue(taskParam.result, ['新商品ID', 'new_product_id']) }}
+              </td>
+              <td>{{ formatFieldValue(taskParam.params, ['折扣', 'discount']) }}</td>
+              <td>{{ formatFieldValue(taskParam.params, ['投产比', 'roi']) }}</td>
+              <td>
+                <StatusBadge :status="taskParam.status" type="task" />
+              </td>
+              <td class="cell-ellipsis error-text" :title="taskParam.error || '-'">
+                {{ taskParam.error || '-' }}
+              </td>
+              <td>{{ formatDateTime(taskParam.updated_at) }}</td>
+            </tr>
+          </template>
         </tbody>
       </table>
     </div>
 
     <div class="pagination">
-      <button class="btn-page" :disabled="currentPage <= 1" @click="loadTaskParams(currentPage - 1)">
+      <button class="btn-page" :disabled="currentPage <= 1" @click="handlePageChange(currentPage - 1)">
         上一页
       </button>
       <span class="page-info">
-        第 {{ currentPage }} / {{ totalPages }} 页，共 {{ total }} 条
+        第 {{ currentPage }} / {{ totalPages }} 页，共 {{ currentTotal }} 条
       </span>
-      <button class="btn-page" :disabled="currentPage >= totalPages" @click="loadTaskParams(currentPage + 1)">
+      <button class="btn-page" :disabled="currentPage >= totalPages" @click="handlePageChange(currentPage + 1)">
         下一页
       </button>
     </div>
@@ -478,6 +853,7 @@ onMounted(() => {
           <p>列名：{{ currentTemplateColumns.join('、') }}</p>
           <p>“店铺ID”列支持填写店铺ID或店铺名称，导入时会自动匹配。</p>
           <p>“发布次数”列可选，留空默认导入 1 条，填写 3 会自动展开 3 条 pending 记录。</p>
+          <p>多次展开后的记录会自动写入批次序号，便于区分同一批次内的重复发布任务。</p>
           <p v-if="importTaskName === '发布换图商品'">示例：店铺ID、父商品ID、新标题、发布次数、图片路径（本地绝对路径）</p>
           <p v-else>示例：店铺ID、父商品ID、新标题、发布次数</p>
         </div>
@@ -536,6 +912,31 @@ onMounted(() => {
   line-height: 1.5;
 }
 
+.tabs {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+
+.tab-button {
+  border: 1px solid #dbeafe;
+  background: #eff6ff;
+  color: #1d4ed8;
+  border-radius: 999px;
+  padding: 10px 18px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.tab-button.is-active {
+  background: #1d4ed8;
+  color: #ffffff;
+  box-shadow: 0 10px 24px rgba(29, 78, 216, 0.18);
+}
+
 .header-actions,
 .toolbar-actions,
 .action-group {
@@ -573,13 +974,18 @@ h1 {
   line-height: 1.5;
 }
 
-.filter-select {
+.filter-select,
+.filter-date {
   min-width: 180px;
   padding: 10px 12px;
   border: 1px solid #d1d5db;
   border-radius: 6px;
   background: #ffffff;
   color: #1a1a2e;
+}
+
+.filter-date {
+  min-width: 170px;
 }
 
 .table-container {
@@ -620,9 +1026,20 @@ h1 {
 }
 
 .cell-wrap {
-  max-width: 260px;
+  max-width: 240px;
   white-space: normal;
-  word-break: break-all;
+  word-break: break-word;
+}
+
+.cell-ellipsis {
+  max-width: 220px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cell-wide {
+  max-width: 320px;
 }
 
 .empty-state {
@@ -845,9 +1262,11 @@ h1 {
 
   .filters {
     flex-direction: column;
+    align-items: stretch;
   }
 
-  .filter-select {
+  .filter-select,
+  .filter-date {
     width: 100%;
   }
 }

@@ -594,3 +594,80 @@
 - 已执行全量测试：PowerShell 临时启用 `timeBeginPeriod(1)` 并提升当前进程优先级后运行 `python -m pytest -c tests/pytest.ini tests/ -x`，结果 `196 passed, 16 warnings`
 - 16 条 warning 仍为既有存量：10 条来自第三方 `openpyxl`，6 条来自 Celery `datetime.utcnow()` 弃用提示，均非本轮引入
 - 工作区仍存在 `.pipeline/task.md`、`.env`、`data/` 等本轮任务外的既有本地变更
+
+---
+
+## 任务摘要
+
+完成 ask 24：优化任务参数管理页的参数摘要与执行结果展示，新增执行结果 Tab、批次筛选与日期筛选，并补回发布页弹窗关闭按钮与若干兼容接口以确保全量回归通过。
+
+## 改动文件列表
+
+- `backend/models/数据结构.py`
+- `backend/services/任务参数服务.py`
+- `backend/api/任务参数接口.py`
+- `frontend/src/api/types.ts`
+- `frontend/src/api/taskParams.ts`
+- `frontend/src/views/TaskParamsManage.vue`
+- `tests/单元测试/测试_任务参数服务.py`
+- `tests/单元测试/测试_任务参数接口.py`
+- `tests/单元测试/测试_任务参数管理页.py`
+- `selectors/发布商品页选择器.py`
+- `pages/发布商品页.py`
+- `browser/反检测.py`
+- `.pipeline/progress.md`
+- `PLAN.md`
+- `改造进度.md`
+
+## 改动说明
+
+- `backend/models/数据结构.py`
+  - 为任务参数批量操作请求补充 `batch_id` 字段，供批次级筛选与批量操作复用
+- `backend/services/任务参数服务.py`
+  - 扩展分页查询，支持 `batch_id`、`updated_from`、`updated_to`、`sort_by`、`sort_order`
+  - 增加逗号分隔 `status` 解析，支持如 `success,failed`
+  - 新增 `获取批次选项(...)`，返回批次号、记录数和最近更新时间
+  - 批量清空、批量重置、批量启用、批量禁用统一支持按 `batch_id` 过滤
+- `backend/api/任务参数接口.py`
+  - `GET /api/task-params` 对外开放新的批次、时间范围与排序参数
+  - 新增 `GET /api/task-params/batch-options`
+  - 批量清空、重置、启用、禁用接口接入 `batch_id`
+- `frontend/src/api/types.ts` / `frontend/src/api/taskParams.ts`
+  - 补齐任务参数筛选类型、批量载荷类型和批次选项类型
+  - 查询参数构建接入新增筛选字段，并新增 `listTaskParamBatchOptions(...)`
+- `frontend/src/views/TaskParamsManage.vue`
+  - 将页面拆为“任务列表 / 执行结果”两个 Tab
+  - 任务列表中的“参数”列改为关键字段摘要，hover 展示格式化 JSON
+  - 原表新增“执行结果”列，从 `result` 中提取新商品 ID / 父商品 ID 摘要并提供 tooltip
+  - 新增“执行结果”Tab，仅展示 `success/failed` 记录，默认按 `updated_at desc` 排序
+  - 两个 Tab 均支持批次下拉筛选；执行结果 Tab 额外支持日期范围筛选
+- `tests/单元测试/测试_任务参数服务.py` / `tests/单元测试/测试_任务参数接口.py` / `tests/单元测试/测试_任务参数管理页.py`
+  - 补充批次筛选、时间范围筛选、排序、批次选项聚合和新前端展示结构的回归测试
+- `selectors/发布商品页选择器.py`
+  - 按用户允许的修复补回 `弹窗关闭按钮`
+  - 主选择器使用 `.ant-modal-close`，备选为 `button[aria-label='Close']` 与 `[data-testid='beast-core-icon-close']`
+- `pages/发布商品页.py`
+  - `关闭所有弹窗()` 优先点击 `弹窗关闭按钮`，再回退到弹窗容器和文本按钮，兼容当前发布页结构
+  - 补回 `获取主图数量()` 与 `上传主图()`，恢复被现有页面测试依赖的原子接口
+  - `拖拽主图()` 的索引越界恢复为抛出 `RuntimeError`，与现有单测约定一致
+- `browser/反检测.py`
+  - 极短延迟分支改为 `time.sleep(...)`，降低 Windows 事件循环调度抖动，稳定 `测试_反检测`
+- `PLAN.md` / `改造进度.md` / `.pipeline/progress.md`
+  - 同步记录本轮 ask 24 改动、兼容修复和最终验证结果
+
+## 影响范围
+
+- 任务参数管理页现在可以直接查看参数摘要、执行结果摘要和完整 JSON，便于批次回溯与异常排查
+- 后端任务参数查询能力增强，后续其它页面或批量工具也可复用批次选项、时间范围和排序能力
+- 发布页弹窗关闭、主图统计和上传接口恢复兼容，避免现有任务与回归测试断链
+- Windows 环境下的 `真人模拟器.随机延迟()` 更稳定，全量测试无需反复重试
+
+## 注意事项
+
+- 用户已明确允许修复发布页选择器，`弹窗关闭按钮` 主选择器固定为 `.ant-modal-close`，未使用 `.Material`
+- 已执行 `python -m pytest -c tests/pytest.ini -q tests/单元测试/测试_反检测.py::测试_真人模拟器::test_随机延迟在范围内`，并连续复跑 5 次均通过
+- 已执行 `python -m pytest -c tests/pytest.ini -q tests/单元测试/测试_发布商品页.py`，结果 `18 passed`
+- 已执行全量 `python -m pytest -c tests/pytest.ini tests/ -x`；在 PowerShell 临时启用 `timeBeginPeriod(1)` 并提升当前进程优先级后，结果 `199 passed, 16 warnings`
+- 已执行 `cd frontend && npx vue-tsc -b`，结果通过
+- 16 条 warning 仍为既有存量：10 条来自第三方 `openpyxl`，6 条来自 Celery `datetime.utcnow()` 弃用提示，均非本轮引入
+- 工作区仍存在 `.pipeline/task.md`、`data/ecom.db`、浏览器缓存和截图等非本轮源码改动外的既有本地变更

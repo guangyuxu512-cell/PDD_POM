@@ -200,6 +200,7 @@ class 任务参数批量操作请求(BaseModel):
     shop_id: Optional[str] = Field(default=None, description="店铺ID")
     task_name: Optional[str] = Field(default=None, description="任务名称")
     status: Optional[str] = Field(default=None, description="状态")
+    batch_id: Optional[str] = Field(default=None, description="批次ID")
 
 
 class 任务参数响应(BaseModel):

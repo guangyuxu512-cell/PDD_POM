@@ -1549,3 +1549,21 @@
 - [x] 针对性验证结果：`44 passed`
 - [x] 全量验证通过：PowerShell 临时设置 `timeBeginPeriod(1)` 并提高 `python` 进程优先级后执行 `python -m pytest -c tests/pytest.ini tests/ -x`
 - [x] 全量验证结果：`196 passed, 16 warnings`（10 条为第三方 `openpyxl` 警告，6 条为现有 Celery 警告）
+
+## Prompt 66：Task 24 任务列表参数摘要 + 执行结果 Tab + 发布页兼容修复 ✅
+
+- [x] 更新 `backend/models/数据结构.py`，为任务参数批量操作请求补充 `batch_id`
+- [x] 更新 `backend/services/任务参数服务.py`，分页查询支持 `batch_id`、时间范围、排序和逗号分隔状态筛选
+- [x] 更新 `backend/services/任务参数服务.py`，新增 `获取批次选项(...)`，用于前端批次下拉
+- [x] 更新 `backend/api/任务参数接口.py`，新增 `/api/task-params/batch-options` 并扩展批量接口筛选条件
+- [x] 更新 `frontend/src/api/types.ts`、`frontend/src/api/taskParams.ts`，补齐新筛选类型与批次选项 API
+- [x] 更新 `frontend/src/views/TaskParamsManage.vue`，新增“任务列表 / 执行结果”双 Tab、参数摘要列、执行结果摘要列、批次筛选与日期筛选
+- [x] 更新 `tests/单元测试/测试_任务参数服务.py`、`tests/单元测试/测试_任务参数接口.py`、`tests/单元测试/测试_任务参数管理页.py`，覆盖批次/时间/排序与新展示结构
+- [x] 按用户允许的修复更新 `selectors/发布商品页选择器.py`，补回 `弹窗关闭按钮`，主选择器使用 `.ant-modal-close`
+- [x] 更新 `pages/发布商品页.py`，兼容新的弹窗关闭按钮链路，并补回 `获取主图数量()`、`上传主图()` 与拖拽越界抛错行为
+- [x] 更新 `browser/反检测.py`，将极短延迟分支调整为 `time.sleep(...)`，稳定 Windows 下的随机延迟测试
+- [x] 验证通过：`python -m pytest -c tests/pytest.ini -q tests/单元测试/测试_反检测.py::测试_真人模拟器::test_随机延迟在范围内`，并连续复跑 5 次
+- [x] 验证通过：`python -m pytest -c tests/pytest.ini -q tests/单元测试/测试_发布商品页.py`
+- [x] 验证通过：PowerShell 临时设置 `timeBeginPeriod(1)` 并提高 `python` 进程优先级后执行 `python -m pytest -c tests/pytest.ini tests/ -x`
+- [x] 全量验证结果：`199 passed, 16 warnings`（10 条为第三方 `openpyxl` 警告，6 条为现有 Celery 警告）
+- [x] 验证通过：`cd frontend && npx vue-tsc -b`
