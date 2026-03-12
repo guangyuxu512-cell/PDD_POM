@@ -3,6 +3,7 @@ import inspect
 import json
 from pathlib import Path
 from pages.基础页 import 基础页
+from selectors.登录页选择器 import 登录页选择器
 from backend.配置 import 配置实例
 
 
@@ -125,7 +126,7 @@ class 登录页(基础页):
 
     async def 切换账号登录(self) -> None:
         """点击'账号登录'标签"""
-        await self.安全点击_文本("账号登录")
+        await self.安全点击_文本(登录页选择器.账号登录文本列表[0])
         await self.随机延迟(0.5, 1)
 
     async def 填写手机号(self, 手机号: str) -> None:
@@ -135,7 +136,7 @@ class 登录页(基础页):
         Args:
             手机号: 手机号或账号名
         """
-        await self.安全填写_占位符("请输入账号名/手机号", 手机号)
+        await self.安全填写_占位符(登录页选择器.手机号输入框占位符列表[0], 手机号)
 
     async def 填写密码(self, 密码: str) -> None:
         """
@@ -144,11 +145,11 @@ class 登录页(基础页):
         Args:
             密码: 密码
         """
-        await self.安全填写_占位符("请输入密码", 密码)
+        await self.安全填写_占位符(登录页选择器.密码输入框占位符列表[0], 密码)
 
     async def 点击登录(self) -> None:
         """点击登录按钮"""
-        登录按钮 = self.页面.get_by_test_id("beast-core-button")
+        登录按钮 = self.页面.get_by_test_id(登录页选择器.登录按钮测试ID列表[0])
         if inspect.isawaitable(登录按钮):
             登录按钮 = await 登录按钮
         await 登录按钮.click()
@@ -201,7 +202,7 @@ class 登录页(基础页):
         Returns:
             bool: 是否出现滑块验证码
         """
-        滑块 = await self.页面.query_selector(".captcha-container, .captcha-slider, .sc-jrQzAO, #captcha_container")
+        滑块 = await self.页面.query_selector(", ".join(登录页选择器.滑块验证码选择器列表))
         return 滑块 is not None
 
     async def 检测短信验证码(self) -> bool:
@@ -211,9 +212,7 @@ class 登录页(基础页):
         Returns:
             bool: 是否出现短信验证码输入框
         """
-        验证码输入 = await self.页面.query_selector(
-            "[placeholder*='请输入短信验证码'], [placeholder*='短信验证码']"
-        )
+        验证码输入 = await self.页面.query_selector(", ".join(登录页选择器.短信验证码输入框选择器列表))
         return 验证码输入 is not None
 
     async def 截图登录状态(self) -> str:

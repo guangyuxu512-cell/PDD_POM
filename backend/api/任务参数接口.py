@@ -78,12 +78,19 @@ async def 导入任务参数CSV(
     file: UploadFile = File(..., description="CSV 文件"),
     task_name: str = Form(..., description="任务名称"),
 ) -> 统一响应:
-    """上传 CSV 并批量导入任务参数。"""
+    """上传 CSV 或 XLSX 并批量导入任务参数。"""
     try:
         if not task_name.strip():
             return 失败("导入任务参数失败: task_name 不能为空")
+        文件名 = (file.filename or "").strip()
+        if 文件名 and not 文件名.lower().endswith((".csv", ".xlsx")):
+            return 失败("导入任务参数失败: 仅支持 .csv 或 .xlsx 文件")
         文件内容 = await file.read()
-        结果 = await 任务参数服务实例.批量导入(文件内容, task_name.strip())
+        结果 = await 任务参数服务实例.批量导入(
+            文件内容,
+            task_name.strip(),
+            file_name=文件名,
+        )
         return 成功(data=结果, message="导入完成")
     except Exception as e:
         return 失败(f"导入任务参数失败: {str(e)}")

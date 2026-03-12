@@ -11,5 +11,6 @@ pydantic-settings
 aiosqlite
 cryptography
 nest_asyncio
+openpyxl
 pytest
 pytest-asyncio

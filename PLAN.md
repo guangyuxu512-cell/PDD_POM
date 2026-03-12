@@ -1437,3 +1437,52 @@
 - [x] 验证通过：`python -m pytest -c tests/pytest.ini -q`
 - [x] 验证通过：`cd frontend && npx vue-tsc -b`
 - [x] 全量验证结果：`170 passed, 6 warnings`（6 条为现有 Celery `datetime.utcnow()` 弃用警告，非本轮引入）
+
+## Prompt 58：修复商品列表页搜索方法 + 加诊断日志 ✅
+
+- [x] 更新 `pages/商品列表页.py`，在 `导航()` 的 `goto` 后和关闭弹窗后打印当前 URL
+- [x] 更新 `pages/商品列表页.py`，为 `搜索商品()` 的搜索下拉、选择“商品ID”、填写输入框、点击查询四步补齐前后诊断日志
+- [x] 更新 `pages/商品列表页.py`，将搜索下拉主定位改为 `[data-testid='beast-core-select-selection']`、`.search-select-trigger` 和文本回退
+- [x] 更新 `pages/商品列表页.py`，为每个搜索步骤增加独立 `try/except`，失败时打印错误并截图到 `data/screenshots/搜索失败_{时间戳}.png`
+- [x] 更新 `pages/商品列表页.py`，为关键点击操作显式增加 `timeout=10000`
+- [x] 保持 `点击发布相似品()` 方法不变
+- [x] 验证通过：`python -m pytest tests/ -x`
+- [x] 全量验证结果：`170 passed, 6 warnings`（6 条为现有 Celery `datetime.utcnow()` 弃用警告，非本轮引入）
+
+## Prompt 59：CSV 导入支持直接读取 xlsx ✅
+
+- [x] 更新 `backend/services/任务参数服务.py`，新增 `_解析XLSX内容(...)`，使用 `openpyxl` 直接读取第一个 sheet
+- [x] 更新 `backend/services/任务参数服务.py`，对大于 `9999999999` 的数字单元格强制转换为 `str(int(...))`，避免 Excel 精度丢失
+- [x] 更新 `backend/services/任务参数服务.py`，为 `批量导入(...)` 增加 `file_name` 参数，并按扩展名在 xlsx / csv 间分流
+- [x] 更新 `backend/api/任务参数接口.py`，将上传文件名透传给服务层，并允许 `.xlsx` 导入
+- [x] 更新 `requirements.txt`，新增依赖 `openpyxl`
+- [x] 新增 `tests/单元测试/测试_任务参数XLSX导入.py`，覆盖 xlsx 精度保留、csv 回退和接口异常路径
+- [x] 验证通过：`python -m pytest -c tests/pytest.ini -q tests/单元测试/测试_任务参数XLSX导入.py`
+- [x] 验证通过：`python -m pytest -c tests/pytest.ini -q tests/单元测试/测试_任务参数服务.py tests/单元测试/测试_任务参数接口.py`
+- [x] 验证通过：`python -m pytest tests/ -x`
+- [x] 全量验证结果：`173 passed, 16 warnings`（其中新增 10 条为第三方 `openpyxl` 的 `datetime.utcnow()` 弃用警告，原有 Celery 6 条警告仍存在）
+
+## Prompt 60：发布页与商品列表页补日志和更保守的等待 ✅
+
+- [x] 更新 `pages/商品列表页.py`，在 `点击发布相似品()` 中拿到新页面后先打印 URL
+- [x] 更新 `pages/商品列表页.py`，增加编辑页 URL 等待：匹配 `goods_edit`、`edit`、`add`、`goods_add`
+- [x] 更新 `pages/商品列表页.py`，在 URL 等待和 `wait_for_load_state("domcontentloaded")` 前后补充诊断日志
+- [x] 更新 `pages/发布商品页.py`，将 `关闭所有弹窗()` 的最大尝试次数从 `8` 收敛到 `3`
+- [x] 更新 `pages/发布商品页.py`，去掉通用选择器 `[data-testid='beast-core-icon-close']`，保留 `.ant-modal-close` 与文本匹配
+- [x] 更新 `pages/发布商品页.py`，为弹窗循环、页面初始化、标题修改、提交、成功判断和关闭页面补充 print 日志
+- [x] 保持任务文件和业务流程不变，仅调整 POM 层
+- [x] 验证通过：`python -m pytest tests/ -x`
+- [x] 全量验证结果：`173 passed, 16 warnings`（10 条为第三方 `openpyxl` 警告，6 条为现有 Celery 警告）
+
+## Prompt 61：选择器与 POM 动作分离重构 ✅
+
+- [x] 新增 `selectors/__init__.py`、`selectors/基础页选择器.py`、`selectors/登录页选择器.py`、`selectors/商品列表页选择器.py`、`selectors/发布商品页选择器.py`
+- [x] 在 `selectors/` 中将登录页、商品列表页、发布商品页和基础通用弹窗相关的硬编码选择器整理为 `list[str]`
+- [x] 更新 `pages/基础页.py`，加入 `selectors` 包导入兼容处理并引用 `基础页选择器`
+- [x] 更新 `pages/登录页.py`，将文本、placeholder、test id 和验证码检测定位替换为 `登录页选择器`
+- [x] 更新 `pages/商品列表页.py`，将弹窗关闭、搜索、发布相似品相关定位替换为 `商品列表页选择器`
+- [x] 更新 `pages/发布商品页.py`，将弹窗关闭、标题输入、图片、提交、成功检测和验证码相关定位替换为 `发布商品页选择器`
+- [x] 新增 `tests/单元测试/测试_选择器提取.py`，覆盖标准库 `selectors` 同名兼容与商品列表页选择器回退链路
+- [x] 针对性验证通过：`python -m pytest -c tests/pytest.ini -q tests/单元测试/测试_选择器提取.py tests/单元测试/测试_商品列表页.py tests/单元测试/测试_发布商品页.py tests/单元测试/测试_登录页.py tests/单元测试/测试_基础页.py`
+- [x] 全量验证通过：PowerShell 临时设置 `timeBeginPeriod(1)` 并提高 `python` 进程优先级后执行 `python -m pytest tests/ -x`
+- [x] 全量验证结果：`175 passed, 16 warnings`（10 条为第三方 `openpyxl` 警告，6 条为现有 Celery 警告）

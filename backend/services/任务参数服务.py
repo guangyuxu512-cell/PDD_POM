@@ -7,7 +7,10 @@ import csv
 import io
 import json
 import re
+from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
+
+from openpyxl import load_workbook
 
 from backend.models.数据库 import 获取连接
 
@@ -126,6 +129,47 @@ class 任务参数服务:
         if not 读取器.fieldnames:
             raise ValueError("CSV 文件缺少表头")
         return [self._预处理CSV行(dict(行)) for 行 in 读取器]
+
+    def _解析XLSX内容(self, 文件内容: bytes) -> List[Dict[str, str]]:
+        """读取 xlsx 内容并转换为与 CSV 一致的行结构。"""
+        工作簿 = load_workbook(io.BytesIO(文件内容), read_only=True)
+        try:
+            工作表 = 工作簿.worksheets[0]
+            行迭代器 = 工作表.iter_rows()
+            表头行 = next(行迭代器, None)
+            if not 表头行:
+                raise ValueError("XLSX 文件缺少表头")
+
+            表头 = ["" if 单元格.value is None else str(单元格.value).strip() for 单元格 in 表头行]
+            if not any(表头):
+                raise ValueError("XLSX 文件缺少表头")
+
+            结果列表: List[Dict[str, str]] = []
+            for 数据行 in 行迭代器:
+                行数据: Dict[str, str] = {}
+                for 索引, 单元格 in enumerate(数据行):
+                    列名 = 表头[索引] if 索引 < len(表头) else ""
+                    if not 列名:
+                        continue
+
+                    if 单元格.value is None:
+                        行数据[列名] = ""
+                        continue
+
+                    if (
+                        单元格.data_type == "n"
+                        and 单元格.value > 9999999999
+                    ):
+                        行数据[列名] = str(int(单元格.value))
+                    else:
+                        行数据[列名] = str(单元格.value)
+
+                if any(str(值).strip() for 值 in 行数据.values()):
+                    结果列表.append(self._预处理CSV行(行数据))
+
+            return 结果列表
+        finally:
+            工作簿.close()
 
     def _解析发布次数(self, 行数据: Dict[str, str], 行号: int) -> int:
         原始值 = str(行数据.get("发布次数", "")).strip()
@@ -454,9 +498,18 @@ class 任务参数服务:
             await 连接.commit()
             return 游标.rowcount
 
-    async def 批量导入(self, 文件内容: bytes, task_name: str) -> Dict[str, Any]:
-        """解析 CSV 并批量导入。"""
-        行列表 = self._解析CSV内容(文件内容)
+    async def 批量导入(
+        self,
+        文件内容: bytes,
+        task_name: str,
+        file_name: str = "",
+    ) -> Dict[str, Any]:
+        """解析 CSV 或 XLSX 并批量导入。"""
+        文件后缀 = Path(file_name or "").suffix.lower()
+        if 文件后缀 == ".xlsx":
+            行列表 = self._解析XLSX内容(文件内容)
+        else:
+            行列表 = self._解析CSV内容(文件内容)
         成功数量 = 0
         失败数量 = 0
         错误列表: List[str] = []

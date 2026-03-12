@@ -4,11 +4,29 @@
 POM 层基类，提供所有页面通用的安全操作方法。
 """
 import asyncio
+import importlib.util
 import inspect
 from pathlib import Path
+import sys
 from playwright.async_api import Page
 from backend.配置 import 配置实例
 from browser.反检测 import 真人模拟器
+
+if "selectors" in sys.modules and not hasattr(sys.modules["selectors"], "__path__"):
+    选择器包目录 = Path(__file__).resolve().parents[1] / "selectors"
+    选择器初始化文件 = 选择器包目录 / "__init__.py"
+    选择器规格 = importlib.util.spec_from_file_location(
+        "selectors",
+        选择器初始化文件,
+        submodule_search_locations=[str(选择器包目录)],
+    )
+    if 选择器规格 is None or 选择器规格.loader is None:
+        raise ImportError("无法加载项目 selectors 包")
+    选择器模块 = importlib.util.module_from_spec(选择器规格)
+    sys.modules["selectors"] = 选择器模块
+    选择器规格.loader.exec_module(选择器模块)
+
+from selectors.基础页选择器 import 基础页选择器
 
 
 class 基础页:
@@ -23,6 +41,7 @@ class 基础页:
         """
         self.页面 = 页面
         self.模拟器 = 真人模拟器(页面)
+        self.通用弹窗关闭按钮选择器 = 基础页选择器.通用弹窗关闭按钮
 
     async def 导航(self, 网址: str, 等待加载: bool = True) -> None:
         """
