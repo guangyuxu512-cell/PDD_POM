@@ -96,6 +96,14 @@ class 测试_批次创建店铺名:
                     "backend.services.执行服务.流程服务实例.根据ID获取",
                     new=AsyncMock(return_value={"id": "flow-1", "steps": 步骤列表}),
                 ), \
+                patch(
+                    "backend.services.执行服务.流程参数服务实例.获取待执行列表",
+                    new=AsyncMock(side_effect=[
+                        [{"id": 301}],
+                        [{"id": 302}],
+                    ]),
+                ), \
+                patch("backend.services.执行服务.流程参数服务实例.更新", new=AsyncMock()), \
                 patch("backend.services.执行服务.celery_chain", side_effect=假任务链工厂), \
                 patch("tasks.执行任务.执行任务", new=假Celery任务), \
                 patch.object(服务, "_写入批次状态", new=AsyncMock(side_effect=假写入批次状态)):

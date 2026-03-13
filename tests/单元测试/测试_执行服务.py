@@ -78,6 +78,14 @@ class 测试_执行服务:
                 patch("backend.services.执行服务.获取任务类", side_effect=lambda 名称: object()), \
                 patch("backend.services.执行服务.店铺服务实例.根据ID获取", new=AsyncMock(side_effect=lambda 店铺ID: {"id": 店铺ID})), \
                 patch("backend.services.执行服务.流程服务实例.根据ID获取", new=AsyncMock(return_value={"id": "flow-1", "steps": 步骤列表})), \
+                patch(
+                    "backend.services.执行服务.流程参数服务实例.获取待执行列表",
+                    new=AsyncMock(side_effect=[
+                        [{"id": 101}],
+                        [{"id": 102}],
+                    ]),
+                ), \
+                patch("backend.services.执行服务.流程参数服务实例.更新", new=AsyncMock()), \
                 patch("backend.services.执行服务.celery_chain", side_effect=假任务链工厂), \
                 patch("tasks.执行任务.执行任务", new=假Celery任务), \
                 patch.object(服务, "_写入批次状态", new=AsyncMock(side_effect=假写入批次状态)):
@@ -96,6 +104,53 @@ class 测试_执行服务:
         assert 已写入批次["requested_concurrency"] == 2
         assert 已写入批次["shops"]["shop-1"]["task_ids"] == ["shop-1-step-1", "shop-1-step-2"]
         assert 已写入批次["shops"]["shop-2"]["task_ids"] == ["shop-2-step-1", "shop-2-step-2"]
+        assert 任务链列表[0].tasks[0].kwargs["flow_param_id"] == 101
+        assert 任务链列表[1].tasks[0].kwargs["flow_param_id"] == 102
+
+    @pytest.mark.asyncio
+    async def test_创建批次_流程模式跳过无待执行流程参数的店铺(self):
+        """flow 模式下，无待执行 flow_params 的店铺应被静默跳过。"""
+        服务 = 执行服务模块.执行服务()
+        已写入批次 = {}
+        任务链列表 = []
+
+        def 假任务链工厂(*任务):
+            任务链 = 假任务链(*任务, 调用顺序=[])
+            任务链列表.append(任务链)
+            return 任务链
+
+        async def 假写入批次状态(批次数据):
+            已写入批次.clear()
+            已写入批次.update(批次数据)
+            return 批次数据
+
+        with patch.object(执行服务模块.配置实例, "AGENT_MACHINE_ID", "machine-1"), \
+                patch("backend.services.执行服务.初始化任务注册表"), \
+                patch("backend.services.执行服务.获取任务类", side_effect=lambda 名称: object()), \
+                patch("backend.services.执行服务.店铺服务实例.根据ID获取", new=AsyncMock(side_effect=lambda 店铺ID: {"id": 店铺ID})), \
+                patch("backend.services.执行服务.流程服务实例.根据ID获取", new=AsyncMock(return_value={"id": "flow-1", "steps": [{"task": "登录", "on_fail": "abort"}]})), \
+                patch(
+                    "backend.services.执行服务.流程参数服务实例.获取待执行列表",
+                    new=AsyncMock(side_effect=[
+                        [{"id": 201}],
+                        [],
+                    ]),
+                ), \
+                patch("backend.services.执行服务.流程参数服务实例.更新", new=AsyncMock()), \
+                patch("backend.services.执行服务.celery_chain", side_effect=假任务链工厂), \
+                patch("tasks.执行任务.执行任务", new=假Celery任务), \
+                patch.object(服务, "_写入批次状态", new=AsyncMock(side_effect=假写入批次状态)):
+            结果 = await 服务.创建批次(
+                flow_id="flow-1",
+                task_name=None,
+                shop_ids=["shop-1", "shop-2"],
+                concurrency=1,
+            )
+
+        assert 结果["total"] == 1
+        assert list(已写入批次["shops"].keys()) == ["shop-1"]
+        assert len(任务链列表) == 1
+        assert 任务链列表[0].tasks[0].kwargs["shop_id"] == "shop-1"
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize(

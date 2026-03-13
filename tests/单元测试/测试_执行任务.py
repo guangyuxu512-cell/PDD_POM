@@ -136,3 +136,86 @@ class 测试_执行任务:
         assert 模拟更新批次状态.call_args_list[-1].kwargs["step_status"] == "running"
         assert 模拟更新批次状态.call_args_list[-1].kwargs["shop_status"] == "running"
         assert "boom" in 模拟更新批次状态.call_args_list[-1].kwargs["error"]
+
+    def test_flow_param成功时回写步骤结果并更新最终状态(self):
+        """flow_param_id 存在且业务成功时，应回写步骤结果并在最后一步标记 success。"""
+        假任务对象 = SimpleNamespace(
+            request=SimpleNamespace(id="celery-2", retries=0),
+            retry=MagicMock(),
+        )
+
+        with patch("tasks.执行任务.初始化Worker环境"), \
+                patch("tasks.执行任务.获取任务类"), \
+                patch("tasks.执行任务._运行异步任务", side_effect=lambda 值: 值), \
+                patch("tasks.执行任务.任务服务实例.创建任务记录", new=MagicMock(return_value={"task_id": "task-log-4"})), \
+                patch(
+                    "tasks.执行任务.任务服务实例.统一执行任务",
+                    new=MagicMock(return_value={
+                        "task_id": "task-log-4",
+                        "status": "completed",
+                        "result": "成功",
+                        "result_data": {"新商品ID": "new-1"},
+                    }),
+                ) as 模拟统一执行, \
+                patch("tasks.执行任务.流程参数服务实例.更新", new=MagicMock(return_value={})) as 模拟更新, \
+                patch("tasks.执行任务.流程参数服务实例.获取步骤上下文", new=MagicMock(return_value={"discount": 6})) as 模拟上下文, \
+                patch("tasks.执行任务.流程参数服务实例.回写步骤结果", new=MagicMock(return_value={})) as 模拟回写步骤结果, \
+                patch("tasks.执行任务.流程参数服务实例.更新执行状态", new=MagicMock(return_value={})) as 模拟更新流程状态, \
+                patch("tasks.执行任务.同步更新批次店铺状态") as 模拟更新批次状态:
+            结果 = 执行任务函数(
+                假任务对象,
+                batch_id="batch-1",
+                shop_id="shop-1",
+                task_name="发布相似商品",
+                on_fail="abort",
+                step_index=2,
+                total_steps=2,
+                flow_param_id=88,
+            )
+
+        assert 结果["result"] == "成功"
+        assert 模拟更新.call_args_list[0].args[0] == 88
+        assert 模拟上下文.call_args.args == (88, "发布相似商品")
+        assert 模拟统一执行.call_args.kwargs["params"]["flow_param_id"] == 88
+        assert 模拟统一执行.call_args.kwargs["params"]["flow_context"] == {"discount": 6}
+        assert 模拟回写步骤结果.call_args.args == (88, "发布相似商品", {"新商品ID": "new-1"}, 2)
+        assert 模拟更新流程状态.call_args.args == (88, "success", None)
+        模拟更新批次状态.assert_called()
+
+    def test_flow_param失败时按策略更新流程参数状态(self):
+        """flow_param_id 存在且业务失败时，应将流程参数标记为 failed。"""
+        假任务对象 = SimpleNamespace(
+            request=SimpleNamespace(id="celery-3", retries=0),
+            retry=MagicMock(),
+        )
+
+        with patch("tasks.执行任务.初始化Worker环境"), \
+                patch("tasks.执行任务.获取任务类"), \
+                patch("tasks.执行任务._运行异步任务", side_effect=lambda 值: 值), \
+                patch("tasks.执行任务.任务服务实例.创建任务记录", new=MagicMock(return_value={"task_id": "task-log-5"})), \
+                patch(
+                    "tasks.执行任务.任务服务实例.统一执行任务",
+                    new=MagicMock(return_value={
+                        "task_id": "task-log-5",
+                        "status": "completed",
+                        "result": "失败",
+                        "error": None,
+                    }),
+                ), \
+                patch("tasks.执行任务.流程参数服务实例.更新", new=MagicMock(return_value={})), \
+                patch("tasks.执行任务.流程参数服务实例.获取步骤上下文", new=MagicMock(return_value={"discount": 6})), \
+                patch("tasks.执行任务.流程参数服务实例.更新执行状态", new=MagicMock(return_value={})) as 模拟更新流程状态, \
+                patch("tasks.执行任务.同步更新批次店铺状态"):
+            with pytest.raises(RuntimeError, match="失败"):
+                执行任务函数(
+                    假任务对象,
+                    batch_id="batch-1",
+                    shop_id="shop-1",
+                    task_name="发布相似商品",
+                    on_fail="abort",
+                    step_index=1,
+                    total_steps=2,
+                    flow_param_id=89,
+                )
+
+        assert 模拟更新流程状态.call_args_list[-1].args[:2] == (89, "failed")

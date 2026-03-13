@@ -69,6 +69,26 @@ from backend.models.定时任务模型 import 定时任务表定义
     )
 """
 
+流程参数建表SQL = """
+    CREATE TABLE IF NOT EXISTS flow_params (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        shop_id TEXT NOT NULL,
+        flow_id TEXT NOT NULL,
+        params TEXT DEFAULT '{}',
+        step_results TEXT DEFAULT '{}',
+        current_step INTEGER NOT NULL DEFAULT 0,
+        status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending', 'running', 'success', 'failed')),
+        error TEXT,
+        batch_id TEXT,
+        enabled INTEGER NOT NULL DEFAULT 1,
+        run_count INTEGER NOT NULL DEFAULT 0,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (shop_id) REFERENCES shops(id) ON DELETE CASCADE,
+        FOREIGN KEY (flow_id) REFERENCES flows(id) ON DELETE CASCADE
+    )
+"""
+
 
 def 获取建表语句列表() -> list[str]:
     """返回数据库初始化需要执行的全部建表语句。"""
@@ -79,6 +99,7 @@ def 获取建表语句列表() -> list[str]:
         任务日志建表SQL,
         操作日志建表SQL,
         任务参数建表SQL,
+        流程参数建表SQL,
     ]
 
 
@@ -110,6 +131,34 @@ async def _补齐旧版表结构(连接: aiosqlite.Connection) -> None:
     if 任务参数字段集合 and "run_count" not in 任务参数字段集合:
         await 连接.execute(
             "ALTER TABLE task_params ADD COLUMN run_count INTEGER NOT NULL DEFAULT 0"
+        )
+
+    async with 连接.execute("PRAGMA table_info(flow_params)") as 游标:
+        流程参数字段集合 = {行[1] for 行 in await 游标.fetchall()}
+
+    if 流程参数字段集合 and "step_results" not in 流程参数字段集合:
+        await 连接.execute(
+            "ALTER TABLE flow_params ADD COLUMN step_results TEXT DEFAULT '{}'"
+        )
+
+    if 流程参数字段集合 and "current_step" not in 流程参数字段集合:
+        await 连接.execute(
+            "ALTER TABLE flow_params ADD COLUMN current_step INTEGER NOT NULL DEFAULT 0"
+        )
+
+    if 流程参数字段集合 and "batch_id" not in 流程参数字段集合:
+        await 连接.execute(
+            "ALTER TABLE flow_params ADD COLUMN batch_id TEXT"
+        )
+
+    if 流程参数字段集合 and "enabled" not in 流程参数字段集合:
+        await 连接.execute(
+            "ALTER TABLE flow_params ADD COLUMN enabled INTEGER NOT NULL DEFAULT 1"
+        )
+
+    if 流程参数字段集合 and "run_count" not in 流程参数字段集合:
+        await 连接.execute(
+            "ALTER TABLE flow_params ADD COLUMN run_count INTEGER NOT NULL DEFAULT 0"
         )
 
 

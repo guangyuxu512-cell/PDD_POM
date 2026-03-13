@@ -220,6 +220,63 @@ class 任务参数响应(BaseModel):
     updated_at: Optional[str] = Field(default=None, description="更新时间")
 
 
+class 流程参数创建请求(BaseModel):
+    """创建流程参数请求"""
+    shop_id: str = Field(description="店铺ID")
+    flow_id: str = Field(description="流程ID")
+    params: Dict[str, Any] = Field(default_factory=dict, description="共享参数")
+    step_results: Dict[str, Any] = Field(default_factory=dict, description="步骤结果")
+    current_step: int = Field(default=0, description="当前步骤索引")
+    status: str = Field(default="pending", description="执行状态")
+    error: Optional[str] = Field(default=None, description="错误信息")
+    batch_id: Optional[str] = Field(default=None, description="批次ID")
+    enabled: bool = Field(default=True, description="是否启用")
+
+
+class 流程参数更新请求(BaseModel):
+    """更新流程参数请求"""
+    shop_id: Optional[str] = Field(default=None, description="店铺ID")
+    flow_id: Optional[str] = Field(default=None, description="流程ID")
+    params: Optional[Dict[str, Any]] = Field(default=None, description="共享参数")
+    step_results: Optional[Dict[str, Any]] = Field(default=None, description="步骤结果")
+    current_step: Optional[int] = Field(default=None, description="当前步骤索引")
+    status: Optional[str] = Field(default=None, description="执行状态")
+    error: Optional[str] = Field(default=None, description="错误信息")
+    batch_id: Optional[str] = Field(default=None, description="批次ID")
+    enabled: Optional[bool] = Field(default=None, description="是否启用")
+
+
+class 流程参数导入请求(BaseModel):
+    """流程参数导入请求"""
+    flow_id: str = Field(description="流程ID")
+
+
+class 流程参数批量操作请求(BaseModel):
+    """流程参数批量操作请求"""
+    shop_id: Optional[str] = Field(default=None, description="店铺ID")
+    flow_id: Optional[str] = Field(default=None, description="流程ID")
+    status: Optional[str] = Field(default=None, description="状态")
+    batch_id: Optional[str] = Field(default=None, description="批次ID")
+
+
+class 流程参数响应(BaseModel):
+    """流程参数响应"""
+    id: int = Field(description="主键ID")
+    shop_id: str = Field(description="店铺ID")
+    shop_name: Optional[str] = Field(default=None, description="店铺名称")
+    flow_id: str = Field(description="流程ID")
+    params: Dict[str, Any] = Field(default_factory=dict, description="共享参数")
+    step_results: Dict[str, Any] = Field(default_factory=dict, description="步骤结果")
+    current_step: int = Field(description="当前步骤索引")
+    status: str = Field(description="执行状态")
+    error: Optional[str] = Field(default=None, description="错误信息")
+    batch_id: Optional[str] = Field(default=None, description="批次ID")
+    enabled: bool = Field(description="是否启用")
+    run_count: int = Field(description="执行次数")
+    created_at: Optional[str] = Field(default=None, description="创建时间")
+    updated_at: Optional[str] = Field(default=None, description="更新时间")
+
+
 class 停止执行请求(BaseModel):
     """停止执行请求"""
     batch_id: Optional[str] = Field(default=None, description="批次 ID，不传则停止当前批次")

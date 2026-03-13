@@ -125,6 +125,42 @@ class 测试_任务服务:
         assert 模拟回填.await_args_list[1].kwargs["错误信息"] == "失败"
 
     @pytest.mark.asyncio
+    async def test_执行任务_flow_context存在时直接透传不读取task_params(self):
+        """flow_context 已注入时，应直接作为 task_param 使用而不再查询 task_params。"""
+        假任务实例 = SimpleNamespace(
+            _执行结果={"new_product_id": "new-2001"},
+            执行=AsyncMock(return_value="成功"),
+        )
+        店铺配置 = {
+            "shop_id": "shop-1",
+            "username": "demo",
+            "password": "pwd",
+            "flow_context": {"parent_product_id": "9001", "discount": 6},
+        }
+
+        with patch(
+            "backend.services.任务服务.任务参数服务实例.获取待执行列表",
+            new=AsyncMock(return_value=[]),
+        ) as 模拟获取待执行, patch(
+            "tasks.任务注册表.获取任务",
+            return_value=假任务实例,
+        ), patch(
+            "backend.services.任务服务.任务参数服务实例.更新执行结果",
+            new=AsyncMock(),
+        ) as 模拟回填:
+            结果 = await 任务服务实例.执行任务(
+                shop_id="shop-1",
+                task_name="发布相似商品",
+                页面=object(),
+                店铺配置=店铺配置,
+            )
+
+        assert 结果["result"] == "成功"
+        assert 店铺配置["task_param"] == {"parent_product_id": "9001", "discount": 6}
+        模拟获取待执行.assert_not_awaited()
+        模拟回填.assert_not_awaited()
+
+    @pytest.mark.asyncio
     async def test_统一执行任务_浏览器初始化超时返回失败(self):
         """浏览器初始化超时时，应返回 failed 而不是抛出异常给上层"""
         with patch("backend.services.任务服务.任务服务实例.更新任务状态", new=AsyncMock()) as 模拟更新任务状态, \

@@ -1685,3 +1685,35 @@
 - [x] 邻近回归验证结果：`9 passed`
 - [x] 验证通过：`python -m pytest -c tests/pytest.ini -q`
 - [x] 全量验证结果：`227 passed, 16 warnings`（10 条为第三方 `openpyxl` 警告，6 条为现有 Celery 警告）
+
+## Prompt 74：Task 31 流程级参数体系 ✅
+
+- [x] 更新 `backend/models/数据库.py`，新增 `flow_params` 建表 SQL，并在数据库初始化中纳入建表列表
+- [x] 更新 `backend/models/数据结构.py`，新增流程参数相关请求/响应模型
+- [x] 新建 `backend/services/流程参数服务.py`，实现 flow_params 的 CRUD、分页、CSV/XLSX 导入、步骤上下文合并、步骤结果回写、批量操作
+- [x] 新建 `backend/api/流程参数接口.py`，提供 `/api/flow-params` REST API
+- [x] 更新 `backend/api/路由注册.py`，注册流程参数路由
+- [x] 更新 `backend/services/任务服务.py`，支持 `flow_context` 注入，并保留 `task_params` 单任务兼容
+- [x] 更新 `backend/services/执行服务.py`，在 flow 模式下按 `flow_params` 待执行记录构建批次，并为每个 Celery step 传递 `flow_param_id`
+- [x] 更新 `tasks/执行任务.py`，新增 `flow_param_id` 参数，执行前读取流程上下文、执行后回写 `step_results`
+- [x] 保留 `backend/services/任务参数服务.py` 的 `创建后续任务(...)` 兼容方法，不再通过任务链映射触发
+- [x] 更新 `tasks/限时限量任务.py`，改为读取自身 `task_param` 中的 `新商品ID / 折扣`，按单商品执行
+- [x] 更新 `frontend/src/api/types.ts`，新增 `FlowParam` 等类型
+- [x] 新建 `frontend/src/api/flowParams.ts`
+- [x] 更新 `frontend/src/views/TaskParamsManage.vue`，导入弹窗新增“绑定任务 / 绑定流程”模式和流程下拉
+- [x] 新增 `tests/单元测试/测试_流程参数服务.py`
+- [x] 新增 `tests/单元测试/测试_流程参数接口.py`
+- [x] 新增 `tests/单元测试/测试_创建后续任务.py`
+- [x] 新增 `tests/单元测试/测试_流程参数导入静态页.py`
+- [x] 更新 `tests/单元测试/测试_任务服务.py`
+- [x] 更新 `tests/单元测试/测试_任务服务浏览器复用与后续任务.py`
+- [x] 更新 `tests/单元测试/测试_执行服务.py`
+- [x] 更新 `tests/单元测试/测试_执行任务.py`
+- [x] 更新 `tests/单元测试/测试_限时限量任务.py`
+- [x] 更新 `tests/单元测试/测试_批量执行店铺名.py`
+- [x] 删除 `tests/单元测试/测试_批次完成后自动创建限时限量.py`
+- [x] 针对性验证通过：`python -m pytest -c tests/pytest.ini -q tests/单元测试/测试_流程参数服务.py tests/单元测试/测试_流程参数接口.py tests/单元测试/测试_创建后续任务.py tests/单元测试/测试_任务服务.py tests/单元测试/测试_任务服务浏览器复用与后续任务.py tests/单元测试/测试_执行服务.py tests/单元测试/测试_执行任务.py tests/单元测试/测试_限时限量任务.py tests/单元测试/测试_限时限量任务服务.py tests/单元测试/测试_任务参数批次成功记录.py tests/单元测试/测试_流程参数导入静态页.py`
+- [x] 针对性验证结果：`38 passed`
+- [x] 验证通过：`python -m pytest -c tests/pytest.ini -q`
+- [x] 验证通过：在 `frontend/` 目录执行 `npx vue-tsc -b`
+- [x] 全量验证结果：`238 passed, 16 warnings`（10 条为第三方 `openpyxl` 警告，6 条为现有 Celery 警告）

@@ -65,6 +65,59 @@ export interface FlowPayload {
   description?: string
 }
 
+export interface FlowParam {
+  id: number
+  shop_id: string
+  shop_name?: string | null
+  flow_id: string
+  params: Record<string, any>
+  step_results: Record<string, any>
+  current_step: number
+  status: string
+  error?: string | null
+  batch_id?: string | null
+  enabled: boolean
+  run_count: number
+  created_at?: string | null
+  updated_at?: string | null
+}
+
+export interface FlowParamPayload {
+  shop_id: string
+  flow_id: string
+  params?: Record<string, any>
+  step_results?: Record<string, any>
+  current_step?: number
+  status?: string
+  error?: string | null
+  batch_id?: string | null
+  enabled?: boolean
+}
+
+export interface FlowParamFilters {
+  page?: number
+  page_size?: number
+  shop_id?: string
+  flow_id?: string
+  status?: string
+  batch_id?: string
+  sort_by?: string
+  sort_order?: 'asc' | 'desc'
+}
+
+export interface FlowParamImportResult {
+  success_count: number
+  failed_count: number
+  errors: string[]
+}
+
+export interface FlowParamBatchPayload {
+  shop_id?: string
+  flow_id?: string
+  status?: string
+  batch_id?: string
+}
+
 export interface BatchRequest {
   flow_id?: string
   task_name?: string

@@ -1037,3 +1037,90 @@
 - 已执行 `python -m pytest -c tests/pytest.ini -q tests/单元测试/测试_限时限量任务.py tests/单元测试/测试_限时限量任务服务.py tests/单元测试/测试_任务参数批次成功记录.py`，结果 `9 passed`
 - 已执行全量 `python -m pytest -c tests/pytest.ini -q`，结果 `227 passed, 16 warnings`
 - 16 条 warning 仍为既有存量：10 条来自第三方 `openpyxl`，6 条来自 Celery `datetime.utcnow()` 弃用提示
+
+---
+
+## 任务摘要
+
+完成 Task 31：新增 `flow_params` 流程级参数体系，支持 CSV/XLSX 按流程导入、步骤间共享上下文与结果回写，并将 flow 模式执行链路切换到 `flow_params`。
+
+## 改动文件列表
+
+- `backend/models/数据库.py`
+- `backend/models/数据结构.py`
+- `backend/services/流程参数服务.py`
+- `backend/api/流程参数接口.py`
+- `backend/api/路由注册.py`
+- `backend/services/任务服务.py`
+- `backend/services/执行服务.py`
+- `tasks/执行任务.py`
+- `tasks/限时限量任务.py`
+- `frontend/src/api/types.ts`
+- `frontend/src/api/flowParams.ts`
+- `frontend/src/views/TaskParamsManage.vue`
+- `tests/单元测试/测试_流程参数服务.py`
+- `tests/单元测试/测试_流程参数接口.py`
+- `tests/单元测试/测试_创建后续任务.py`
+- `tests/单元测试/测试_任务服务.py`
+- `tests/单元测试/测试_任务服务浏览器复用与后续任务.py`
+- `tests/单元测试/测试_执行服务.py`
+- `tests/单元测试/测试_执行任务.py`
+- `tests/单元测试/测试_限时限量任务.py`
+- `tests/单元测试/测试_批量执行店铺名.py`
+- `tests/单元测试/测试_流程参数导入静态页.py`
+- `tests/单元测试/测试_批次完成后自动创建限时限量.py`
+- `PLAN.md`
+- `改造进度.md`
+- `.pipeline/progress.md`
+
+## 改动说明
+
+- `backend/models/数据库.py`
+  - 新增 `flow_params` 表，承载流程共享参数、步骤结果、当前步骤、批次和启用态
+- `backend/models/数据结构.py`
+  - 新增流程参数相关请求/响应模型
+- `backend/services/流程参数服务.py`
+  - 新建流程参数服务，覆盖 CRUD、分页、导入、步骤上下文合并、步骤结果回写、状态更新和批量操作
+  - 导入逻辑直接复用 `任务参数服务` 的列名映射、店铺解析、发布次数展开和 CSV/XLSX 解析能力
+- `backend/api/流程参数接口.py` / `backend/api/路由注册.py`
+  - 新增并注册 `/api/flow-params` REST API
+- `backend/services/任务服务.py`
+  - 当 `店铺配置` 中已有 `flow_context` 时直接透传为 `task_param`，避免误查 `task_params`
+- `backend/services/执行服务.py`
+  - flow 模式创建批次时改读 `flow_params` 待执行记录
+  - 对无待执行 `flow_params` 的店铺静默跳过
+  - 向每个 Celery step 透传 `flow_param_id`
+- `tasks/执行任务.py`
+  - 新增 `flow_param_id` 参数
+  - 执行前读取 `flow_context` 并把 `flow_params` 置为 `running`
+  - 成功后回写 `step_results`，最后一步成功时把 `flow_params` 置为 `success`
+- `tasks/限时限量任务.py`
+  - 改为从自身 `task_param` 读取 `新商品ID / 折扣`
+  - 一条记录只处理一个商品，不再按批次查询成功结果
+- `frontend/src/api/types.ts` / `frontend/src/api/flowParams.ts`
+  - 新增 `FlowParam` 相关类型与 flow params API 封装
+- `frontend/src/views/TaskParamsManage.vue`
+  - 导入弹窗新增“绑定任务 / 绑定流程”模式切换
+  - 绑定流程时读取流程列表并调用 `importFlowParams(...)`
+- `tests/...`
+  - 新增 flow params 服务/API/静态页测试
+  - 更新执行服务、执行任务、任务服务、限时限量任务等测试以适配 flow params 链路
+  - 删除旧的批次级后续任务测试文件，由通用后续任务创建测试替代
+- `PLAN.md` / `改造进度.md` / `.pipeline/progress.md`
+  - 同步记录 Task 31 的实现范围与验证结果
+
+## 影响范围
+
+- 流程执行现在可以绑定 `flow_params` 共享参数，步骤间通过 `step_results` 自动传递结果
+- 单任务执行仍走 `task_params`，与 `flow_params` 互不干扰
+- flow 模式批次只会为存在待执行 `flow_params` 的店铺投递链路
+- 前端导入弹窗现在支持直接把 CSV/XLSX 绑定到流程，而不是只能绑定单个任务
+
+## 注意事项
+
+- 本轮未修改 `pages/` 与 `selectors/` 目录
+- 删除了 `tests/单元测试/测试_批次完成后自动创建限时限量.py`；该文件对应的旧批次级后续任务方法已移除
+- 已执行 `python -m pytest -c tests/pytest.ini -q tests/单元测试/测试_流程参数服务.py tests/单元测试/测试_流程参数接口.py tests/单元测试/测试_创建后续任务.py tests/单元测试/测试_任务服务.py tests/单元测试/测试_任务服务浏览器复用与后续任务.py tests/单元测试/测试_执行服务.py tests/单元测试/测试_执行任务.py tests/单元测试/测试_限时限量任务.py tests/单元测试/测试_限时限量任务服务.py tests/单元测试/测试_任务参数批次成功记录.py tests/单元测试/测试_流程参数导入静态页.py`，结果 `38 passed`
+- 已执行 `python -m pytest -c tests/pytest.ini -q`，结果 `238 passed, 16 warnings`
+- 已执行 `npx vue-tsc -b`（`frontend/` 目录），结果通过
+- 16 条 warning 仍为既有存量：10 条来自第三方 `openpyxl`，6 条来自 Celery `datetime.utcnow()` 弃用提示

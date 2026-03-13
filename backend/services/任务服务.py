@@ -102,6 +102,10 @@ class 任务服务:
         店铺配置: Dict[str, Any],
     ) -> Optional[Dict[str, Any]]:
         """读取 task_params 并注入到店铺配置。"""
+        if isinstance(店铺配置.get("flow_context"), dict):
+            店铺配置["task_param"] = dict(店铺配置["flow_context"])
+            return None
+
         if task_name not in 任务参数任务集合:
             return None
 
@@ -691,7 +695,8 @@ class 任务服务:
         from tasks.任务注册表 import 获取任务
 
         任务参数记录 = await self._准备任务参数(shop_id, task_name, 店铺配置)
-        if task_name in 任务参数任务集合 and not 任务参数记录:
+        使用流程上下文 = isinstance(店铺配置.get("flow_context"), dict)
+        if task_name in 任务参数任务集合 and not 任务参数记录 and not 使用流程上下文:
             return {
                 "task_name": task_name,
                 "shop_id": shop_id,
@@ -742,7 +747,8 @@ class 任务服务:
         return {
             "task_name": task_name,
             "shop_id": shop_id,
-            "result": 结果
+            "result": 结果,
+            "result_data": 执行结果数据,
         }
 
 

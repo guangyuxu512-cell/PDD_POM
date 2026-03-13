@@ -4,6 +4,8 @@ import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import ConfirmDialog from '../components/ConfirmDialog.vue'
 import Modal from '../components/Modal.vue'
 import StatusBadge from '../components/StatusBadge.vue'
+import { importFlowParams } from '../api/flowParams'
+import { listFlows } from '../api/flows'
 import { listShops } from '../api/shops'
 import { listAvailableTasks } from '../api/tasks'
 import {
@@ -21,6 +23,8 @@ import {
 } from '../api/taskParams'
 import type {
   AvailableTask,
+  Flow,
+  FlowParamImportResult,
   Shop,
   TaskParam,
   TaskParamBatchOption,
@@ -31,6 +35,7 @@ import type {
 import { toast } from '../utils/toast'
 
 type BatchActionKey = '' | 'reset' | 'enable' | 'disable'
+type ImportBindingMode = 'task' | 'flow'
 type TabKey = 'taskList' | 'resultList'
 type JsonTooltipState = {
   visible: boolean
@@ -46,6 +51,7 @@ const tooltipViewportPadding = 16
 const tooltipGap = 10
 
 const availableTasks = ref<AvailableTask[]>([])
+const flows = ref<Flow[]>([])
 const shops = ref<Shop[]>([])
 const batchOptions = ref<TaskParamBatchOption[]>([])
 const taskParams = ref<TaskParam[]>([])
@@ -59,9 +65,11 @@ const loading = ref(false)
 const showImportModal = ref(false)
 const showClearConfirm = ref(false)
 const selectedFile = ref<File | null>(null)
+const importBindingMode = ref<ImportBindingMode>('task')
 const importTaskName = ref('')
+const importFlowId = ref('')
 const importing = ref(false)
-const importSummary = ref<TaskParamImportResult | null>(null)
+const importSummary = ref<TaskParamImportResult | FlowParamImportResult | null>(null)
 const rowActioningIds = ref<number[]>([])
 const batchAction = ref<BatchActionKey>('')
 const jsonTooltip = ref<JsonTooltipState>({
@@ -97,8 +105,13 @@ const totalPages = computed(() => {
 const currentPage = computed(() => (isTaskListTab.value ? taskListPage.value : resultPage.value))
 const currentTotal = computed(() => (isTaskListTab.value ? taskParamTotal.value : resultTotal.value))
 const taskOptions = computed(() => availableTasks.value.map((task) => task.name))
+const flowOptions = computed(() => flows.value)
 
 const currentTemplateColumns = computed(() => {
+  if (importBindingMode.value === 'flow') {
+    return ['店铺ID', '发布次数', '商品ID', '新标题', '折扣']
+  }
+
   if (importTaskName.value === '发布换图商品') {
     return ['店铺ID', '父商品ID', '新标题', '发布次数', '图片路径']
   }
@@ -110,6 +123,10 @@ const currentTemplateColumns = computed(() => {
   return ['店铺ID', '父商品ID', '新标题', '发布次数']
 })
 const currentTemplateSampleRow = computed(() => {
+  if (importBindingMode.value === 'flow') {
+    return '示例店铺名称,2,123456,示例标题,6'
+  }
+
   if (importTaskName.value === '发布换图商品') {
     return '示例店铺名称,123456,示例标题,3,E:/images/demo.png'
   }
@@ -121,6 +138,10 @@ const currentTemplateSampleRow = computed(() => {
   return '示例店铺名称,123456,示例标题,3'
 })
 const currentTemplateExample = computed(() => {
+  if (importBindingMode.value === 'flow') {
+    return '示例：店铺ID、发布次数、商品ID、新标题、折扣（除保留列外其余列全部进入流程共享参数池）'
+  }
+
   if (importTaskName.value === '发布换图商品') {
     return '示例：店铺ID、父商品ID、新标题、发布次数、图片路径（本地绝对路径）'
   }
@@ -161,6 +182,14 @@ function syncImportTaskName(preferredTaskName = taskListFilters.value.task_name)
   }
 
   importTaskName.value = getDefaultImportTaskName(preferredTaskName)
+}
+
+function syncImportFlowId() {
+  if (importFlowId.value && flowOptions.value.some((flow) => flow.id === importFlowId.value)) {
+    return
+  }
+
+  importFlowId.value = flowOptions.value[0]?.id || ''
 }
 
 function buildTaskListFilters(page = taskListPage.value): TaskParamFilters {
@@ -449,6 +478,17 @@ async function loadAvailableTaskOptions() {
   }
 }
 
+async function loadFlows() {
+  try {
+    const result = await listFlows()
+    flows.value = result.list
+    syncImportFlowId()
+  } catch (error) {
+    const message = error instanceof Error ? error.message : '加载流程列表失败'
+    toast.error(message)
+  }
+}
+
 async function loadBatchOptions() {
   try {
     batchOptions.value = await listTaskParamBatchOptions(buildBatchOptionFilters())
@@ -539,12 +579,31 @@ function handlePageChange(page: number) {
 }
 
 function openImportModal() {
-  if (taskOptions.value.length === 0) {
+  if (taskOptions.value.length === 0 && flowOptions.value.length === 0) {
+    toast.warning('暂无可导入的任务类型或流程')
+    return
+  }
+
+  if (importBindingMode.value === 'task' && taskOptions.value.length === 0 && flowOptions.value.length > 0) {
+    importBindingMode.value = 'flow'
+  }
+
+  if (importBindingMode.value === 'flow' && flowOptions.value.length === 0 && taskOptions.value.length > 0) {
+    importBindingMode.value = 'task'
+  }
+
+  if (importBindingMode.value === 'task' && taskOptions.value.length === 0) {
     toast.warning('暂无可导入的任务类型')
     return
   }
 
+  if (importBindingMode.value === 'flow' && flowOptions.value.length === 0) {
+    toast.warning('暂无可绑定的流程')
+    return
+  }
+
   importTaskName.value = getDefaultImportTaskName()
+  syncImportFlowId()
   selectedFile.value = null
   importSummary.value = null
   showImportModal.value = true
@@ -556,8 +615,13 @@ function handleFileChange(event: Event) {
 }
 
 async function handleImport() {
-  if (!importTaskName.value) {
+  if (importBindingMode.value === 'task' && !importTaskName.value) {
     toast.warning('请选择任务类型')
+    return
+  }
+
+  if (importBindingMode.value === 'flow' && !importFlowId.value) {
+    toast.warning('请选择流程')
     return
   }
 
@@ -568,11 +632,15 @@ async function handleImport() {
 
   importing.value = true
   try {
-    const result = await importTaskParamsCsv(importTaskName.value, selectedFile.value)
+    const result = importBindingMode.value === 'task'
+      ? await importTaskParamsCsv(importTaskName.value, selectedFile.value)
+      : await importFlowParams(importFlowId.value, selectedFile.value)
     importSummary.value = result
     toast.success(`导入完成：成功 ${result.success_count} 条，跳过 ${result.failed_count} 条`)
-    await loadTaskParams(1)
-    await loadBatchOptions()
+    if (importBindingMode.value === 'task') {
+      await loadTaskParams(1)
+      await loadBatchOptions()
+    }
   } catch (error) {
     const message = error instanceof Error ? error.message : '导入 CSV 失败'
     toast.error(message)
@@ -695,6 +763,7 @@ function downloadTemplate() {
 
 onMounted(() => {
   void loadAvailableTaskOptions()
+  void loadFlows()
   void loadShops()
   void loadBatchOptions()
   void loadTaskParams()
@@ -994,9 +1063,34 @@ onBeforeUnmount(() => {
     <Modal :show="showImportModal" title="CSV导入" width="720px" @close="showImportModal = false">
       <div class="import-form">
         <div class="form-group">
-          <label>任务类型</label>
-          <select v-model="importTaskName">
+          <label>绑定方式</label>
+          <div class="mode-switch">
+            <button
+              class="mode-button"
+              :class="{ active: importBindingMode === 'task' }"
+              type="button"
+              @click="importBindingMode = 'task'"
+            >
+              绑定任务
+            </button>
+            <button
+              class="mode-button"
+              :class="{ active: importBindingMode === 'flow' }"
+              type="button"
+              @click="importBindingMode = 'flow'"
+            >
+              绑定流程
+            </button>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>{{ importBindingMode === 'task' ? '任务类型' : '流程模板' }}</label>
+          <select v-if="importBindingMode === 'task'" v-model="importTaskName">
             <option v-for="task in availableTasks" :key="task.name" :value="task.name">{{ task.name }}</option>
+          </select>
+          <select v-else v-model="importFlowId">
+            <option v-for="flow in flows" :key="flow.id" :value="flow.id">{{ flow.name }}</option>
           </select>
         </div>
 
@@ -1009,13 +1103,14 @@ onBeforeUnmount(() => {
           <p>“店铺ID”列支持填写店铺ID或店铺名称，导入时会自动匹配。</p>
           <p v-if="supportsPublishCount">“发布次数”列可选，留空默认导入 1 条，填写 3 会自动展开 3 条 pending 记录。</p>
           <p v-if="supportsPublishCount">多次展开后的记录会自动写入批次序号，便于区分同一批次内的重复发布任务。</p>
+          <p v-if="importBindingMode === 'flow'">绑定流程时，除“店铺ID”“发布次数”外，其余列都会进入共享参数池，并在步骤间自动共享。</p>
           <p v-if="importTaskName === '限时限量'">`batch_id` 需要填写同批次成功发布商品对应的批次号。</p>
           <p>{{ currentTemplateExample }}</p>
         </div>
 
         <div class="form-group">
           <label>上传 CSV 文件</label>
-          <input type="file" accept=".csv,text/csv" @change="handleFileChange" />
+          <input type="file" accept=".csv,.xlsx,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" @change="handleFileChange" />
           <span class="file-name">{{ selectedFile?.name || '未选择文件' }}</span>
         </div>
 
@@ -1389,6 +1484,30 @@ h1 {
   display: flex;
   flex-direction: column;
   gap: 20px;
+}
+
+.mode-switch {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.mode-button {
+  border: 1px solid #dbeafe;
+  border-radius: 10px;
+  padding: 10px 12px;
+  background: #eff6ff;
+  color: #1d4ed8;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.mode-button.active {
+  background: #1d4ed8;
+  color: #ffffff;
+  box-shadow: 0 10px 24px rgba(29, 78, 216, 0.18);
 }
 
 .form-group {

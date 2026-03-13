@@ -21,6 +21,7 @@ from celery import chain as celery_chain
 from backend.配置 import 配置实例
 from backend.services.店铺服务 import 店铺服务实例
 from backend.services.流程服务 import 流程服务实例
+from backend.services.流程参数服务 import 流程参数服务实例
 from tasks.注册表 import 获取任务类, 初始化任务注册表
 from tasks.celery应用 import celery应用
 
@@ -471,10 +472,34 @@ class 执行服务:
             店铺信息映射[店铺ID] = 店铺信息
 
         步骤模板 = await self._构建步骤列表(flow_id=flow_id, task_name=task_name)
+        可执行店铺ID列表 = list(标准店铺ID列表)
+        流程参数ID映射: Dict[str, int] = {}
+
+        if flow_id:
+            可执行店铺ID列表 = []
+            for 店铺ID in 标准店铺ID列表:
+                待执行记录列表 = await 流程参数服务实例.获取待执行列表(店铺ID, str(flow_id))
+                if not 待执行记录列表:
+                    continue
+
+                首条记录 = 待执行记录列表[0]
+                流程参数ID映射[店铺ID] = int(首条记录["id"])
+                可执行店铺ID列表.append(店铺ID)
+
         batch_id = uuid.uuid4().hex
         machine_id = 获取默认机器编号()
         queue_name = 获取队列名称(machine_id)
         标准回调地址 = str(callback_url or "").strip() or None
+
+        if flow_id:
+            for 店铺ID, flow_param_id in 流程参数ID映射.items():
+                await 流程参数服务实例.更新(
+                    flow_param_id,
+                    {
+                        "batch_id": batch_id,
+                        "error": None,
+                    },
+                )
 
         批次数据: Dict[str, Any] = {
             "batch_id": batch_id,
@@ -485,8 +510,8 @@ class 执行服务:
             "machine_id": machine_id,
             "queue_name": queue_name,
             "requested_concurrency": concurrency,
-            "total": len(标准店铺ID列表),
-            "waiting": len(标准店铺ID列表),
+            "total": len(可执行店铺ID列表),
+            "waiting": len(可执行店铺ID列表),
             "running": 0,
             "completed": 0,
             "failed": 0,
@@ -499,7 +524,7 @@ class 执行服务:
                     str(店铺信息映射[店铺ID].get("name") or 店铺ID),
                     步骤模板,
                 )
-                for 店铺ID in 标准店铺ID列表
+                for 店铺ID in 可执行店铺ID列表
             },
             "created_at": datetime.now().isoformat(),
             "updated_at": datetime.now().isoformat(),
@@ -508,7 +533,7 @@ class 执行服务:
         from tasks.执行任务 import 执行任务 as 执行Celery任务
 
         任务链列表 = []
-        for 店铺ID in 标准店铺ID列表:
+        for 店铺ID in 可执行店铺ID列表:
             店铺名称 = str(店铺信息映射[店铺ID].get("name") or 店铺ID)
             任务链 = celery_chain(
                 *[
@@ -520,6 +545,7 @@ class 执行服务:
                         on_fail=步骤["on_fail"],
                         step_index=索引,
                         total_steps=len(步骤模板),
+                        flow_param_id=流程参数ID映射.get(店铺ID),
                     ).set(queue=queue_name, routing_key=queue_name)
                     for 索引, 步骤 in enumerate(步骤模板, start=1)
                 ]
