@@ -1,0 +1,5 @@
+2026/03/13-21:52:00.144 6ccc Reusing MANIFEST E:\pdd_zd\data\profiles\8eec98e4-89b9-49d5-ab1f-c72be3c405f6\Default\Local Storage\leveldb/MANIFEST-000001
+2026/03/13-21:52:00.152 6ccc Recovering log #93
+2026/03/13-21:52:00.153 6ccc Reusing old log E:\pdd_zd\data\profiles\8eec98e4-89b9-49d5-ab1f-c72be3c405f6\Default\Local Storage\leveldb/000093.log 
+2026/03/13-22:21:09.379 87a8 Level-0 table #98: started
+2026/03/13-22:21:09.459 87a8 Level-0 table #98: 15682 bytes OK

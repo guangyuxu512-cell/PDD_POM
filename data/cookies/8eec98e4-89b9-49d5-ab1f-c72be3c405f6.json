@@ -1,0 +1,262 @@
+[
+  {
+    "name": "gd_random",
+    "value": "eyJtYXRjaCI6dHJ1ZSwicGVyY2VudCI6MC4zODg2MjgyNDU3Mzk3MjE3N30=.mgLlbHxbSi/Is4hSQoOWeJvvhDOcuEUpZcsMUUOWxUc=",
+    "domain": "fxg.jinritemai.com",
+    "path": "/ffa-micro-config/feedback_entry",
+    "expires": 1773822805.687511,
+    "httpOnly": true,
+    "secure": false,
+    "sameSite": "Lax"
+  },
+  {
+    "name": "webp",
+    "value": "true",
+    "domain": "mms.pinduoduo.com",
+    "path": "/login",
+    "expires": 1775811249,
+    "httpOnly": false,
+    "secure": false,
+    "sameSite": "Lax"
+  },
+  {
+    "name": "gfkadpd",
+    "value": "4272,23756",
+    "domain": "fxg.jinritemai.com",
+    "path": "/",
+    "expires": 1773477203,
+    "httpOnly": false,
+    "secure": true,
+    "sameSite": "None"
+  },
+  {
+    "name": "s_v_web_id",
+    "value": "verify_mmls7tpz_ZBRK8ple_u2Qb_4xn4_A541_9eHIm1nseCz9",
+    "domain": "fxg.jinritemai.com",
+    "path": "/",
+    "expires": 1778402005,
+    "httpOnly": false,
+    "secure": false,
+    "sameSite": "Lax"
+  },
+  {
+    "name": "passport_csrf_token",
+    "value": "077cd1e0eb26bf30422b9b0ae0a48aea",
+    "domain": ".jinritemai.com",
+    "path": "/",
+    "expires": 1778402005.80406,
+    "httpOnly": false,
+    "secure": true,
+    "sameSite": "None"
+  },
+  {
+    "name": "passport_csrf_token_default",
+    "value": "077cd1e0eb26bf30422b9b0ae0a48aea",
+    "domain": ".jinritemai.com",
+    "path": "/",
+    "expires": 1778402005.804116,
+    "httpOnly": false,
+    "secure": false,
+    "sameSite": "Lax"
+  },
+  {
+    "name": "PHPSESSID",
+    "value": "2f39245e3e38e0f78f2a117e8ae68c2c",
+    "domain": ".jinritemai.com",
+    "path": "/",
+    "expires": 1773477205.939348,
+    "httpOnly": false,
+    "secure": false,
+    "sameSite": "Lax"
+  },
+  {
+    "name": "PHPSESSID_SS",
+    "value": "2f39245e3e38e0f78f2a117e8ae68c2c",
+    "domain": ".jinritemai.com",
+    "path": "/",
+    "expires": 1773477205.93941,
+    "httpOnly": false,
+    "secure": true,
+    "sameSite": "None"
+  },
+  {
+    "name": "HMACCOUNT_BFESS",
+    "value": "98A0984925AAE40E",
+    "domain": ".hm.baidu.com",
+    "path": "/",
+    "expires": 1807778006.722824,
+    "httpOnly": false,
+    "secure": true,
+    "sameSite": "None"
+  },
+  {
+    "name": "Hm_lvt_b6520b076191ab4b36812da4c90f7a5e",
+    "value": "1773218007",
+    "domain": ".fxg.jinritemai.com",
+    "path": "/",
+    "expires": 1804754006,
+    "httpOnly": false,
+    "secure": false,
+    "sameSite": "Lax"
+  },
+  {
+    "name": "ttwid",
+    "value": "1%7CXBI1AHQ3Q_rMGSD6ajUH8G4vTvA8iceORWYdnyx_TVU%7C1773218006%7C89e3acdcc6c051a960a9d8bf94a4739a4ba2592b0436e1a3a516b1f4a1156d59",
+    "domain": ".bytedance.com",
+    "path": "/",
+    "expires": 1804754007.566001,
+    "httpOnly": true,
+    "secure": true,
+    "sameSite": "None"
+  },
+  {
+    "name": "ttwid",
+    "value": "1%7CXBI1AHQ3Q_rMGSD6ajUH8G4vTvA8iceORWYdnyx_TVU%7C1773218006%7C89e3acdcc6c051a960a9d8bf94a4739a4ba2592b0436e1a3a516b1f4a1156d59",
+    "domain": ".jinritemai.com",
+    "path": "/",
+    "expires": 1804754007.922572,
+    "httpOnly": true,
+    "secure": true,
+    "sameSite": "None"
+  },
+  {
+    "name": "api_uid",
+    "value": "CkuJQWmxLa5BBgCJmt5UAg==",
+    "domain": ".pinduoduo.com",
+    "path": "/",
+    "expires": 1807779247.360065,
+    "httpOnly": false,
+    "secure": false,
+    "sameSite": "Lax"
+  },
+  {
+    "name": "_nano_fp",
+    "value": "Xpm8XqPalpPYlpXalT_7eSY1I~XU6~2ea5g4EmQ7",
+    "domain": "mms.pinduoduo.com",
+    "path": "/",
+    "expires": 1807779249.088322,
+    "httpOnly": false,
+    "secure": false,
+    "sameSite": "Lax"
+  },
+  {
+    "name": "rckk",
+    "value": "lQBcmaF950bMifdLeTDgUwgsHw3BCf9c",
+    "domain": ".pinduoduo.com",
+    "path": "/",
+    "expires": 1804938506.284797,
+    "httpOnly": true,
+    "secure": true,
+    "sameSite": "Lax"
+  },
+  {
+    "name": "_bee",
+    "value": "lQBcmaF950bMifdLeTDgUwgsHw3BCf9c",
+    "domain": ".pinduoduo.com",
+    "path": "/",
+    "expires": 1804938506.284919,
+    "httpOnly": true,
+    "secure": true,
+    "sameSite": "None"
+  },
+  {
+    "name": "ru1k",
+    "value": "d501e158-3479-46f5-8623-2b3aecc8b895",
+    "domain": ".pinduoduo.com",
+    "path": "/",
+    "expires": 1804938506.284989,
+    "httpOnly": true,
+    "secure": true,
+    "sameSite": "Lax"
+  },
+  {
+    "name": "_f77",
+    "value": "d501e158-3479-46f5-8623-2b3aecc8b895",
+    "domain": ".pinduoduo.com",
+    "path": "/",
+    "expires": 1804938506.28507,
+    "httpOnly": true,
+    "secure": true,
+    "sameSite": "None"
+  },
+  {
+    "name": "ru2k",
+    "value": "384fc4b6-901c-46e3-af8a-a3c2dcd7124b",
+    "domain": ".pinduoduo.com",
+    "path": "/",
+    "expires": 1804938506.28513,
+    "httpOnly": true,
+    "secure": true,
+    "sameSite": "Lax"
+  },
+  {
+    "name": "_a42",
+    "value": "384fc4b6-901c-46e3-af8a-a3c2dcd7124b",
+    "domain": ".pinduoduo.com",
+    "path": "/",
+    "expires": 1804938506.285187,
+    "httpOnly": true,
+    "secure": true,
+    "sameSite": "None"
+  },
+  {
+    "name": "webp",
+    "value": "true",
+    "domain": "mms.pinduoduo.com",
+    "path": "/",
+    "expires": 1775811415,
+    "httpOnly": false,
+    "secure": false,
+    "sameSite": "Lax"
+  },
+  {
+    "name": "mms_b84d1838",
+    "value": "3616,150,3693,3700,3706,3523,3660,3614,3599,3658,3605,3621,3622,3669,3677,3588,3254,3531,3559,3642,3474,3475,3477,3479,3687,3482,1202,1203,1204,1205,3417",
+    "domain": "mms.pinduoduo.com",
+    "path": "/",
+    "expires": 1782042505.787675,
+    "httpOnly": false,
+    "secure": false,
+    "sameSite": "Lax"
+  },
+  {
+    "name": "PASS_ID",
+    "value": "1-h4c9mx+PqzXR83RLBb6UFmPDzYb5XDKrzGrr/q6ism/Uh+TOkXvebxU/6lHkDMxzTfjsWwwkNA24s4il/Yuw7Q_490631340_135149743",
+    "domain": "mms.pinduoduo.com",
+    "path": "/",
+    "expires": 1774266503.373681,
+    "httpOnly": true,
+    "secure": true,
+    "sameSite": "Lax"
+  },
+  {
+    "name": "windows_app_shop_token_23",
+    "value": "eyJ0IjoiQ2pBdGJCSlRjbjdNcHFNaWs5V3NCTXRlREhLK1l6NkRFTUYzcXExQzAwVU1JL3VCNm95WEJBeXppT3o1clBrYiIsInYiOjEsInMiOjIzLCJtIjo0OTA2MzEzNDAsInUiOjEzNTE0OTc0M30",
+    "domain": ".pinduoduo.com",
+    "path": "/",
+    "expires": 1773488903.476257,
+    "httpOnly": false,
+    "secure": true,
+    "sameSite": "Lax"
+  },
+  {
+    "name": "x-visit-time",
+    "value": "1773402504467",
+    "domain": "mms.pinduoduo.com",
+    "path": "/",
+    "expires": 1782042504.467188,
+    "httpOnly": false,
+    "secure": false,
+    "sameSite": "Lax"
+  },
+  {
+    "name": "JSESSIONID",
+    "value": "344B67AD299AC678DA90E0F2EF7EED84",
+    "domain": "mms.pinduoduo.com",
+    "path": "/",
+    "expires": -1,
+    "httpOnly": true,
+    "secure": false,
+    "sameSite": "Lax"
+  }
+]

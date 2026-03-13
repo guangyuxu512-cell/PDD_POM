@@ -1,0 +1,8 @@
+2026/03/13-21:55:32.141 6ccc Reusing MANIFEST E:\pdd_zd\data\profiles\8eec98e4-89b9-49d5-ab1f-c72be3c405f6\Default\Session Storage/MANIFEST-000001
+2026/03/13-21:55:32.142 6ccc Recovering log #29
+2026/03/13-21:55:32.143 6ccc Level-0 table #32: started
+2026/03/13-21:55:32.171 6ccc Level-0 table #32: 15159 bytes OK
+2026/03/13-21:55:32.171 6ccc Recovering log #32
+2026/03/13-21:55:32.172 6ccc Reusing old log E:\pdd_zd\data\profiles\8eec98e4-89b9-49d5-ab1f-c72be3c405f6\Default\Session Storage/000032.log 
+2026/03/13-21:55:32.197 6ccc Delete type=0 #29
+2026/03/13-21:55:32.197 6ccc Delete type=2 #33
