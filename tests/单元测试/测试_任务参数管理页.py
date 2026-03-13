@@ -67,6 +67,11 @@ class 测试_任务参数管理页:
             "deleteTaskParam",
             "type=\"date\"",
             "formatJsonTooltip",
+            "showJsonTooltip",
+            "scheduleHideJsonTooltip",
+            "json-tooltip-panel",
+            "max-width: 500px",
+            "<pre>{{ jsonTooltip.content }}</pre>",
             "formatBatchOptionLabel",
             "新ID:",
             "updated_from",
@@ -79,3 +84,5 @@ class 测试_任务参数管理页:
             "formatShopLabel",
         ]:
             assert 关键字 in 页面文件
+
+        assert "父ID:" not in 页面文件

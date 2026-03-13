@@ -421,7 +421,7 @@ class 任务参数服务:
                 FROM task_params tp
                 {条件SQL}
                 GROUP BY tp.batch_id
-                ORDER BY latest_updated_at DESC, tp.batch_id DESC
+                ORDER BY record_count DESC, latest_updated_at DESC, tp.batch_id DESC
                 """,
                 参数列表,
             ) as 游标:
@@ -638,6 +638,30 @@ class 任务参数服务:
                 行列表 = await 游标.fetchall()
 
         return [self._转换记录(行) for 行 in 行列表]
+
+    async def 查询批次成功记录(
+        self,
+        shop_id: str,
+        batch_id: str,
+        task_name: str,
+    ) -> List[Dict[str, Any]]:
+        """查询同批次中指定任务的成功结果 JSON 列表。"""
+        async with 获取连接() as 连接:
+            async with 连接.execute(
+                """
+                SELECT result
+                FROM task_params
+                WHERE shop_id = ?
+                  AND batch_id = ?
+                  AND task_name = ?
+                  AND status = 'success'
+                ORDER BY id ASC
+                """,
+                (shop_id, batch_id, task_name),
+            ) as 游标:
+                行列表 = await 游标.fetchall()
+
+        return [self._解析JSON(行["result"]) for 行 in 行列表]
 
     async def 启用(self, 记录ID: int) -> Optional[Dict[str, Any]]:
         """启用单条任务参数记录。"""

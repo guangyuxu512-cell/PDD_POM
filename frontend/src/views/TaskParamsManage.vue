@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 
 import ConfirmDialog from '../components/ConfirmDialog.vue'
 import Modal from '../components/Modal.vue'
@@ -30,9 +30,19 @@ import { toast } from '../utils/toast'
 
 type BatchActionKey = '' | 'reset' | 'enable' | 'disable'
 type TabKey = 'taskList' | 'resultList'
+type JsonTooltipState = {
+  visible: boolean
+  content: string
+  left: number
+  top: number
+  width: number
+}
 
 const taskOptions = ['发布相似商品', '发布换图商品']
 const pageSize = 10
+const tooltipMaxWidth = 500
+const tooltipViewportPadding = 16
+const tooltipGap = 10
 
 const shops = ref<Shop[]>([])
 const batchOptions = ref<TaskParamBatchOption[]>([])
@@ -52,6 +62,14 @@ const importing = ref(false)
 const importSummary = ref<TaskParamImportResult | null>(null)
 const rowActioningIds = ref<number[]>([])
 const batchAction = ref<BatchActionKey>('')
+const jsonTooltip = ref<JsonTooltipState>({
+  visible: false,
+  content: '-',
+  left: 0,
+  top: 0,
+  width: tooltipMaxWidth,
+})
+let tooltipHideTimer: ReturnType<typeof setTimeout> | null = null
 
 const taskListFilters = ref({
   task_name: '',
@@ -246,17 +264,7 @@ function formatResultSummary(result: unknown) {
 
 function formatExecutionResult(result: unknown) {
   const newProductId = pickValue(result, ['新商品ID', 'new_product_id'])
-  const parentProductId = pickValue(result, ['父商品ID', 'parent_product_id'])
-  const parts: string[] = []
-
-  if (newProductId) {
-    parts.push(`新ID: ${newProductId}`)
-  }
-  if (parentProductId) {
-    parts.push(`父ID: ${parentProductId}`)
-  }
-
-  return parts.length ? parts.join(' / ') : '-'
+  return newProductId ? `新ID: ${newProductId}` : '-'
 }
 
 function formatFieldValue(source: unknown, keys: string[]) {
@@ -298,6 +306,60 @@ function formatShopLabel(taskParam: TaskParam) {
     return `#${taskParam.shop_id}`
   }
   return `${shopName}（#${taskParam.shop_id}）`
+}
+
+function clearTooltipHideTimer() {
+  if (tooltipHideTimer) {
+    clearTimeout(tooltipHideTimer)
+    tooltipHideTimer = null
+  }
+}
+
+function showJsonTooltip(event: MouseEvent, source: unknown) {
+  clearTooltipHideTimer()
+  const currentTarget = event.currentTarget
+  if (!(currentTarget instanceof HTMLElement)) {
+    return
+  }
+
+  const rect = currentTarget.getBoundingClientRect()
+  const tooltipWidth = Math.min(
+    tooltipMaxWidth,
+    Math.max(240, window.innerWidth - tooltipViewportPadding * 2),
+  )
+  const maxLeft = Math.max(
+    tooltipViewportPadding,
+    window.innerWidth - tooltipWidth - tooltipViewportPadding,
+  )
+  const maxTop = Math.max(
+    tooltipViewportPadding,
+    window.innerHeight - tooltipViewportPadding - 160,
+  )
+
+  jsonTooltip.value = {
+    visible: true,
+    content: formatJsonTooltip(source),
+    left: Math.min(Math.max(rect.left, tooltipViewportPadding), maxLeft),
+    top: Math.min(rect.bottom + tooltipGap, maxTop),
+    width: tooltipWidth,
+  }
+}
+
+function scheduleHideJsonTooltip() {
+  clearTooltipHideTimer()
+  tooltipHideTimer = window.setTimeout(() => {
+    jsonTooltip.value.visible = false
+    tooltipHideTimer = null
+  }, 120)
+}
+
+function keepJsonTooltipOpen() {
+  clearTooltipHideTimer()
+}
+
+function hideJsonTooltip() {
+  clearTooltipHideTimer()
+  jsonTooltip.value.visible = false
 }
 
 function replaceTaskParam(updatedTaskParam: TaskParam) {
@@ -560,6 +622,10 @@ onMounted(() => {
   void loadBatchOptions()
   void loadTaskParams()
 })
+
+onBeforeUnmount(() => {
+  clearTooltipHideTimer()
+})
 </script>
 
 <template>
@@ -735,8 +801,14 @@ onMounted(() => {
                   <span class="switch-label">{{ taskParam.enabled ? '启用' : '禁用' }}</span>
                 </label>
               </td>
-              <td class="cell-ellipsis cell-wide" :title="formatJsonTooltip(taskParam.params)">
-                {{ formatParamSummary(taskParam.params) }}
+              <td class="cell-wide">
+                <span
+                  class="tooltip-trigger cell-ellipsis cell-wide"
+                  @mouseenter="showJsonTooltip($event, taskParam.params)"
+                  @mouseleave="scheduleHideJsonTooltip"
+                >
+                  {{ formatParamSummary(taskParam.params) }}
+                </span>
               </td>
               <td>
                 <StatusBadge :status="taskParam.status" type="task" />
@@ -745,8 +817,14 @@ onMounted(() => {
               <td class="cell-ellipsis" :title="formatJsonTooltip(taskParam.result)">
                 {{ formatResultSummary(taskParam.result) }}
               </td>
-              <td class="cell-ellipsis" :title="formatJsonTooltip(taskParam.result)">
-                {{ formatExecutionResult(taskParam.result) }}
+              <td>
+                <span
+                  class="tooltip-trigger cell-ellipsis"
+                  @mouseenter="showJsonTooltip($event, taskParam.result)"
+                  @mouseleave="scheduleHideJsonTooltip"
+                >
+                  {{ formatExecutionResult(taskParam.result) }}
+                </span>
               </td>
               <td class="cell-ellipsis error-text" :title="taskParam.error || '-'">
                 {{ taskParam.error || '-' }}
@@ -889,6 +967,22 @@ onMounted(() => {
       @confirm="handleClear"
       @cancel="showClearConfirm = false"
     />
+
+    <Teleport to="body">
+      <div
+        v-if="jsonTooltip.visible"
+        class="json-tooltip-panel"
+        :style="{
+          left: `${jsonTooltip.left}px`,
+          top: `${jsonTooltip.top}px`,
+          width: `${jsonTooltip.width}px`,
+        }"
+        @mouseenter="keepJsonTooltipOpen"
+        @mouseleave="hideJsonTooltip"
+      >
+        <pre>{{ jsonTooltip.content }}</pre>
+      </div>
+    </Teleport>
   </div>
 </template>
 
@@ -1040,6 +1134,34 @@ h1 {
 
 .cell-wide {
   max-width: 320px;
+}
+
+.tooltip-trigger {
+  display: block;
+  width: 100%;
+  cursor: help;
+}
+
+.json-tooltip-panel {
+  position: fixed;
+  z-index: 3000;
+  max-width: 500px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: rgba(15, 23, 42, 0.96);
+  color: #e5eefc;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  box-shadow: 0 20px 40px rgba(15, 23, 42, 0.28);
+}
+
+.json-tooltip-panel pre {
+  margin: 0;
+  max-height: min(60vh, 420px);
+  overflow: auto;
+  font-size: 12px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 
 .empty-state {

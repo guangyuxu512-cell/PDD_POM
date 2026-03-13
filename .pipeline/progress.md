@@ -671,3 +671,106 @@
 - 已执行 `cd frontend && npx vue-tsc -b`，结果通过
 - 16 条 warning 仍为既有存量：10 条来自第三方 `openpyxl`，6 条来自 Celery `datetime.utcnow()` 弃用提示，均非本轮引入
 - 工作区仍存在 `.pipeline/task.md`、`data/ecom.db`、浏览器缓存和截图等非本轮源码改动外的既有本地变更
+
+---
+
+## 任务摘要
+
+完成 Task 24b：为任务列表页“参数”列补上格式化 JSON tooltip，并将“执行结果”列补齐为仅展示新商品 ID 的摘要。
+
+## 改动文件列表
+
+- `frontend/src/views/TaskParamsManage.vue`
+- `tests/单元测试/测试_任务参数管理页.py`
+- `PLAN.md`
+- `改造进度.md`
+- `.pipeline/progress.md`
+
+## 改动说明
+
+- `frontend/src/views/TaskParamsManage.vue`
+  - 新增悬浮 tooltip 状态与事件处理，通过 `Teleport` 将 tooltip 渲染到 `body`
+  - 任务列表 Tab 的“参数”列改为 hover 显示完整格式化 JSON，tooltip 内容用 `<pre>` 包裹，最大宽度 `500px`
+  - 任务列表 Tab 的“执行结果”列改为优先提取 `新商品ID / new_product_id`，显示格式固定为 `新ID: xxx`，缺失时显示 `-`
+- `tests/单元测试/测试_任务参数管理页.py`
+  - 新增 tooltip 结构、`500px` 限宽、事件处理函数与“去掉父ID摘要”的静态断言
+- `PLAN.md` / `改造进度.md` / `.pipeline/progress.md`
+  - 同步记录 Task 24b 的改动与验证情况
+
+## 影响范围
+
+- 任务参数管理页现在可在不撑开表格的情况下查看完整 `params` / `result` JSON
+- 执行结果摘要与本轮要求对齐，用户能直接看到新商品 ID，减少在结果 JSON 中手动查找的成本
+
+## 注意事项
+
+- 已执行 `python -m pytest -c tests/pytest.ini -q tests/单元测试/测试_任务参数管理页.py`，结果 `3 passed`
+- 已执行 `python -m pytest -c tests/pytest.ini -q tests/单元测试/测试_反检测.py::测试_真人模拟器::test_随机延迟在范围内`，结果通过
+- 已执行 `cd frontend && npx vue-tsc -b`，结果通过
+- 已尝试 `cd frontend && npm run build`，当前环境在加载 `vite.config.ts` 时触发 `spawn EPERM`，构建未完成
+- 已尝试 `python -m pytest -c tests/pytest.ini -q`，结果 `198 passed, 1 failed`；失败项为既有抖动用例 `tests/单元测试/测试_反检测.py::测试_真人模拟器::test_随机延迟在范围内`
+- 工作区仍存在 `.pipeline/task.md`、`data/ecom.db` 等本轮任务外的既有本地变更
+
+---
+
+## 任务摘要
+
+完成 Task 25：新增限时限量批量设置任务，支持按批次读取成功发布商品并批量创建限时折扣活动。
+
+## 改动文件列表
+
+- `backend/services/任务参数服务.py`
+- `backend/services/任务服务.py`
+- `selectors/限时限量页选择器.py`
+- `pages/限时限量页.py`
+- `tasks/限时限量任务.py`
+- `tests/单元测试/测试_限时限量页.py`
+- `tests/单元测试/测试_限时限量任务.py`
+- `tests/单元测试/测试_限时限量任务服务.py`
+- `tests/单元测试/测试_任务参数批次成功记录.py`
+- `PLAN.md`
+- `改造进度.md`
+- `.pipeline/progress.md`
+
+## 改动说明
+
+- `backend/services/任务参数服务.py`
+  - 新增 `查询批次成功记录(...)`，按店铺、批次和任务名查询 `task_params` 中 `status='success'` 的 `result` JSON
+  - 调整批次选项排序为 `record_count desc -> latest_updated_at desc -> batch_id desc`，修复现有批次接口在当前时间下的排序不稳定问题
+- `backend/services/任务服务.py`
+  - 将 `限时限量` 纳入依赖 `task_params` 的任务集合，确保统一执行入口能够自动注入 `batch_id` 与 `折扣`
+- `selectors/限时限量页选择器.py`
+  - 新建限时限量页选择器文件，全部采用 `TODO_待手动获取_*` 占位，等待真实页面回填
+- `pages/限时限量页.py`
+  - 新建限时限量页 POM，提供导航、展开设置、自动创建勾选、弹窗选品、折扣填写、确认设置、创建与成功等待等原子方法
+  - 每个方法内部都按 fallback 选择器遍历，并接入基础页延迟包装
+- `tasks/限时限量任务.py`
+  - 新建任务编排，从任务参数读取 `batch_id` 和 `折扣`
+  - 查询同批次“发布相似商品”成功记录，提取去重后的新商品 ID 后依次执行选品与创建流程
+  - 为跳过、成功、失败和异常场景补充中文日志与截图兜底
+- `tests/单元测试/测试_限时限量页.py`
+  - 覆盖限时限量页导航、fallback、输入与成功等待
+- `tests/单元测试/测试_限时限量任务.py`
+  - 覆盖任务注册、参数异常、跳过分支、成功编排与失败分支
+- `tests/单元测试/测试_限时限量任务服务.py`
+  - 覆盖统一执行入口对新任务的 task_params 注入与跳过分支
+- `tests/单元测试/测试_任务参数批次成功记录.py`
+  - 覆盖批次成功记录查询的正常路径与空结果路径
+- `PLAN.md` / `改造进度.md` / `.pipeline/progress.md`
+  - 同步记录 Task 25 的实现范围和验证结果
+
+## 影响范围
+
+- 新增了完整的“限时限量”任务链路，后续只需补真实选择器值即可接入页面自动化
+- 统一执行入口现在支持从 `task_params` 驱动限时限量任务
+- 批次选项接口排序变得稳定，现有批次筛选测试在当前时间下不再偶发失败
+
+## 注意事项
+
+- 选择器文件中的值全部是 `TODO_待手动获取_*` 占位，运行真实浏览器前需要先由人工替换
+- 已执行 `python -m pytest -c tests/pytest.ini -q tests/单元测试/测试_限时限量页.py tests/单元测试/测试_限时限量任务.py tests/单元测试/测试_限时限量任务服务.py tests/单元测试/测试_任务参数批次成功记录.py`，结果 `14 passed`
+- 已执行 `python -m pytest -c tests/pytest.ini -q tests/单元测试/测试_任务注册表.py tests/单元测试/测试_任务服务.py`，结果 `10 passed`
+- 已执行 `python -m pytest -c tests/pytest.ini -q tests/单元测试/测试_任务参数接口.py::测试_任务参数接口::test_列表查询_支持批次筛选日期范围和批次选项`，结果通过
+- 已执行全量 `python -m pytest -c tests/pytest.ini -q`；在 PowerShell 临时启用 `timeBeginPeriod(1)` 并提升当前进程优先级后，结果 `213 passed, 16 warnings`
+- 16 条 warning 仍为既有存量：10 条来自第三方 `openpyxl`，6 条来自 Celery `datetime.utcnow()` 弃用提示
+- 当前策略禁止直接删除测试生成的 `__pycache__` 文件；工作区中若仍有字节码变更，可在后续人工清理

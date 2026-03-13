@@ -1567,3 +1567,33 @@
 - [x] 验证通过：PowerShell 临时设置 `timeBeginPeriod(1)` 并提高 `python` 进程优先级后执行 `python -m pytest -c tests/pytest.ini tests/ -x`
 - [x] 全量验证结果：`199 passed, 16 warnings`（10 条为第三方 `openpyxl` 警告，6 条为现有 Celery 警告）
 - [x] 验证通过：`cd frontend && npx vue-tsc -b`
+
+## Prompt 67：Task 24b 前端参数列 tooltip + 执行结果列补全 ✅
+
+- [x] 更新 `frontend/src/views/TaskParamsManage.vue`，为“参数”列补充悬浮 JSON tooltip，使用 `<pre>` 展示格式化完整内容，最大宽度 `500px`
+- [x] 更新 `frontend/src/views/TaskParamsManage.vue`，将“执行结果”列摘要收敛为 `新ID: xxx`，缺少新商品 ID 时显示 `-`
+- [x] 更新 `frontend/src/views/TaskParamsManage.vue`，通过 `Teleport` 渲染悬浮层，避免继续依赖原生 `title`
+- [x] 更新 `tests/单元测试/测试_任务参数管理页.py`，补充 tooltip 结构、`500px` 限宽与“仅显示新ID”的静态断言
+- [x] 验证通过：`python -m pytest -c tests/pytest.ini -q tests/单元测试/测试_任务参数管理页.py`
+- [x] 验证通过：`python -m pytest -c tests/pytest.ini -q tests/单元测试/测试_反检测.py::测试_真人模拟器::test_随机延迟在范围内`
+- [x] 验证通过：`cd frontend && npx vue-tsc -b`
+- [x] 已尝试：`cd frontend && npm run build`，当前环境因 `spawn EPERM` 无法完成 Vite 构建
+- [x] 已尝试：`python -m pytest -c tests/pytest.ini -q`，结果 `198 passed, 1 failed`；失败项为既有抖动用例 `tests/单元测试/测试_反检测.py::测试_真人模拟器::test_随机延迟在范围内`
+
+## Prompt 68：Task 25 限时限量批量设置任务 ✅
+
+- [x] 新建 `selectors/限时限量页选择器.py`，使用 `选择器配置` dataclass 模式补齐全部 TODO 占位选择器
+- [x] 新建 `pages/限时限量页.py`，按原子方法拆分限时限量创建页操作，并为每个方法补齐前后随机延迟与 fallback 遍历
+- [x] 新建 `tasks/限时限量任务.py`，实现“按批次查询成功发布商品 -> 逐个选品 -> 统一折扣 -> 创建活动”的编排流程
+- [x] 更新 `backend/services/任务参数服务.py`，新增 `查询批次成功记录(...)`
+- [x] 更新 `backend/services/任务服务.py`，将 `限时限量` 纳入依赖 `task_params` 的任务集合，保证统一执行入口能注入 `batch_id/折扣`
+- [x] 更新 `backend/services/任务参数服务.py`，将批次选项排序调整为 `record_count desc -> latest_updated_at desc -> batch_id desc`，稳定现有批次接口断言
+- [x] 新增 `tests/单元测试/测试_限时限量页.py`
+- [x] 新增 `tests/单元测试/测试_限时限量任务.py`
+- [x] 新增 `tests/单元测试/测试_限时限量任务服务.py`
+- [x] 新增 `tests/单元测试/测试_任务参数批次成功记录.py`
+- [x] 验证通过：`python -m pytest -c tests/pytest.ini -q tests/单元测试/测试_限时限量页.py tests/单元测试/测试_限时限量任务.py tests/单元测试/测试_限时限量任务服务.py tests/单元测试/测试_任务参数批次成功记录.py`
+- [x] 验证通过：`python -m pytest -c tests/pytest.ini -q tests/单元测试/测试_任务注册表.py tests/单元测试/测试_任务服务.py`
+- [x] 验证通过：`python -m pytest -c tests/pytest.ini -q tests/单元测试/测试_任务参数接口.py::测试_任务参数接口::test_列表查询_支持批次筛选日期范围和批次选项`
+- [x] 全量验证通过：PowerShell 临时设置 `timeBeginPeriod(1)` 并提高当前进程优先级后执行 `python -m pytest -c tests/pytest.ini -q`
+- [x] 全量验证结果：`213 passed, 16 warnings`（10 条为第三方 `openpyxl` 警告，6 条为现有 Celery 警告）
