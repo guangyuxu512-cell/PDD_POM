@@ -1635,3 +1635,33 @@
 - [x] 邻近回归验证结果：`9 passed`
 - [x] 验证通过：`python -m pytest -c tests/pytest.ini -q`
 - [x] 全量验证结果：`225 passed, 16 warnings`（10 条为第三方 `openpyxl` 警告，6 条为现有 Celery 警告）
+
+## Prompt 71：Task 28 发布页加载等待 + 限时限量创建条件优化 ✅
+
+- [x] 更新 `tasks/发布相似商品任务.py`，引入 `发布商品页选择器` 并在进入发布页后等待“商品标题输入框”可见，最长 30 秒
+- [x] 更新 `tasks/发布相似商品任务.py`，在等待开始时上报“等待发布页表单渲染”，超时后上报“发布页表单渲染超时，继续尝试”
+- [x] 保持 `pages/` 与 `selectors/` 选择器值不变，仅复用既有 `商品标题输入框` 配置
+- [x] 更新 `backend/services/任务参数服务.py`，将 `批次完成后创建后续任务(...)` 的阻塞条件从 `pending/running` 收敛为仅 `running`
+- [x] 更新 `backend/services/任务参数服务.py`，为各个 `return 0` 分支补充明确日志：已存在后续记录、无发布记录、仍有运行中记录、无成功记录、无折扣值
+- [x] 更新 `tests/单元测试/测试_批次完成后自动创建限时限量.py`，覆盖 `pending` 不再阻塞、`running` 仍阻塞、无折扣跳过
+- [x] 新增 `tests/单元测试/测试_发布相似商品任务发布页等待.py`，覆盖发布页关键表单等待成功与超时继续执行
+- [x] 针对性验证通过：`python -m pytest -c tests/pytest.ini -q tests/单元测试/测试_发布相似商品任务.py tests/单元测试/测试_发布相似商品任务发布页等待.py tests/单元测试/测试_发布相似商品任务收尾恢复.py`
+- [x] 针对性验证结果：`10 passed`
+- [x] 邻近回归验证通过：`python -m pytest -c tests/pytest.ini -q tests/单元测试/测试_批次完成后自动创建限时限量.py tests/单元测试/测试_任务服务浏览器复用与后续任务.py tests/单元测试/测试_限时限量任务服务.py`
+- [x] 邻近回归验证结果：`10 passed`
+- [x] 验证通过：`python -m pytest -c tests/pytest.ini -q`
+- [x] 全量验证结果：`229 passed, 16 warnings`（10 条为第三方 `openpyxl` 警告，6 条为现有 Celery 警告）
+
+## Prompt 72：Task 29 去掉发布页关闭弹窗 + 限时限量创建兜底 ✅
+
+- [x] 更新 `tasks/发布相似商品任务.py`，保留 Task 28 的发布页关键表单等待逻辑，但删除 `await 发布页对象.关闭所有弹窗()`
+- [x] 更新 `backend/services/任务参数服务.py`，在成功记录无折扣值时仍创建 `限时限量` 记录，并将 `折扣` 写为 `None`
+- [x] 更新 `backend/services/任务参数服务.py`，新增日志：`批次 {批次ID} 成功记录无折扣值，限时限量记录折扣为空，需手动补充`
+- [x] 更新 `tests/单元测试/测试_发布相似商品任务发布页等待.py`，改为断言发布相似商品任务不再调用 `关闭所有弹窗()`
+- [x] 更新 `tests/单元测试/测试_批次完成后自动创建限时限量.py`，将“无折扣跳过”改为“无折扣仍创建空折扣记录”
+- [x] 针对性验证通过：`python -m pytest -c tests/pytest.ini -q tests/单元测试/测试_发布相似商品任务.py tests/单元测试/测试_发布相似商品任务发布页等待.py`
+- [x] 针对性验证结果：`9 passed`
+- [x] 邻近回归验证通过：`python -m pytest -c tests/pytest.ini -q tests/单元测试/测试_批次完成后自动创建限时限量.py tests/单元测试/测试_任务服务浏览器复用与后续任务.py tests/单元测试/测试_限时限量任务服务.py`
+- [x] 邻近回归验证结果：`10 passed`
+- [x] 验证通过：`python -m pytest -c tests/pytest.ini -q`
+- [x] 全量验证结果：`229 passed, 16 warnings`（10 条为第三方 `openpyxl` 警告，6 条为现有 Celery 警告）

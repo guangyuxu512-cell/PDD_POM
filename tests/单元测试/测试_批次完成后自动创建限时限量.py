@@ -73,8 +73,8 @@ class 测试_批次完成后自动创建限时限量:
         assert 记录["params"] == {"batch_id": "batch-auto", "折扣": 6}
 
     @pytest.mark.asyncio
-    async def test_批次完成后创建后续任务_存在未完成记录时跳过(self, 临时环境: Path):
-        店铺 = await 店铺服务实例.创建({"name": "未完成批次店铺", "username": "pending-shop", "password": "pwd"})
+    async def test_批次完成后创建后续任务_pending记录不再阻塞创建(self, 临时环境: Path):
+        店铺 = await 店铺服务实例.创建({"name": "待执行批次店铺", "username": "pending-shop", "password": "pwd"})
         店铺ID = 店铺["id"]
 
         await 任务参数服务实例.创建(
@@ -100,9 +100,64 @@ class 测试_批次完成后自动创建限时限量:
 
         创建数量 = await 任务参数服务实例.批次完成后创建后续任务("batch-pending")
 
-        assert 创建数量 == 0
+        assert 创建数量 == 1
         列表 = await 任务参数服务实例.分页查询(task_name="限时限量", batch_id="batch-pending")
+        assert 列表["total"] == 1
+
+    @pytest.mark.asyncio
+    async def test_批次完成后创建后续任务_running记录仍然阻塞创建(self, 临时环境: Path):
+        店铺 = await 店铺服务实例.创建({"name": "运行中批次店铺", "username": "running-shop", "password": "pwd"})
+        店铺ID = 店铺["id"]
+
+        await 任务参数服务实例.创建(
+            {
+                "shop_id": 店铺ID,
+                "task_name": "发布相似商品",
+                "params": {"parent_product_id": "9001", "discount": 6},
+                "status": "success",
+                "result": {"new_product_id": "new-1"},
+                "batch_id": "batch-running",
+            }
+        )
+        await 任务参数服务实例.创建(
+            {
+                "shop_id": 店铺ID,
+                "task_name": "发布相似商品",
+                "params": {"parent_product_id": "9002", "discount": 6},
+                "status": "running",
+                "result": {},
+                "batch_id": "batch-running",
+            }
+        )
+
+        创建数量 = await 任务参数服务实例.批次完成后创建后续任务("batch-running")
+
+        assert 创建数量 == 0
+        列表 = await 任务参数服务实例.分页查询(task_name="限时限量", batch_id="batch-running")
         assert 列表["total"] == 0
+
+    @pytest.mark.asyncio
+    async def test_批次完成后创建后续任务_缺少折扣时创建空折扣记录(self, 临时环境: Path):
+        店铺 = await 店铺服务实例.创建({"name": "无折扣批次店铺", "username": "no-discount", "password": "pwd"})
+        店铺ID = 店铺["id"]
+
+        await 任务参数服务实例.创建(
+            {
+                "shop_id": 店铺ID,
+                "task_name": "发布相似商品",
+                "params": {"parent_product_id": "9001"},
+                "status": "success",
+                "result": {"new_product_id": "new-1"},
+                "batch_id": "batch-no-discount",
+            }
+        )
+
+        创建数量 = await 任务参数服务实例.批次完成后创建后续任务("batch-no-discount")
+
+        assert 创建数量 == 1
+        列表 = await 任务参数服务实例.分页查询(task_name="限时限量", batch_id="batch-no-discount")
+        assert 列表["total"] == 1
+        assert 列表["list"][0]["params"] == {"batch_id": "batch-no-discount", "折扣": None}
 
     @pytest.mark.asyncio
     async def test_批次完成后创建后续任务_重复调用保持幂等(self, 临时环境: Path):

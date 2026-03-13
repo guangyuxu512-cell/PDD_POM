@@ -1,11 +1,13 @@
 """发布相似商品任务模块"""
 import asyncio
+import inspect
 import random
 
 from backend.services.任务参数服务 import 任务参数服务实例
 from browser.任务回调 import 自动回调, 上报
 from pages.发布商品页 import 发布商品页
 from pages.商品列表页 import 商品列表页
+from selectors.发布商品页选择器 import 发布商品页选择器
 from tasks.基础任务 import 基础任务
 from tasks.注册表 import register_task
 
@@ -144,7 +146,26 @@ class 发布相似商品任务(基础任务):
             await 上报("等待发布页加载", 店铺ID)
             await 新页面.wait_for_load_state("domcontentloaded")
             发布页对象 = 发布商品页(新页面)
-            await 发布页对象.关闭所有弹窗()
+
+            await 上报("等待发布页表单渲染", 店铺ID)
+            try:
+                for 选择器 in 发布商品页选择器.商品标题输入框.所有选择器():
+                    try:
+                        等待结果 = 新页面.wait_for_selector(
+                            选择器,
+                            state="visible",
+                            timeout=30000,
+                        )
+                        if inspect.isawaitable(等待结果):
+                            await 等待结果
+                        break
+                    except Exception:
+                        continue
+                else:
+                    raise TimeoutError("发布页关键表单元素渲染超时")
+            except Exception:
+                await 上报("发布页表单渲染超时，继续尝试", 店铺ID)
+
             await self._步骤间延迟()
 
             初始新商品ID = await 发布页对象.提取商品ID()

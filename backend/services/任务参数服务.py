@@ -703,6 +703,7 @@ class 任务参数服务:
         """为已完成的发布相似商品批次幂等创建一条限时限量记录。"""
         批次ID = str(batch_id or "").strip()
         if not 批次ID:
+            print("[任务参数服务] batch_id 为空，跳过自动创建限时限量")
             return 0
 
         async with 获取连接() as 连接:
@@ -719,6 +720,7 @@ class 任务参数服务:
                     (批次ID,),
                 ) as 游标:
                     if await 游标.fetchone():
+                        print(f"[任务参数服务] 批次 {批次ID} 已存在限时限量记录，跳过")
                         await 连接.rollback()
                         return 0
 
@@ -735,10 +737,17 @@ class 任务参数服务:
                     发布记录列表 = await 游标.fetchall()
 
                 if not 发布记录列表:
+                    print(f"[任务参数服务] 批次 {批次ID} 中无发布相似商品记录，跳过")
                     await 连接.rollback()
                     return 0
 
-                if any(str(记录["status"]) in {"pending", "running"} for 记录 in 发布记录列表):
+                运行中数量 = sum(
+                    1
+                    for 记录 in 发布记录列表
+                    if str(记录["status"]) == "running"
+                )
+                if 运行中数量:
+                    print(f"[任务参数服务] 批次 {批次ID} 还有 {运行中数量} 条运行中的记录，等待完成")
                     await 连接.rollback()
                     return 0
 
@@ -748,10 +757,12 @@ class 任务参数服务:
                     if str(记录["status"]) == "success"
                 ]
                 if not 成功记录列表:
+                    print(f"[任务参数服务] 批次 {批次ID} 中无成功记录，跳过")
                     await 连接.rollback()
                     return 0
 
-                店铺ID = ""
+                首条成功记录 = 成功记录列表[0]
+                店铺ID = str(首条成功记录["shop_id"] or "").strip()
                 折扣值 = None
                 for 成功记录 in 成功记录列表:
                     参数 = self._解析JSON(成功记录["params"])
@@ -759,13 +770,17 @@ class 任务参数服务:
                     if 当前折扣值 in (None, ""):
                         continue
 
-                    店铺ID = str(成功记录["shop_id"] or "").strip()
                     折扣值 = 当前折扣值
                     break
 
-                if not 店铺ID or 折扣值 in (None, ""):
+                if not 店铺ID:
+                    print(f"[任务参数服务] 批次 {批次ID} 成功记录缺少 shop_id，跳过自动创建限时限量")
                     await 连接.rollback()
                     return 0
+
+                if 折扣值 in (None, ""):
+                    print(f"[任务参数服务] 批次 {批次ID} 成功记录无折扣值，限时限量记录折扣为空，需手动补充")
+                    折扣值 = None
 
                 await 连接.execute(
                     """
