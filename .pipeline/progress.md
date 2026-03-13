@@ -1124,3 +1124,105 @@
 - 已执行 `python -m pytest -c tests/pytest.ini -q`，结果 `238 passed, 16 warnings`
 - 已执行 `npx vue-tsc -b`（`frontend/` 目录），结果通过
 - 16 条 warning 仍为既有存量：10 条来自第三方 `openpyxl`，6 条来自 Celery `datetime.utcnow()` 弃用提示
+
+---
+
+## 任务摘要
+
+完成 Task 32：为任务参数管理页新增“流程参数”Tab，展示 `flow_params` 数据并支持筛选、分页、单条/批量操作，同时修复 flow 模式导入后不刷新的问题。
+
+## 改动文件列表
+
+- `frontend/src/api/flowParams.ts`
+- `frontend/src/views/TaskParamsManage.vue`
+- `tests/单元测试/测试_流程参数管理页静态.py`
+- `PLAN.md`
+- `改造进度.md`
+- `.pipeline/progress.md`
+
+## 改动说明
+
+- `frontend/src/api/flowParams.ts`
+  - 补充 `resetFlowParam`、`enableFlowParam`、`disableFlowParam`
+  - 单条操作通过 `updateFlowParam(...)` 退化实现，以兼容当前后端接口能力
+- `frontend/src/views/TaskParamsManage.vue`
+  - 将 `TabKey` 扩展为 `taskList | resultList | flowParams`
+  - 新增流程参数列表状态、筛选状态、分页状态和 `loadFlowParams(...)`
+  - 新增“流程参数”Tab、筛选栏、表格、toolbar 与分页分支
+  - 表格复用现有 `StatusBadge`、JSON tooltip、启用开关和按钮样式
+  - 导入成功后，若当前为绑定流程模式，会自动 `loadFlowParams(1)` 并切换到 `flowParams` Tab
+  - header 区域在 `flowParams` Tab 也显示“清空 / 导入CSV”按钮
+- `tests/单元测试/测试_流程参数管理页静态.py`
+  - 新增静态回归，覆盖 flowParams API 方法、流程参数 Tab、筛选/列表/批量操作和导入后自动切换刷新
+- `PLAN.md` / `改造进度.md` / `.pipeline/progress.md`
+  - 同步记录 Task 32 的实现范围与验证结果
+
+## 影响范围
+
+- 任务参数管理页现在可以直接查看、筛选和维护 `flow_params` 记录，不需要额外页面
+- 绑定流程导入成功后会立即看到导入结果，减少重复手动切 Tab 刷新的操作
+- 任务参数页现有“任务列表 / 执行结果”逻辑保持不变，只新增了第三个 flow params 视图分支
+
+## 注意事项
+
+- 本轮按要求未修改任何后端代码
+- `flowParams.ts` 的单条 reset/enable/disable 目前通过 `PUT /api/flow-params/{id}` 退化实现；若后端未来补单独接口，可直接切换
+- 已执行 `python -m pytest -c tests/pytest.ini -q tests/单元测试/测试_任务参数管理页.py tests/单元测试/测试_流程参数导入静态页.py tests/单元测试/测试_流程参数管理页静态.py`，结果 `7 passed`
+- 已执行 `npx vue-tsc -b`（`frontend/` 目录），结果通过
+- 已执行全量 `python -m pytest -c tests/pytest.ini -q`，结果 `240 passed, 16 warnings`
+- 16 条 warning 仍为既有存量：10 条来自第三方 `openpyxl`，6 条来自 Celery `datetime.utcnow()` 弃用提示
+
+---
+
+## 任务摘要
+
+完成 Task 33：将 Celery Worker 的任务执行从进程内直调改为通过 HTTP 委托主进程执行，避免双进程争抢 Chrome profile 导致的浏览器冲突。
+
+## 改动文件列表
+
+- `backend/配置.py`
+- `backend/api/任务接口.py`
+- `tasks/执行任务.py`
+- `tests/单元测试/测试_任务接口内部执行.py`
+- `tests/单元测试/测试_执行任务.py`
+- `tests/单元测试/测试_批量执行店铺名.py`
+- `PLAN.md`
+- `改造进度.md`
+- `.pipeline/progress.md`
+
+## 改动说明
+
+- `backend/配置.py`
+  - 新增 `API_BASE_URL` 配置项，用于 Worker 访问主进程
+- `backend/api/任务接口.py`
+  - 新增内部接口 `POST /api/tasks/execute-internal`
+  - 接口会创建任务日志，调用主进程任务执行链路，并等待执行完成后同步返回结果
+  - 对 `flow_param_id` 场景，内部接口在主进程侧负责读取 `flow_context`、回写 `step_results` 与更新流程状态
+- `tasks/执行任务.py`
+  - 去掉 Worker 直调 `任务服务实例.统一执行任务()` 的主流程
+  - 改为通过 `httpx.Client` 调用主进程内部执行接口
+  - 保留 Worker 端 `abort / continue / retry` 策略判断与 Redis 批次状态更新
+  - 为兼容既有测试，补回 `_运行异步任务` 和 `_在线程中执行临时协程` helper，但主流程已不再使用
+- `tests/单元测试/测试_任务接口内部执行.py`
+  - 新增内部执行接口的正常路径与异常路径测试
+- `tests/单元测试/测试_执行任务.py`
+  - 更新为覆盖 HTTP 委托后的 Worker 执行逻辑
+- `tests/单元测试/测试_批量执行店铺名.py`
+  - 更新为断言 Worker 通过 HTTP 调用时仍会正确传递 `shop_name`
+- `PLAN.md` / `改造进度.md` / `.pipeline/progress.md`
+  - 同步记录 Task 33 的实现范围与验证结果
+
+## 影响范围
+
+- Celery Worker 不再在自身进程里打开浏览器或争抢 Chrome profile，浏览器实际操作统一回到 FastAPI 主进程
+- 批量链路的 `on_fail` 策略仍然在 Worker 端判断，原有 Redis 批次状态推送逻辑保持不变
+- flow 模式下，步骤上下文读取与结果回写也迁移到了主进程内部执行接口侧，避免 Worker 端再碰浏览器执行链路
+
+## 注意事项
+
+- 本轮未修改任何前端代码
+- 已执行 `python -m pytest -c tests/pytest.ini -q tests/单元测试/测试_执行任务.py tests/单元测试/测试_任务接口内部执行.py tests/单元测试/测试_批量执行店铺名.py`，结果 `13 passed`
+- 已执行 `python -m pytest -c tests/pytest.ini -q tests/单元测试/测试_执行服务.py tests/单元测试/测试_任务服务.py`，结果 `11 passed`
+- 已执行 `python -m pytest -c tests/pytest.ini -q tests/单元测试/测试_线程池事件循环.py`，结果 `4 passed`
+- 已执行全量 `python -m pytest -c tests/pytest.ini -q`，结果 `242 passed, 16 warnings`
+- 16 条 warning 仍为既有存量：10 条来自第三方 `openpyxl`，6 条来自 Celery `datetime.utcnow()` 弃用提示

@@ -168,22 +168,24 @@ class 测试_Worker店铺名日志:
             request=SimpleNamespace(id="celery-1", retries=0),
             retry=MagicMock(),
         )
+        响应数据 = {
+            "code": 0,
+            "data": {
+                "task_id": "task-log-1",
+                "status": "completed",
+                "result": "成功",
+            },
+        }
+        客户端 = MagicMock()
+        客户端.post.return_value.json.return_value = 响应数据
+        客户端.post.return_value.raise_for_status.return_value = None
+        客户端上下文 = MagicMock()
+        客户端上下文.__enter__.return_value = 客户端
+        客户端上下文.__exit__.return_value = False
 
         with patch("tasks.执行任务.初始化Worker环境"), \
                 patch("tasks.执行任务.获取任务类"), \
-                patch("tasks.执行任务._运行异步任务", side_effect=lambda 值: 值), \
-                patch(
-                    "tasks.执行任务.任务服务实例.创建任务记录",
-                    new=MagicMock(return_value={"task_id": "task-log-1"}),
-                ) as 模拟创建任务记录, \
-                patch(
-                    "tasks.执行任务.任务服务实例.统一执行任务",
-                    new=MagicMock(return_value={
-                        "task_id": "task-log-1",
-                        "status": "completed",
-                        "result": "成功",
-                    }),
-                ) as 模拟统一执行任务, \
+                patch("tasks.执行任务.httpx.Client", return_value=客户端上下文), \
                 patch("tasks.执行任务.同步更新批次店铺状态"), \
                 patch("builtins.print") as 模拟打印:
             结果 = 执行任务函数(
@@ -198,8 +200,7 @@ class 测试_Worker店铺名日志:
             )
 
         assert 结果["shop_name"] == "MyCookLab"
-        assert 模拟创建任务记录.call_args.kwargs["params"]["shop_name"] == "MyCookLab"
-        assert 模拟统一执行任务.call_args.kwargs["params"]["shop_name"] == "MyCookLab"
+        assert 客户端.post.call_args.kwargs["json"]["params"]["shop_name"] == "MyCookLab"
         assert any("shop_name=MyCookLab" in str(调用) for 调用 in 模拟打印.call_args_list)
 
     def test_执行任务_shop_name缺失时回退shop_id(self):
@@ -207,22 +208,24 @@ class 测试_Worker店铺名日志:
             request=SimpleNamespace(id="celery-1", retries=0),
             retry=MagicMock(),
         )
+        响应数据 = {
+            "code": 0,
+            "data": {
+                "task_id": "task-log-2",
+                "status": "failed",
+                "error": "boom",
+            },
+        }
+        客户端 = MagicMock()
+        客户端.post.return_value.json.return_value = 响应数据
+        客户端.post.return_value.raise_for_status.return_value = None
+        客户端上下文 = MagicMock()
+        客户端上下文.__enter__.return_value = 客户端
+        客户端上下文.__exit__.return_value = False
 
         with patch("tasks.执行任务.初始化Worker环境"), \
                 patch("tasks.执行任务.获取任务类"), \
-                patch("tasks.执行任务._运行异步任务", side_effect=lambda 值: 值), \
-                patch(
-                    "tasks.执行任务.任务服务实例.创建任务记录",
-                    new=MagicMock(return_value={"task_id": "task-log-2"}),
-                ), \
-                patch(
-                    "tasks.执行任务.任务服务实例.统一执行任务",
-                    new=MagicMock(return_value={
-                        "task_id": "task-log-2",
-                        "status": "failed",
-                        "error": "boom",
-                    }),
-                ), \
+                patch("tasks.执行任务.httpx.Client", return_value=客户端上下文), \
                 patch("tasks.执行任务.同步更新批次店铺状态"), \
                 patch("builtins.print") as 模拟打印:
             结果 = 执行任务函数(

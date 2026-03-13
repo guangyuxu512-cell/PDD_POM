@@ -38,6 +38,7 @@ class 配置(BaseSettings):
     # 服务端口
     FRONTEND_PORT: int = 3000
     BACKEND_PORT: int = 8000
+    API_BASE_URL: str = "http://localhost:8000"
 
     # Agent 回调地址
     AGENT_CALLBACK_URL: Optional[str] = None

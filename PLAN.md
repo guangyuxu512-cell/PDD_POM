@@ -1717,3 +1717,40 @@
 - [x] 验证通过：`python -m pytest -c tests/pytest.ini -q`
 - [x] 验证通过：在 `frontend/` 目录执行 `npx vue-tsc -b`
 - [x] 全量验证结果：`238 passed, 16 warnings`（10 条为第三方 `openpyxl` 警告，6 条为现有 Celery 警告）
+
+## Prompt 75：Task 32 任务参数管理页新增“流程参数”Tab ✅
+
+- [x] 更新 `frontend/src/api/flowParams.ts`，补充 `resetFlowParam`、`enableFlowParam`、`disableFlowParam`
+- [x] 复用现有 `listFlowParams`、`deleteFlowParam`、`batchResetFlowParams`、`batchEnableFlowParams`、`batchDisableFlowParams`、`clearFlowParams`
+- [x] 复核 `frontend/src/api/types.ts`，沿用已有 `FlowParam`、`FlowParamFilters` 等类型
+- [x] 更新 `frontend/src/views/TaskParamsManage.vue`，新增第三个 Tab `flowParams`
+- [x] 更新 `frontend/src/views/TaskParamsManage.vue`，新增流程参数相关状态、筛选、分页、单条操作和批量操作逻辑
+- [x] 更新 `frontend/src/views/TaskParamsManage.vue`，新增流程参数表格、JSON tooltip、步骤进度和流程名称映射显示
+- [x] 更新 `frontend/src/views/TaskParamsManage.vue`，修复 flow 模式导入后自动刷新流程参数列表并切换到“流程参数”Tab
+- [x] 更新 `frontend/src/views/TaskParamsManage.vue`，让 header 的“清空 / 导入CSV”按钮在 `flowParams` Tab 也显示
+- [x] 新增 `tests/单元测试/测试_流程参数管理页静态.py`
+- [x] 针对性验证通过：`python -m pytest -c tests/pytest.ini -q tests/单元测试/测试_任务参数管理页.py tests/单元测试/测试_流程参数导入静态页.py tests/单元测试/测试_流程参数管理页静态.py`
+- [x] 针对性验证结果：`7 passed`
+- [x] 验证通过：在 `frontend/` 目录执行 `npx vue-tsc -b`
+- [x] 验证通过：`python -m pytest -c tests/pytest.ini -q`
+- [x] 全量验证结果：`240 passed, 16 warnings`（10 条为第三方 `openpyxl` 警告，6 条为现有 Celery 警告）
+
+## Prompt 76：Task 33 Celery Worker 通过 HTTP 委托主进程执行任务 ✅
+
+- [x] 更新 `backend/配置.py`，新增 `API_BASE_URL`，默认 `http://localhost:8000`
+- [x] 更新 `backend/api/任务接口.py`，新增内部阻塞接口 `POST /api/tasks/execute-internal`
+- [x] 更新 `backend/api/任务接口.py`，内部接口支持 `flow_param_id` 并在主进程侧读取 `flow_context`、回写 `step_results`
+- [x] 更新 `tasks/执行任务.py`，改为通过 `httpx.Client` 调用主进程 `/api/tasks/execute-internal`
+- [x] 更新 `tasks/执行任务.py`，保留 Worker 端 `on_fail` 判定和 Redis 批次状态更新
+- [x] 更新 `tasks/执行任务.py`，兼容补回 `_运行异步任务` / `_在线程中执行临时协程` 以通过既有事件循环测试，但主流程已不再使用
+- [x] 新增 `tests/单元测试/测试_任务接口内部执行.py`
+- [x] 更新 `tests/单元测试/测试_执行任务.py`
+- [x] 更新 `tests/单元测试/测试_批量执行店铺名.py`
+- [x] 针对性验证通过：`python -m pytest -c tests/pytest.ini -q tests/单元测试/测试_执行任务.py tests/单元测试/测试_任务接口内部执行.py tests/单元测试/测试_批量执行店铺名.py`
+- [x] 针对性验证结果：`13 passed`
+- [x] 邻近回归验证通过：`python -m pytest -c tests/pytest.ini -q tests/单元测试/测试_执行服务.py tests/单元测试/测试_任务服务.py`
+- [x] 邻近回归验证结果：`11 passed`
+- [x] 兼容验证通过：`python -m pytest -c tests/pytest.ini -q tests/单元测试/测试_线程池事件循环.py`
+- [x] 兼容验证结果：`4 passed`
+- [x] 验证通过：`python -m pytest -c tests/pytest.ini -q`
+- [x] 全量验证结果：`242 passed, 16 warnings`（10 条为第三方 `openpyxl` 警告，6 条为现有 Celery 警告）

@@ -4,7 +4,18 @@ import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import ConfirmDialog from '../components/ConfirmDialog.vue'
 import Modal from '../components/Modal.vue'
 import StatusBadge from '../components/StatusBadge.vue'
-import { importFlowParams } from '../api/flowParams'
+import {
+  batchDisableFlowParams,
+  batchEnableFlowParams,
+  batchResetFlowParams,
+  clearFlowParams,
+  deleteFlowParam,
+  disableFlowParam,
+  enableFlowParam,
+  importFlowParams,
+  listFlowParams,
+  resetFlowParam,
+} from '../api/flowParams'
 import { listFlows } from '../api/flows'
 import { listShops } from '../api/shops'
 import { listAvailableTasks } from '../api/tasks'
@@ -24,6 +35,9 @@ import {
 import type {
   AvailableTask,
   Flow,
+  FlowParam,
+  FlowParamBatchPayload,
+  FlowParamFilters,
   FlowParamImportResult,
   Shop,
   TaskParam,
@@ -36,7 +50,7 @@ import { toast } from '../utils/toast'
 
 type BatchActionKey = '' | 'reset' | 'enable' | 'disable'
 type ImportBindingMode = 'task' | 'flow'
-type TabKey = 'taskList' | 'resultList'
+type TabKey = 'taskList' | 'resultList' | 'flowParams'
 type JsonTooltipState = {
   visible: boolean
   content: string
@@ -56,10 +70,13 @@ const shops = ref<Shop[]>([])
 const batchOptions = ref<TaskParamBatchOption[]>([])
 const taskParams = ref<TaskParam[]>([])
 const resultTaskParams = ref<TaskParam[]>([])
+const flowParams = ref<FlowParam[]>([])
 const taskParamTotal = ref(0)
 const resultTotal = ref(0)
+const flowParamTotal = ref(0)
 const taskListPage = ref(1)
 const resultPage = ref(1)
+const flowParamPage = ref(1)
 const activeTab = ref<TabKey>('taskList')
 const loading = ref(false)
 const showImportModal = ref(false)
@@ -96,14 +113,28 @@ const resultFilters = ref({
   updated_from: '',
   updated_to: '',
 })
+const flowParamFilters = ref({
+  flow_id: '',
+  status: '',
+  shop_id: '',
+})
 
 const isTaskListTab = computed(() => activeTab.value === 'taskList')
+const isFlowParamsTab = computed(() => activeTab.value === 'flowParams')
 const totalPages = computed(() => {
-  const totalCount = isTaskListTab.value ? taskParamTotal.value : resultTotal.value
+  const totalCount = isTaskListTab.value
+    ? taskParamTotal.value
+    : isFlowParamsTab.value
+      ? flowParamTotal.value
+      : resultTotal.value
   return Math.max(1, Math.ceil(totalCount / pageSize))
 })
-const currentPage = computed(() => (isTaskListTab.value ? taskListPage.value : resultPage.value))
-const currentTotal = computed(() => (isTaskListTab.value ? taskParamTotal.value : resultTotal.value))
+const currentPage = computed(() => (
+  isTaskListTab.value ? taskListPage.value : isFlowParamsTab.value ? flowParamPage.value : resultPage.value
+))
+const currentTotal = computed(() => (
+  isTaskListTab.value ? taskParamTotal.value : isFlowParamsTab.value ? flowParamTotal.value : resultTotal.value
+))
 const taskOptions = computed(() => availableTasks.value.map((task) => task.name))
 const flowOptions = computed(() => flows.value)
 
@@ -153,6 +184,14 @@ const currentTemplateExample = computed(() => {
   return '示例：店铺ID、父商品ID、新标题、发布次数'
 })
 const supportsPublishCount = computed(() => currentTemplateColumns.value.includes('发布次数'))
+const currentTemplateFileName = computed(() => {
+  if (importBindingMode.value === 'flow') {
+    const flowName = flows.value.find((flow) => flow.id === importFlowId.value)?.name || '流程参数'
+    return `${flowName}_模板.csv`
+  }
+
+  return `${importTaskName.value || '任务参数'}_模板.csv`
+})
 
 const shopNameMap = computed<Record<string, string>>(() =>
   Object.fromEntries(shops.value.map((shop) => [shop.id, shop.name])),
@@ -220,12 +259,32 @@ function buildResultFilters(page = resultPage.value): TaskParamFilters {
   }
 }
 
+function buildFlowParamFilters(page = flowParamPage.value): FlowParamFilters {
+  return {
+    page,
+    page_size: pageSize,
+    shop_id: flowParamFilters.value.shop_id || undefined,
+    flow_id: flowParamFilters.value.flow_id || undefined,
+    status: flowParamFilters.value.status || undefined,
+    sort_by: 'created_at',
+    sort_order: 'desc',
+  }
+}
+
 function buildBatchPayload(): TaskParamBatchPayload {
   return {
     shop_id: taskListFilters.value.shop_id || undefined,
     task_name: taskListFilters.value.task_name || undefined,
     status: taskListFilters.value.status || undefined,
     batch_id: taskListFilters.value.batch_id || undefined,
+  }
+}
+
+function buildFlowParamBatchPayload(): FlowParamBatchPayload {
+  return {
+    shop_id: flowParamFilters.value.shop_id || undefined,
+    flow_id: flowParamFilters.value.flow_id || undefined,
+    status: flowParamFilters.value.status || undefined,
   }
 }
 
@@ -251,6 +310,14 @@ function hasExplicitBatchFilter() {
       || taskListFilters.value.task_name
       || taskListFilters.value.status
       || taskListFilters.value.batch_id,
+  )
+}
+
+function hasExplicitFlowParamFilter() {
+  return Boolean(
+    flowParamFilters.value.shop_id
+      || flowParamFilters.value.flow_id
+      || flowParamFilters.value.status,
   )
 }
 
@@ -392,6 +459,33 @@ function formatShopLabel(taskParam: TaskParam) {
     return `#${taskParam.shop_id}`
   }
   return `${shopName}（#${taskParam.shop_id}）`
+}
+
+function formatFlowParamShopLabel(flowParam: FlowParam) {
+  const shopName = shopNameMap.value[flowParam.shop_id] || flowParam.shop_name
+  if (!shopName) {
+    return `#${flowParam.shop_id}`
+  }
+  return `${shopName}（#${flowParam.shop_id}）`
+}
+
+function getFlowName(flowId: string) {
+  const matchedFlow = flows.value.find((flow) => flow.id === flowId)
+  return matchedFlow?.name || flowId.slice(0, 8)
+}
+
+function formatFlowProgress(flowParam: FlowParam) {
+  const matchedFlow = flows.value.find((flow) => flow.id === flowParam.flow_id)
+  return `${flowParam.current_step} / ${matchedFlow?.steps.length || '?'}`
+}
+
+function formatStepResultsSummary(stepResults: unknown) {
+  const record = normalizeJson(stepResults)
+  const stepNames = Object.keys(record)
+  if (!stepNames.length) {
+    return '-'
+  }
+  return stepNames.slice(0, 3).join(' / ')
 }
 
 function clearTooltipHideTimer() {
@@ -539,6 +633,21 @@ async function loadResultTaskParams(page = resultPage.value) {
   }
 }
 
+async function loadFlowParams(page = flowParamPage.value) {
+  loading.value = true
+  try {
+    const result = await listFlowParams(buildFlowParamFilters(page))
+    flowParamPage.value = page
+    flowParams.value = result.list
+    flowParamTotal.value = result.total
+  } catch (error) {
+    const message = error instanceof Error ? error.message : '加载流程参数失败'
+    toast.error(message)
+  } finally {
+    loading.value = false
+  }
+}
+
 function handleTaskListSearch() {
   void loadBatchOptions()
   void loadTaskParams(1)
@@ -547,6 +656,10 @@ function handleTaskListSearch() {
 function handleResultSearch() {
   void loadBatchOptions()
   void loadResultTaskParams(1)
+}
+
+function handleFlowParamSearch() {
+  void loadFlowParams(1)
 }
 
 function handleTabChange(tab: TabKey) {
@@ -562,6 +675,11 @@ function handleTabChange(tab: TabKey) {
     return
   }
 
+  if (tab === 'flowParams') {
+    void loadFlowParams(1)
+    return
+  }
+
   void loadResultTaskParams(1)
 }
 
@@ -572,6 +690,11 @@ function handlePageChange(page: number) {
 
   if (activeTab.value === 'taskList') {
     void loadTaskParams(page)
+    return
+  }
+
+  if (activeTab.value === 'flowParams') {
+    void loadFlowParams(page)
     return
   }
 
@@ -640,12 +763,64 @@ async function handleImport() {
     if (importBindingMode.value === 'task') {
       await loadTaskParams(1)
       await loadBatchOptions()
+    } else {
+      activeTab.value = 'flowParams'
+      await loadFlowParams(1)
     }
   } catch (error) {
     const message = error instanceof Error ? error.message : '导入 CSV 失败'
     toast.error(message)
   } finally {
     importing.value = false
+  }
+}
+
+async function handleToggleFlowParamEnabled(flowParam: FlowParam) {
+  setRowActioning(flowParam.id, true)
+  try {
+    const updatedFlowParam = flowParam.enabled
+      ? await disableFlowParam(flowParam.id)
+      : await enableFlowParam(flowParam.id)
+    flowParams.value = flowParams.value.map((item) => (item.id === updatedFlowParam.id ? updatedFlowParam : item))
+    toast.success(flowParam.enabled ? '流程参数已禁用' : '流程参数已启用')
+  } catch (error) {
+    const message = error instanceof Error ? error.message : '切换流程参数启用状态失败'
+    toast.error(message)
+    await loadFlowParams(flowParamPage.value)
+  } finally {
+    setRowActioning(flowParam.id, false)
+  }
+}
+
+async function handleResetFlowParam(flowParam: FlowParam) {
+  setRowActioning(flowParam.id, true)
+  try {
+    const updatedFlowParam = await resetFlowParam(flowParam.id)
+    flowParams.value = flowParams.value.map((item) => (item.id === updatedFlowParam.id ? updatedFlowParam : item))
+    toast.success('流程参数已重置为待执行')
+  } catch (error) {
+    const message = error instanceof Error ? error.message : '重置流程参数失败'
+    toast.error(message)
+  } finally {
+    setRowActioning(flowParam.id, false)
+  }
+}
+
+async function handleDeleteFlowParam(id: number) {
+  setRowActioning(id, true)
+  try {
+    await deleteFlowParam(id)
+    toast.success('流程参数已删除')
+    if (flowParams.value.length === 1 && flowParamPage.value > 1) {
+      await loadFlowParams(flowParamPage.value - 1)
+    } else {
+      await loadFlowParams(flowParamPage.value)
+    }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : '删除流程参数失败'
+    toast.error(message)
+  } finally {
+    setRowActioning(id, false)
   }
 }
 
@@ -701,9 +876,16 @@ async function handleDelete(id: number) {
 
 async function handleClear() {
   try {
-    const result = await clearTaskParams(buildTaskListFilters())
+    const result = activeTab.value === 'flowParams'
+      ? await clearFlowParams(buildFlowParamFilters())
+      : await clearTaskParams(buildTaskListFilters())
     toast.success(`已清空 ${result.deleted_count} 条记录`)
     showClearConfirm.value = false
+    if (activeTab.value === 'flowParams') {
+      await loadFlowParams(1)
+      return
+    }
+
     await loadTaskParams(1)
     await loadBatchOptions()
   } catch (error) {
@@ -748,6 +930,41 @@ async function runBatchAction(action: Exclude<BatchActionKey, ''>) {
   }
 }
 
+async function runFlowParamBatchAction(action: Exclude<BatchActionKey, ''>) {
+  if (action !== 'reset' && !hasExplicitFlowParamFilter()) {
+    toast.warning('批量启用或批量禁用前，请至少选择一个筛选条件')
+    return
+  }
+
+  batchAction.value = action
+  const payload = buildFlowParamBatchPayload()
+
+  try {
+    if (action === 'reset') {
+      const result = await batchResetFlowParams(payload)
+      toast.success(`已重置 ${result.updated_count} 条流程参数`)
+    }
+
+    if (action === 'enable') {
+      const result = await batchEnableFlowParams(payload)
+      toast.success(`已启用 ${result.updated_count} 条流程参数`)
+    }
+
+    if (action === 'disable') {
+      const result = await batchDisableFlowParams(payload)
+      toast.success(`已禁用 ${result.updated_count} 条流程参数`)
+    }
+
+    await loadFlowParams(1)
+  } catch (error) {
+    const actionLabel = action === 'reset' ? '批量重置' : action === 'enable' ? '批量启用' : '批量禁用'
+    const message = error instanceof Error ? error.message : `${actionLabel}失败`
+    toast.error(message)
+  } finally {
+    batchAction.value = ''
+  }
+}
+
 function downloadTemplate() {
   const rows = [
     currentTemplateColumns.value.join(','),
@@ -756,7 +973,7 @@ function downloadTemplate() {
   const blob = new Blob([`\uFEFF${rows.join('\n')}`], { type: 'text/csv;charset=utf-8;' })
   const link = document.createElement('a')
   link.href = URL.createObjectURL(blob)
-  link.download = `${importTaskName.value}_模板.csv`
+  link.download = currentTemplateFileName.value
   link.click()
   URL.revokeObjectURL(link.href)
 }
@@ -781,7 +998,7 @@ onBeforeUnmount(() => {
         <h1>任务参数管理</h1>
         <p class="header-tip">导入后的记录会长期保留，可按需禁用、重置或查看执行结果。</p>
       </div>
-      <div v-if="isTaskListTab" class="header-actions">
+      <div v-if="isTaskListTab || isFlowParamsTab" class="header-actions">
         <button class="btn btn-secondary" @click="showClearConfirm = true">清空</button>
         <button class="btn btn-primary" @click="openImportModal">导入CSV</button>
       </div>
@@ -801,6 +1018,13 @@ onBeforeUnmount(() => {
         @click="handleTabChange('resultList')"
       >
         执行结果
+      </button>
+      <button
+        class="tab-button"
+        :class="{ 'is-active': activeTab === 'flowParams' }"
+        @click="handleTabChange('flowParams')"
+      >
+        流程参数
       </button>
     </div>
 
@@ -834,7 +1058,7 @@ onBeforeUnmount(() => {
       <button class="btn btn-light" @click="handleTaskListSearch">刷新</button>
     </div>
 
-    <div v-else class="filters">
+    <div v-else-if="activeTab === 'resultList'" class="filters">
       <select v-model="resultFilters.task_name" class="filter-select" @change="handleResultSearch">
         <option value="">全部任务类型</option>
         <option v-for="task in availableTasks" :key="task.name" :value="task.name">{{ task.name }}</option>
@@ -874,6 +1098,28 @@ onBeforeUnmount(() => {
       <button class="btn btn-light" @click="handleResultSearch">刷新</button>
     </div>
 
+    <div v-else class="filters">
+      <select v-model="flowParamFilters.flow_id" class="filter-select" @change="handleFlowParamSearch">
+        <option value="">全部流程</option>
+        <option v-for="flow in flows" :key="flow.id" :value="flow.id">{{ flow.name }}</option>
+      </select>
+
+      <select v-model="flowParamFilters.status" class="filter-select" @change="handleFlowParamSearch">
+        <option value="">全部状态</option>
+        <option value="pending">待执行</option>
+        <option value="running">执行中</option>
+        <option value="success">成功</option>
+        <option value="failed">失败</option>
+      </select>
+
+      <select v-model="flowParamFilters.shop_id" class="filter-select" @change="handleFlowParamSearch">
+        <option value="">全部店铺</option>
+        <option v-for="shop in shops" :key="shop.id" :value="shop.id">{{ shop.name }}（#{{ shop.id }}）</option>
+      </select>
+
+      <button class="btn btn-light" @click="handleFlowParamSearch">刷新</button>
+    </div>
+
     <div v-if="isTaskListTab" class="toolbar">
       <div class="toolbar-actions">
         <button
@@ -899,6 +1145,33 @@ onBeforeUnmount(() => {
         </button>
       </div>
       <p class="toolbar-tip">批量启用、批量禁用需要至少选择一个筛选条件；批量重置默认处理成功和失败记录。</p>
+    </div>
+
+    <div v-else-if="activeTab === 'flowParams'" class="toolbar">
+      <div class="toolbar-actions">
+        <button
+          class="btn btn-light"
+          :disabled="batchAction !== ''"
+          @click="runFlowParamBatchAction('reset')"
+        >
+          {{ batchAction === 'reset' ? '批量重置中...' : '批量重置' }}
+        </button>
+        <button
+          class="btn btn-light"
+          :disabled="batchAction !== ''"
+          @click="runFlowParamBatchAction('enable')"
+        >
+          {{ batchAction === 'enable' ? '批量启用中...' : '批量启用' }}
+        </button>
+        <button
+          class="btn btn-light"
+          :disabled="batchAction !== ''"
+          @click="runFlowParamBatchAction('disable')"
+        >
+          {{ batchAction === 'disable' ? '批量禁用中...' : '批量禁用' }}
+        </button>
+      </div>
+      <p class="toolbar-tip">流程参数支持按流程、状态、店铺筛选后批量重置、启用和禁用。</p>
     </div>
 
     <div class="table-container">
@@ -1000,7 +1273,7 @@ onBeforeUnmount(() => {
         </tbody>
       </table>
 
-      <table v-else class="task-param-table">
+      <table v-else-if="activeTab === 'resultList'" class="task-param-table">
         <thead>
           <tr>
             <th>ID</th>
@@ -1042,6 +1315,100 @@ onBeforeUnmount(() => {
                 {{ taskParam.error || '-' }}
               </td>
               <td>{{ formatDateTime(taskParam.updated_at) }}</td>
+            </tr>
+          </template>
+        </tbody>
+      </table>
+
+      <table v-else class="task-param-table">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>店铺</th>
+            <th>流程名称</th>
+            <th>启用</th>
+            <th>共享参数</th>
+            <th>步骤进度</th>
+            <th>状态</th>
+            <th>步骤结果</th>
+            <th>错误信息</th>
+            <th>创建时间</th>
+            <th>操作</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-if="loading">
+            <td colspan="11" class="empty-state">加载中...</td>
+          </tr>
+          <tr v-else-if="flowParams.length === 0">
+            <td colspan="11" class="empty-state">暂无流程参数记录</td>
+          </tr>
+          <template v-else>
+            <tr
+              v-for="flowParam in flowParams"
+              :key="flowParam.id"
+              :class="{ 'is-disabled': !flowParam.enabled }"
+            >
+              <td>{{ flowParam.id }}</td>
+              <td class="cell-wrap">{{ formatFlowParamShopLabel(flowParam) }}</td>
+              <td>{{ getFlowName(flowParam.flow_id) }}</td>
+              <td>
+                <label class="switch">
+                  <input
+                    type="checkbox"
+                    :checked="flowParam.enabled"
+                    :disabled="isRowActioning(flowParam.id)"
+                    @change="handleToggleFlowParamEnabled(flowParam)"
+                  />
+                  <span class="switch-slider" />
+                  <span class="switch-label">{{ flowParam.enabled ? '启用' : '禁用' }}</span>
+                </label>
+              </td>
+              <td class="cell-wide">
+                <span
+                  class="tooltip-trigger cell-ellipsis cell-wide"
+                  @mouseenter="showJsonTooltip($event, flowParam.params)"
+                  @mouseleave="scheduleHideJsonTooltip"
+                >
+                  {{ formatParamSummary(flowParam.params) }}
+                </span>
+              </td>
+              <td>{{ formatFlowProgress(flowParam) }}</td>
+              <td>
+                <StatusBadge :status="flowParam.status" type="task" />
+              </td>
+              <td class="cell-wide">
+                <span
+                  class="tooltip-trigger cell-ellipsis cell-wide"
+                  @mouseenter="showJsonTooltip($event, flowParam.step_results)"
+                  @mouseleave="scheduleHideJsonTooltip"
+                >
+                  {{ formatStepResultsSummary(flowParam.step_results) }}
+                </span>
+              </td>
+              <td class="cell-ellipsis error-text" :title="flowParam.error || '-'">
+                {{ flowParam.error || '-' }}
+              </td>
+              <td>{{ formatDateTime(flowParam.created_at) }}</td>
+              <td>
+                <div class="action-group">
+                  <button
+                    v-if="flowParam.status !== 'pending'"
+                    class="btn-action btn-reset"
+                    :disabled="isRowActioning(flowParam.id)"
+                    @click="handleResetFlowParam(flowParam)"
+                  >
+                    重置
+                  </button>
+                  <button
+                    class="btn-action btn-delete"
+                    :disabled="isRowActioning(flowParam.id)"
+                    @click="handleDeleteFlowParam(flowParam.id)"
+                  >
+                    删除
+                  </button>
+                </div>
+              </td>
             </tr>
           </template>
         </tbody>

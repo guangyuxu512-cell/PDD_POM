@@ -14,28 +14,50 @@ from tasks.执行任务 import 执行任务 as 执行任务对象
 执行任务函数 = 执行任务对象.run.__func__
 
 
+class 假HTTP响应:
+    """用于模拟 httpx 响应。"""
+
+    def __init__(self, 数据: dict):
+        self._数据 = 数据
+
+    def raise_for_status(self):
+        return None
+
+    def json(self):
+        return self._数据
+
+
+def 构造HTTP客户端上下文(响应数据: dict):
+    客户端 = MagicMock()
+    客户端.post.return_value = 假HTTP响应(响应数据)
+    上下文 = MagicMock()
+    上下文.__enter__.return_value = 客户端
+    上下文.__exit__.return_value = False
+    return 客户端, 上下文
+
+
 class 测试_执行任务:
     """验证批次子任务的失败策略。"""
 
     def test_continue策略_失败后继续后续步骤(self):
-        """continue 应吞掉异常，返回 continued，并保持店铺链路继续。"""
         假任务对象 = SimpleNamespace(
             request=SimpleNamespace(id="celery-1", retries=0),
             retry=MagicMock(),
         )
+        客户端, 客户端上下文 = 构造HTTP客户端上下文(
+            {
+                "code": 0,
+                "data": {
+                    "task_id": "task-log-1",
+                    "status": "failed",
+                    "error": "boom",
+                },
+            }
+        )
 
         with patch("tasks.执行任务.初始化Worker环境"), \
                 patch("tasks.执行任务.获取任务类"), \
-                patch("tasks.执行任务._运行异步任务", side_effect=lambda 值: 值), \
-                patch("tasks.执行任务.任务服务实例.创建任务记录", new=MagicMock(return_value={"task_id": "task-log-1"})), \
-                patch(
-                    "tasks.执行任务.任务服务实例.统一执行任务",
-                    new=MagicMock(return_value={
-                        "task_id": "task-log-1",
-                        "status": "failed",
-                        "error": "boom",
-                    }),
-                ), \
+                patch("tasks.执行任务.httpx.Client", return_value=客户端上下文), \
                 patch("tasks.执行任务.同步更新批次店铺状态") as 模拟更新批次状态:
             结果 = 执行任务函数(
                 假任务对象,
@@ -55,29 +77,30 @@ class 测试_执行任务:
             "result": None,
             "error": "boom",
         }
+        assert 客户端.post.call_args.kwargs["json"]["params"]["on_fail"] == "continue"
         assert 模拟更新批次状态.call_args_list[0].kwargs["shop_status"] == "running"
         assert 模拟更新批次状态.call_args_list[-1].kwargs["step_status"] == "failed"
         assert 模拟更新批次状态.call_args_list[-1].kwargs["shop_status"] == "running"
 
     def test_abort策略_失败后抛出异常并标记失败(self):
-        """abort 应标记批次失败并终止链路。"""
         假任务对象 = SimpleNamespace(
             request=SimpleNamespace(id="celery-1", retries=0),
             retry=MagicMock(),
         )
+        _, 客户端上下文 = 构造HTTP客户端上下文(
+            {
+                "code": 0,
+                "data": {
+                    "task_id": "task-log-2",
+                    "status": "failed",
+                    "error": "boom",
+                },
+            }
+        )
 
         with patch("tasks.执行任务.初始化Worker环境"), \
                 patch("tasks.执行任务.获取任务类"), \
-                patch("tasks.执行任务._运行异步任务", side_effect=lambda 值: 值), \
-                patch("tasks.执行任务.任务服务实例.创建任务记录", new=MagicMock(return_value={"task_id": "task-log-2"})), \
-                patch(
-                    "tasks.执行任务.任务服务实例.统一执行任务",
-                    new=MagicMock(return_value={
-                        "task_id": "task-log-2",
-                        "status": "failed",
-                        "error": "boom",
-                    }),
-                ), \
+                patch("tasks.执行任务.httpx.Client", return_value=客户端上下文), \
                 patch("tasks.执行任务.同步更新批次店铺状态") as 模拟更新批次状态:
             with pytest.raises(RuntimeError, match="boom"):
                 执行任务函数(
@@ -94,8 +117,6 @@ class 测试_执行任务:
         assert 模拟更新批次状态.call_args_list[-1].kwargs["shop_status"] == "failed"
 
     def test_retry策略_额度内触发重试(self):
-        """retry:N 在剩余次数内应调用 self.retry。"""
-
         class 重试信号(Exception):
             """用于中断测试流程。"""
 
@@ -103,19 +124,20 @@ class 测试_执行任务:
             request=SimpleNamespace(id="celery-1", retries=1),
             retry=MagicMock(side_effect=重试信号("retry-called")),
         )
+        _, 客户端上下文 = 构造HTTP客户端上下文(
+            {
+                "code": 0,
+                "data": {
+                    "task_id": "task-log-3",
+                    "status": "failed",
+                    "error": "boom",
+                },
+            }
+        )
 
         with patch("tasks.执行任务.初始化Worker环境"), \
                 patch("tasks.执行任务.获取任务类"), \
-                patch("tasks.执行任务._运行异步任务", side_effect=lambda 值: 值), \
-                patch("tasks.执行任务.任务服务实例.创建任务记录", new=MagicMock(return_value={"task_id": "task-log-3"})), \
-                patch(
-                    "tasks.执行任务.任务服务实例.统一执行任务",
-                    new=MagicMock(return_value={
-                        "task_id": "task-log-3",
-                        "status": "failed",
-                        "error": "boom",
-                    }),
-                ), \
+                patch("tasks.执行任务.httpx.Client", return_value=客户端上下文), \
                 patch("tasks.执行任务.同步更新批次店铺状态") as 模拟更新批次状态:
             with pytest.raises(重试信号, match="retry-called"):
                 执行任务函数(
@@ -137,30 +159,26 @@ class 测试_执行任务:
         assert 模拟更新批次状态.call_args_list[-1].kwargs["shop_status"] == "running"
         assert "boom" in 模拟更新批次状态.call_args_list[-1].kwargs["error"]
 
-    def test_flow_param成功时回写步骤结果并更新最终状态(self):
-        """flow_param_id 存在且业务成功时，应回写步骤结果并在最后一步标记 success。"""
+    def test_flow_param会透传给内部执行接口(self):
         假任务对象 = SimpleNamespace(
             request=SimpleNamespace(id="celery-2", retries=0),
             retry=MagicMock(),
         )
+        客户端, 客户端上下文 = 构造HTTP客户端上下文(
+            {
+                "code": 0,
+                "data": {
+                    "task_id": "task-log-4",
+                    "status": "completed",
+                    "result": "成功",
+                    "result_data": {"新商品ID": "new-1"},
+                },
+            }
+        )
 
         with patch("tasks.执行任务.初始化Worker环境"), \
                 patch("tasks.执行任务.获取任务类"), \
-                patch("tasks.执行任务._运行异步任务", side_effect=lambda 值: 值), \
-                patch("tasks.执行任务.任务服务实例.创建任务记录", new=MagicMock(return_value={"task_id": "task-log-4"})), \
-                patch(
-                    "tasks.执行任务.任务服务实例.统一执行任务",
-                    new=MagicMock(return_value={
-                        "task_id": "task-log-4",
-                        "status": "completed",
-                        "result": "成功",
-                        "result_data": {"新商品ID": "new-1"},
-                    }),
-                ) as 模拟统一执行, \
-                patch("tasks.执行任务.流程参数服务实例.更新", new=MagicMock(return_value={})) as 模拟更新, \
-                patch("tasks.执行任务.流程参数服务实例.获取步骤上下文", new=MagicMock(return_value={"discount": 6})) as 模拟上下文, \
-                patch("tasks.执行任务.流程参数服务实例.回写步骤结果", new=MagicMock(return_value={})) as 模拟回写步骤结果, \
-                patch("tasks.执行任务.流程参数服务实例.更新执行状态", new=MagicMock(return_value={})) as 模拟更新流程状态, \
+                patch("tasks.执行任务.httpx.Client", return_value=客户端上下文), \
                 patch("tasks.执行任务.同步更新批次店铺状态") as 模拟更新批次状态:
             结果 = 执行任务函数(
                 假任务对象,
@@ -174,48 +192,37 @@ class 测试_执行任务:
             )
 
         assert 结果["result"] == "成功"
-        assert 模拟更新.call_args_list[0].args[0] == 88
-        assert 模拟上下文.call_args.args == (88, "发布相似商品")
-        assert 模拟统一执行.call_args.kwargs["params"]["flow_param_id"] == 88
-        assert 模拟统一执行.call_args.kwargs["params"]["flow_context"] == {"discount": 6}
-        assert 模拟回写步骤结果.call_args.args == (88, "发布相似商品", {"新商品ID": "new-1"}, 2)
-        assert 模拟更新流程状态.call_args.args == (88, "success", None)
+        请求体 = 客户端.post.call_args.kwargs["json"]
+        assert 请求体["flow_param_id"] == 88
+        assert 请求体["params"]["step_index"] == 2
+        assert 请求体["params"]["total_steps"] == 2
+        assert 请求体["params"]["on_fail"] == "abort"
         模拟更新批次状态.assert_called()
 
-    def test_flow_param失败时按策略更新流程参数状态(self):
-        """flow_param_id 存在且业务失败时，应将流程参数标记为 failed。"""
+    def test_内部接口返回业务失败时直接抛错(self):
         假任务对象 = SimpleNamespace(
             request=SimpleNamespace(id="celery-3", retries=0),
             retry=MagicMock(),
         )
+        _, 客户端上下文 = 构造HTTP客户端上下文(
+            {
+                "code": 1,
+                "msg": "内部执行任务失败: boom",
+                "data": None,
+            }
+        )
 
         with patch("tasks.执行任务.初始化Worker环境"), \
                 patch("tasks.执行任务.获取任务类"), \
-                patch("tasks.执行任务._运行异步任务", side_effect=lambda 值: 值), \
-                patch("tasks.执行任务.任务服务实例.创建任务记录", new=MagicMock(return_value={"task_id": "task-log-5"})), \
-                patch(
-                    "tasks.执行任务.任务服务实例.统一执行任务",
-                    new=MagicMock(return_value={
-                        "task_id": "task-log-5",
-                        "status": "completed",
-                        "result": "失败",
-                        "error": None,
-                    }),
-                ), \
-                patch("tasks.执行任务.流程参数服务实例.更新", new=MagicMock(return_value={})), \
-                patch("tasks.执行任务.流程参数服务实例.获取步骤上下文", new=MagicMock(return_value={"discount": 6})), \
-                patch("tasks.执行任务.流程参数服务实例.更新执行状态", new=MagicMock(return_value={})) as 模拟更新流程状态, \
+                patch("tasks.执行任务.httpx.Client", return_value=客户端上下文), \
                 patch("tasks.执行任务.同步更新批次店铺状态"):
-            with pytest.raises(RuntimeError, match="失败"):
+            with pytest.raises(RuntimeError, match="内部执行任务失败: boom"):
                 执行任务函数(
                     假任务对象,
                     batch_id="batch-1",
                     shop_id="shop-1",
-                    task_name="发布相似商品",
+                    task_name="登录",
                     on_fail="abort",
                     step_index=1,
-                    total_steps=2,
-                    flow_param_id=89,
+                    total_steps=1,
                 )
-
-        assert 模拟更新流程状态.call_args_list[-1].args[:2] == (89, "failed")

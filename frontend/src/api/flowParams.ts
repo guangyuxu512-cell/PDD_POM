@@ -44,6 +44,23 @@ export function deleteFlowParam(id: number) {
   return api.del<void>(`/api/flow-params/${id}`)
 }
 
+export function resetFlowParam(id: number) {
+  return updateFlowParam(id, {
+    status: 'pending',
+    step_results: {},
+    current_step: 0,
+    error: null,
+  })
+}
+
+export function enableFlowParam(id: number) {
+  return updateFlowParam(id, { enabled: true })
+}
+
+export function disableFlowParam(id: number) {
+  return updateFlowParam(id, { enabled: false })
+}
+
 export function clearFlowParams(filters: FlowParamFilters = {}) {
   return api.del<{ deleted_count: number }>(`/api/flow-params/batch-clear${buildQuery(filters)}`)
 }

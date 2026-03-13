@@ -7,28 +7,19 @@ from __future__ import annotations
 
 import asyncio
 import threading
-from typing import Any, Dict, Optional
+from typing import Dict, Optional
 
-try:
-    import nest_asyncio
-except ModuleNotFoundError:  # pragma: no cover - 当前环境未安装依赖时退化为 no-op，正式运行仍应通过 requirements 安装
-    class nest_asyncio:  # type: ignore[no-redef]
-        @staticmethod
-        def apply() -> None:
-            return None
+import httpx
 
-from tasks.celery应用 import celery应用, 初始化Worker环境, 获取Worker事件循环
-from backend.services.流程参数服务 import 流程参数服务实例
-from backend.services.任务服务 import 任务服务实例
+from backend.配置 import 配置实例
+from tasks.celery应用 import celery应用, 初始化Worker环境
 from backend.services.执行服务 import 同步更新批次店铺状态
 from tasks.注册表 import 获取任务类
-
-nest_asyncio.apply()
 
 
 def _在线程中执行临时协程(协程):
     """当当前线程已有运行中的事件循环时，退回到临时线程执行协程。"""
-    结果容器: dict[str, Any] = {}
+    结果容器: dict[str, object] = {}
     完成事件 = threading.Event()
 
     def _执行():
@@ -44,13 +35,13 @@ def _在线程中执行临时协程(协程):
     完成事件.wait()
 
     if "error" in 结果容器:
-        raise RuntimeError(f"临时线程执行协程失败: {结果容器['error']}") from 结果容器["error"]
+        raise RuntimeError(f"临时线程执行协程失败: {结果容器['error']}") from 结果容器["error"]  # type: ignore[index]
 
     return 结果容器.get("result")
 
 
 def _运行异步任务(协程):
-    """在同步 Celery Task 中执行异步协程。"""
+    """兼容旧测试与其它调用方：在同步上下文中执行异步协程。"""
     try:
         当前事件循环 = asyncio.get_running_loop()
     except RuntimeError:
@@ -59,17 +50,7 @@ def _运行异步任务(协程):
     if 当前事件循环 is not None:
         return _在线程中执行临时协程(协程)
 
-    try:
-        事件循环 = 获取Worker事件循环()
-        asyncio.set_event_loop(事件循环)
-    except Exception as e:
-        print(f"[Celery] 获取 Worker 事件循环失败，回退到临时事件循环: {e}")
-        return asyncio.run(协程)
-
-    try:
-        return 事件循环.run_until_complete(协程)
-    except Exception as e:
-        raise RuntimeError(f"Worker 事件循环执行协程失败: {e}") from e
+    return asyncio.run(协程)
 
 
 def _解析重试次数(on_fail: str) -> int:
@@ -116,24 +97,8 @@ def 执行任务(
         "step_index": step_index,
         "total_steps": total_steps,
         "celery_task_id": self.request.id,
+        "on_fail": on_fail,
     }
-
-    if flow_param_id is not None:
-        _运行异步任务(
-            流程参数服务实例.更新(
-                flow_param_id,
-                {
-                    "status": "running",
-                    "current_step": step_index,
-                    "error": None,
-                    "batch_id": batch_id,
-                },
-            )
-        )
-        任务参数["flow_param_id"] = flow_param_id
-        任务参数["flow_context"] = _运行异步任务(
-            流程参数服务实例.获取步骤上下文(flow_param_id, task_name)
-        )
 
     print(
         f"[执行任务] 开始执行: shop_name={展示店铺名}, "
@@ -150,112 +115,27 @@ def 执行任务(
             shop_status="running",
         )
 
-    任务记录 = _运行异步任务(
-        任务服务实例.创建任务记录(
-            shop_id=shop_id,
-            task_name=task_name,
-            params=任务参数,
-        )
-    )
+    请求体 = {
+        "shop_id": shop_id,
+        "task_name": task_name,
+        "params": 任务参数,
+    }
+    if flow_param_id is not None:
+        请求体["flow_param_id"] = flow_param_id
 
-    执行结果 = _运行异步任务(
-        任务服务实例.统一执行任务(
-            task_id=任务记录["task_id"],
-            shop_id=shop_id,
-            task_name=task_name,
-            params=任务参数,
-            来源="batch",
-        )
-    )
+    基础地址 = str(配置实例.API_BASE_URL or "http://localhost:8000").rstrip("/")
+    with httpx.Client(timeout=httpx.Timeout(1800.0, connect=10.0)) as 客户端:
+        响应 = 客户端.post(f"{基础地址}/api/tasks/execute-internal", json=请求体)
+        响应.raise_for_status()
+        响应数据 = 响应.json()
+        if not isinstance(响应数据, dict) or 响应数据.get("code") != 0:
+            raise RuntimeError(
+                (响应数据.get("msg") if isinstance(响应数据, dict) else None)
+                or "主进程执行失败"
+            )
+        执行结果 = 响应数据.get("data") or {}
     if shop_name is not None:
         执行结果.setdefault("shop_name", 展示店铺名)
-
-    if flow_param_id is not None:
-        业务成功 = 执行结果["status"] == "completed" and 执行结果.get("result") == "成功"
-        if 业务成功:
-            _运行异步任务(
-                流程参数服务实例.回写步骤结果(
-                    flow_param_id,
-                    task_name,
-                    执行结果.get("result_data") or {},
-                    step_index,
-                )
-            )
-            if step_index >= total_steps:
-                _运行异步任务(
-                    流程参数服务实例.更新执行状态(flow_param_id, "success", None)
-                )
-
-            if batch_id:
-                同步更新批次店铺状态(
-                    batch_id,
-                    shop_id,
-                    step_index=step_index,
-                    task_name=task_name,
-                    step_status="completed",
-                    shop_status="completed" if step_index >= total_steps else "running",
-                    result=执行结果.get("result"),
-                )
-            return 执行结果
-
-        错误信息 = 执行结果.get("error") or 执行结果.get("result") or "任务执行失败"
-        最大重试次数 = _解析重试次数(on_fail)
-        当前重试次数 = getattr(self.request, "retries", 0)
-
-        if 最大重试次数 > 0 and 当前重试次数 < 最大重试次数:
-            if batch_id:
-                同步更新批次店铺状态(
-                    batch_id,
-                    shop_id,
-                    step_index=step_index,
-                    task_name=task_name,
-                    step_status="running",
-                    shop_status="running",
-                    error=f"{错误信息}，准备重试 {当前重试次数 + 1}/{最大重试次数}",
-                )
-            raise self.retry(exc=RuntimeError(错误信息), countdown=0)
-
-        if on_fail in {"continue", "log_and_skip"}:
-            if step_index >= total_steps:
-                _运行异步任务(
-                    流程参数服务实例.更新执行状态(flow_param_id, "failed", 错误信息)
-                )
-            if batch_id:
-                同步更新批次店铺状态(
-                    batch_id,
-                    shop_id,
-                    step_index=step_index,
-                    task_name=task_name,
-                    step_status="failed",
-                    shop_status="completed" if step_index >= total_steps else "running",
-                    error=错误信息,
-                )
-            返回结果 = {
-                "task_id": 执行结果["task_id"],
-                "shop_id": shop_id,
-                "task_name": task_name,
-                "status": "continued",
-                "result": None,
-                "error": 错误信息,
-            }
-            if shop_name is not None:
-                返回结果["shop_name"] = 展示店铺名
-            return 返回结果
-
-        _运行异步任务(
-            流程参数服务实例.更新执行状态(flow_param_id, "failed", 错误信息)
-        )
-        if batch_id:
-            同步更新批次店铺状态(
-                batch_id,
-                shop_id,
-                step_index=step_index,
-                task_name=task_name,
-                step_status="failed",
-                shop_status="failed",
-                error=错误信息,
-            )
-        raise RuntimeError(错误信息)
 
     if 执行结果["status"] == "completed":
         if batch_id:
