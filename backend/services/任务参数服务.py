@@ -699,113 +699,76 @@ class 任务参数服务:
 
         return [self._解析JSON(行["result"]) for 行 in 行列表]
 
-    async def 批次完成后创建后续任务(self, batch_id: str) -> int:
-        """为已完成的发布相似商品批次幂等创建一条限时限量记录。"""
-        批次ID = str(batch_id or "").strip()
-        if not 批次ID:
-            print("[任务参数服务] batch_id 为空，跳过自动创建限时限量")
-            return 0
+    async def 创建后续任务(
+        self,
+        源记录: Dict[str, Any],
+        执行结果: Dict[str, Any],
+        下一步任务名: str,
+    ) -> Optional[Dict[str, Any]]:
+        """根据当前成功记录幂等创建下一步任务。"""
+        源记录ID = 源记录.get("id")
+        if not 源记录ID:
+            raise ValueError("源记录缺少 id")
 
+        店铺ID = str(源记录.get("shop_id") or "").strip()
+        if not 店铺ID:
+            raise ValueError("源记录缺少 shop_id")
+
+        新任务名 = str(下一步任务名 or "").strip()
+        if not 新任务名:
+            raise ValueError("下一步任务名不能为空")
+
+        基础参数 = 源记录.get("params") or {}
+        if not isinstance(基础参数, dict):
+            基础参数 = self._解析JSON(基础参数)
+
+        源记录ID文本 = str(源记录ID)
         async with 获取连接() as 连接:
-            await 连接.execute("BEGIN IMMEDIATE")
-            try:
-                async with 连接.execute(
-                    """
-                    SELECT 1
-                    FROM task_params
-                    WHERE batch_id = ?
-                      AND task_name = '限时限量'
-                    LIMIT 1
-                    """,
-                    (批次ID,),
-                ) as 游标:
-                    if await 游标.fetchone():
-                        print(f"[任务参数服务] 批次 {批次ID} 已存在限时限量记录，跳过")
-                        await 连接.rollback()
-                        return 0
+            async with 连接.execute(
+                """
+                SELECT id, params
+                FROM task_params
+                WHERE shop_id = ?
+                  AND task_name = ?
+                ORDER BY id DESC
+                """,
+                (店铺ID, 新任务名),
+            ) as 游标:
+                已有记录列表 = await 游标.fetchall()
 
-                async with 连接.execute(
-                    """
-                    SELECT id, shop_id, params, status
-                    FROM task_params
-                    WHERE batch_id = ?
-                      AND task_name = '发布相似商品'
-                    ORDER BY id ASC
-                    """,
-                    (批次ID,),
-                ) as 游标:
-                    发布记录列表 = await 游标.fetchall()
+        for 已有记录 in 已有记录列表:
+            已有参数 = self._解析JSON(已有记录["params"])
+            if str(已有参数.get("source_task_param_id") or "").strip() == 源记录ID文本:
+                print(f"[任务参数服务] 后续任务已存在: {新任务名}, source_id={源记录ID文本}")
+                return await self.根据ID获取(int(已有记录["id"]))
 
-                if not 发布记录列表:
-                    print(f"[任务参数服务] 批次 {批次ID} 中无发布相似商品记录，跳过")
-                    await 连接.rollback()
-                    return 0
+        新参数 = dict(基础参数)
+        if isinstance(执行结果, dict):
+            for 键名, 值 in 执行结果.items():
+                if 值 is None:
+                    continue
+                新参数[键名] = 值
 
-                运行中数量 = sum(
-                    1
-                    for 记录 in 发布记录列表
-                    if str(记录["status"]) == "running"
-                )
-                if 运行中数量:
-                    print(f"[任务参数服务] 批次 {批次ID} 还有 {运行中数量} 条运行中的记录，等待完成")
-                    await 连接.rollback()
-                    return 0
+        新参数["source_task_param_id"] = 源记录ID
 
-                成功记录列表 = [
-                    记录
-                    for 记录 in 发布记录列表
-                    if str(记录["status"]) == "success"
-                ]
-                if not 成功记录列表:
-                    print(f"[任务参数服务] 批次 {批次ID} 中无成功记录，跳过")
-                    await 连接.rollback()
-                    return 0
+        批次ID = str(源记录.get("batch_id") or "").strip()
+        if 批次ID:
+            新参数.setdefault("batch_id", 批次ID)
 
-                首条成功记录 = 成功记录列表[0]
-                店铺ID = str(首条成功记录["shop_id"] or "").strip()
-                折扣值 = None
-                for 成功记录 in 成功记录列表:
-                    参数 = self._解析JSON(成功记录["params"])
-                    当前折扣值 = self._读取非空参数值(参数, "折扣", "discount")
-                    if 当前折扣值 in (None, ""):
-                        continue
-
-                    折扣值 = 当前折扣值
-                    break
-
-                if not 店铺ID:
-                    print(f"[任务参数服务] 批次 {批次ID} 成功记录缺少 shop_id，跳过自动创建限时限量")
-                    await 连接.rollback()
-                    return 0
-
-                if 折扣值 in (None, ""):
-                    print(f"[任务参数服务] 批次 {批次ID} 成功记录无折扣值，限时限量记录折扣为空，需手动补充")
-                    折扣值 = None
-
-                await 连接.execute(
-                    """
-                    INSERT INTO task_params (
-                        shop_id, task_name, params, status, result, error, batch_id, enabled, run_count
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                    """,
-                    (
-                        店铺ID,
-                        "限时限量",
-                        self._序列化JSON({"batch_id": 批次ID, "折扣": 折扣值}),
-                        "pending",
-                        self._序列化JSON({}),
-                        None,
-                        批次ID,
-                        1,
-                        0,
-                    ),
-                )
-                await 连接.commit()
-                print(f"[任务参数服务] 已自动创建限时限量记录: batch_id={批次ID}, shop_id={店铺ID}")
-                return 1
-            except Exception:
-                await 连接.rollback()
-                raise
+        新记录 = await self.创建(
+            {
+                "shop_id": 店铺ID,
+                "task_name": 新任务名,
+                "params": 新参数,
+                "status": "pending",
+                "result": {},
+                "error": None,
+                "batch_id": 批次ID or None,
+                "enabled": True,
+            }
+        )
+        print(f"[任务参数服务] 已创建后续任务: {新任务名}, source_id={源记录ID文本}")
+        return 新记录
 
     async def 启用(self, 记录ID: int) -> Optional[Dict[str, Any]]:
         """启用单条任务参数记录。"""

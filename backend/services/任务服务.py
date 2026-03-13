@@ -19,6 +19,9 @@ from backend.services.任务参数服务 import 任务参数服务实例
 打开浏览器超时秒 = 120
 任务执行超时秒 = 1800
 任务参数任务集合 = {"发布相似商品", "发布换图商品", "限时限量"}
+任务链映射 = {
+    "发布相似商品": "限时限量",
+}
 
 
 class 任务服务:
@@ -718,13 +721,16 @@ class 任务服务:
                     "success",
                     结果=执行结果数据,
                 )
-                if task_name == "发布相似商品":
-                    批次ID = str(任务参数记录.get("batch_id") or "").strip()
-                    if 批次ID:
-                        try:
-                            await 任务参数服务实例.批次完成后创建后续任务(批次ID)
-                        except Exception as e:
-                            print(f"[任务服务] 自动创建后续任务失败（忽略）: {e}")
+                下一步任务名 = 任务链映射.get(task_name)
+                if 下一步任务名 and 任务参数记录:
+                    try:
+                        await 任务参数服务实例.创建后续任务(
+                            源记录=任务参数记录,
+                            执行结果=执行结果数据,
+                            下一步任务名=下一步任务名,
+                        )
+                    except Exception as e:
+                        print(f"[任务服务] 自动创建后续任务失败（忽略）: {e}")
             elif 结果 != "跳过":
                 await self._回填任务参数执行结果(
                     任务参数记录,

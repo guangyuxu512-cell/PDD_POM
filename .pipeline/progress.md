@@ -980,3 +980,60 @@
 - 已执行 `python -m pytest -c tests/pytest.ini -q tests/单元测试/测试_批次完成后自动创建限时限量.py tests/单元测试/测试_任务服务浏览器复用与后续任务.py tests/单元测试/测试_限时限量任务服务.py`，结果 `10 passed`
 - 已执行全量 `python -m pytest -c tests/pytest.ini -q`，结果 `229 passed, 16 warnings`
 - 16 条 warning 仍为既有存量：10 条来自第三方 `openpyxl`，6 条来自 Celery `datetime.utcnow()` 弃用提示
+
+---
+
+## 任务摘要
+
+完成 Task 30：将任务链自动串联从“按批次完成后补一条后续任务”重构为“单条任务成功后立即按任务链映射创建下一步任务”，并将限时限量任务改为消费自身 params 的单商品模式。
+
+## 改动文件列表
+
+- `backend/services/任务服务.py`
+- `backend/services/任务参数服务.py`
+- `tasks/限时限量任务.py`
+- `tests/单元测试/测试_任务服务浏览器复用与后续任务.py`
+- `tests/单元测试/测试_限时限量任务.py`
+- `tests/单元测试/测试_创建后续任务.py`
+- `tests/单元测试/测试_批次完成后自动创建限时限量.py`
+- `PLAN.md`
+- `改造进度.md`
+- `.pipeline/progress.md`
+
+## 改动说明
+
+- `backend/services/任务服务.py`
+  - 顶部新增 `任务链映射`
+  - 任务成功后不再按 `batch_id` 调用旧的批次级创建逻辑，改为按映射调用 `任务参数服务实例.创建后续任务(...)`
+- `backend/services/任务参数服务.py`
+  - 删除 `批次完成后创建后续任务(...)`
+  - 新增 `创建后续任务(...)`，会继承源记录参数、合并执行结果、写入 `source_task_param_id`，并按 `source_task_param_id + task_name` 做幂等去重
+- `tasks/限时限量任务.py`
+  - 删除对 `查询批次成功记录(...)` 的依赖
+  - 改为从自身 `task_param` 直接读取 `新商品ID / new_product_id` 和 `折扣 / discount`
+  - 只处理单个商品，一条记录对应一次选品和一次创建
+- `tests/单元测试/测试_任务服务浏览器复用与后续任务.py`
+  - 更新为断言 `创建后续任务(...)` 的调用参数，而不是旧的批次级方法
+- `tests/单元测试/测试_限时限量任务.py`
+  - 更新为覆盖缺少新商品ID跳过、缺少折扣报错、单商品成功链路和失败链路
+- `tests/单元测试/测试_创建后续任务.py`
+  - 新增通用后续任务创建测试，覆盖正常路径、幂等路径和异常路径
+- `tests/单元测试/测试_批次完成后自动创建限时限量.py`
+  - 删除。该文件对应的旧批次级方法已移除，由 `测试_创建后续任务.py` 替代
+- `PLAN.md` / `改造进度.md` / `.pipeline/progress.md`
+  - 同步记录 Task 30 的实现范围与验证结果
+
+## 影响范围
+
+- 发布相似商品成功后会立刻生成对应的下一步任务参数记录，不再依赖整批任务收尾
+- 后续任务链条现在由 `任务链映射` 控制，后续新增 “限时限量 -> 推广” 这类链路时只需扩展映射和任务参数约定
+- 限时限量任务的输入来源从“同批次聚合结果”变成“自身 params”，一条记录只驱动一个商品，链路更细粒度
+
+## 注意事项
+
+- 本轮未修改 `pages/` 与 `selectors/` 目录
+- `查询批次成功记录(...)` 方法按要求保留，虽然 `限时限量任务.py` 已不再依赖它
+- 已执行 `python -m pytest -c tests/pytest.ini -q tests/单元测试/测试_任务服务.py tests/单元测试/测试_任务服务浏览器复用与后续任务.py tests/单元测试/测试_创建后续任务.py`，结果 `10 passed`
+- 已执行 `python -m pytest -c tests/pytest.ini -q tests/单元测试/测试_限时限量任务.py tests/单元测试/测试_限时限量任务服务.py tests/单元测试/测试_任务参数批次成功记录.py`，结果 `9 passed`
+- 已执行全量 `python -m pytest -c tests/pytest.ini -q`，结果 `227 passed, 16 warnings`
+- 16 条 warning 仍为既有存量：10 条来自第三方 `openpyxl`，6 条来自 Celery `datetime.utcnow()` 弃用提示

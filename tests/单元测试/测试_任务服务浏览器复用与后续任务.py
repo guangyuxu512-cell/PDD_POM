@@ -85,27 +85,29 @@ class 测试_任务服务浏览器复用与后续任务:
         assert 模拟执行任务.await_args.kwargs["页面"] is 新页面
 
     @pytest.mark.asyncio
-    async def test_执行任务_发布相似商品成功后触发批次后续任务(self):
+    async def test_执行任务_发布相似商品成功后创建下一步任务(self):
         假任务实例 = SimpleNamespace(
-            _执行结果={"new_product_id": "new-1001"},
+            _执行结果={"新商品ID": "new-1001", "标题": "测试标题"},
             执行=AsyncMock(return_value="成功"),
         )
 
+        源记录 = {
+            "id": 41,
+            "shop_id": "shop-1",
+            "batch_id": "batch-1",
+            "params": {"parent_product_id": "9001", "discount": 6},
+        }
         with patch(
             "backend.services.任务服务.任务参数服务实例.获取待执行列表",
             new=AsyncMock(return_value=[
-                {
-                    "id": 41,
-                    "batch_id": "batch-1",
-                    "params": {"parent_product_id": "9001", "discount": 6},
-                }
+                源记录
             ]),
         ), patch(
             "backend.services.任务服务.任务参数服务实例.更新执行结果",
             new=AsyncMock(),
         ), patch(
-            "backend.services.任务服务.任务参数服务实例.批次完成后创建后续任务",
-            new=AsyncMock(return_value=1),
+            "backend.services.任务服务.任务参数服务实例.创建后续任务",
+            new=AsyncMock(return_value={"id": 99}),
         ) as 模拟创建后续任务, patch(
             "tasks.任务注册表.获取任务",
             return_value=假任务实例,
@@ -118,7 +120,10 @@ class 测试_任务服务浏览器复用与后续任务:
             )
 
         assert 结果["result"] == "成功"
-        模拟创建后续任务.assert_awaited_once_with("batch-1")
+        模拟创建后续任务.assert_awaited_once()
+        assert 模拟创建后续任务.await_args.kwargs["源记录"] == 源记录
+        assert 模拟创建后续任务.await_args.kwargs["执行结果"] == {"新商品ID": "new-1001", "标题": "测试标题"}
+        assert 模拟创建后续任务.await_args.kwargs["下一步任务名"] == "限时限量"
 
     @pytest.mark.asyncio
     async def test_执行任务_失败时不触发批次后续任务(self):
@@ -140,8 +145,8 @@ class 测试_任务服务浏览器复用与后续任务:
             "backend.services.任务服务.任务参数服务实例.更新执行结果",
             new=AsyncMock(),
         ), patch(
-            "backend.services.任务服务.任务参数服务实例.批次完成后创建后续任务",
-            new=AsyncMock(return_value=1),
+            "backend.services.任务服务.任务参数服务实例.创建后续任务",
+            new=AsyncMock(return_value={"id": 99}),
         ) as 模拟创建后续任务, patch(
             "tasks.任务注册表.获取任务",
             return_value=假任务实例,

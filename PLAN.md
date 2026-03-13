@@ -1665,3 +1665,23 @@
 - [x] 邻近回归验证结果：`10 passed`
 - [x] 验证通过：`python -m pytest -c tests/pytest.ini -q`
 - [x] 全量验证结果：`229 passed, 16 warnings`（10 条为第三方 `openpyxl` 警告，6 条为现有 Celery 警告）
+
+## Prompt 73：Task 30 任务链自动串联重构 ✅
+
+- [x] 更新 `backend/services/任务服务.py`，新增 `任务链映射 = {"发布相似商品": "限时限量"}`
+- [x] 更新 `backend/services/任务服务.py`，任务成功后由旧的批次级创建逻辑改为通用 `创建后续任务(...)`
+- [x] 更新 `backend/services/任务参数服务.py`，删除 `批次完成后创建后续任务(...)`
+- [x] 更新 `backend/services/任务参数服务.py`，新增 `创建后续任务(源记录, 执行结果, 下一步任务名)`，支持参数继承、结果合并、`source_task_param_id` 溯源与幂等去重
+- [x] 保留 `查询批次成功记录(...)` 方法，不做删除
+- [x] 更新 `tasks/限时限量任务.py`，改为从自身 `task_param` 直接读取 `新商品ID / 折扣`
+- [x] 更新 `tasks/限时限量任务.py`，将流程从“批量商品”改为“单条记录对应一个商品”
+- [x] 删除旧测试 `tests/单元测试/测试_批次完成后自动创建限时限量.py`
+- [x] 新增 `tests/单元测试/测试_创建后续任务.py`
+- [x] 更新 `tests/单元测试/测试_任务服务浏览器复用与后续任务.py`
+- [x] 更新 `tests/单元测试/测试_限时限量任务.py`
+- [x] 针对性验证通过：`python -m pytest -c tests/pytest.ini -q tests/单元测试/测试_任务服务.py tests/单元测试/测试_任务服务浏览器复用与后续任务.py tests/单元测试/测试_创建后续任务.py`
+- [x] 针对性验证结果：`10 passed`
+- [x] 邻近回归验证通过：`python -m pytest -c tests/pytest.ini -q tests/单元测试/测试_限时限量任务.py tests/单元测试/测试_限时限量任务服务.py tests/单元测试/测试_任务参数批次成功记录.py`
+- [x] 邻近回归验证结果：`9 passed`
+- [x] 验证通过：`python -m pytest -c tests/pytest.ini -q`
+- [x] 全量验证结果：`227 passed, 16 warnings`（10 条为第三方 `openpyxl` 警告，6 条为现有 Celery 警告）
