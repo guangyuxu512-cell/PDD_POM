@@ -117,6 +117,7 @@ async def 内部执行任务(请求: 内部执行请求) -> 统一响应:
 
             async def _准备流程上下文(_shop_id: str, _task_name: str, 店铺配置: Dict[str, Any]):
                 店铺配置["flow_context"] = dict(flow_context)
+                店铺配置["task_param"] = dict(flow_context)
                 return None
 
             临时任务服务._准备任务参数 = _准备流程上下文  # type: ignore[method-assign]

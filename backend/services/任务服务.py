@@ -511,6 +511,7 @@ class 任务服务:
                 "task_name": task_name,
                 "status": "completed",
                 "result": str(结果),
+                "result_data": 执行结果.get("result_data", {}),
                 "error": None
             }
 
