@@ -22,17 +22,9 @@ class 推广页选择器:
     )
 
     全局优先起量开关 = 选择器配置(
-        主选择器="button[role='switch'][aria-label*='优先起量']",
+        主选择器='//div[@class="Footer_mallAdditionalMaxCostCardInCreateWrapper__6jkyL"]/div/label',
         备选选择器=[
-            "button[role='switch'][class*='Switch']",
-        ],
-    )
-
-    确认关闭优先起量按钮 = 选择器配置(
-        主选择器="button:has-text('确认关闭')",
-        备选选择器=[
-            "button:has-text('确认')",
-            "div[class*='Modal'] button[class*='primary']",
+            '//div[@class="Footer_mallAdditionalMaxCostCardInCreateWrapper__6jkyL"]/div/label',
         ],
     )
 
@@ -50,54 +42,38 @@ class 推广页选择器:
         ],
     )
 
-    商品列表数据行 = 选择器配置(
-        主选择器="tr[data-testid*='table-body-tr']",
+    预算日限额菜单项 = 选择器配置(
+        主选择器='//span[@class="anq-dropdown-menu-title-content" and text()="预算日限额"]',
         备选选择器=[
-            "tbody tr",
+            '//span[contains(@class, "anq-dropdown-menu-title-content") and text()="预算日限额"]',
         ],
     )
 
-    全选复选框 = 选择器配置(
-        主选择器="th label[data-testid='beast-core-checkbox']",
+    日限额输入框 = 选择器配置(
+        主选择器='//input[@data-testid="CustomInputNumber" and @placeholder="请输入"]',
         备选选择器=[
-            "thead label[data-testid='beast-core-checkbox']",
-            "th input[type='checkbox']",
+            '//input[@data-testid="CustomInputNumber" and @type="text"]',
         ],
     )
 
-    投产输入框 = 选择器配置(
-        主选择器="input[data-testid*='roi']",
+    日限额确认按钮 = 选择器配置(
+        主选择器='//button[@class="anq-btn anq-btn-primary" and span/text()="确定"]',
         备选选择器=[
-            "input[placeholder*='投产']",
-            "div[class*='roi'] input",
+            '//button[contains(@class, "anq-btn-primary") and .//span[text()="确定"]]',
         ],
     )
 
-    投产比限制提示 = 选择器配置(
-        主选择器="div[class*='error']:has-text('投产')",
+    投产比输入框 = 选择器配置(
+        主选择器='//input[@data-testid="CustomInputNumber" and @class="anq-input" and @placeholder="请输入" and @inputwidth="280"]',
         备选选择器=[
-            "span[class*='error']",
-        ],
-    )
-
-    二阶段投产输入框 = 选择器配置(
-        主选择器="div[class*='Modal'] input[data-testid*='roi']",
-        备选选择器=[
-            "div[class*='Modal'] input[placeholder*='投产']",
-        ],
-    )
-
-    二阶段确认按钮 = 选择器配置(
-        主选择器="div[class*='Modal'] button:has-text('确定')",
-        备选选择器=[
-            "div[class*='Modal'] button[class*='primary']",
+            '//input[@data-testid="CustomInputNumber" and @type="text"]',
         ],
     )
 
     开启推广按钮 = 选择器配置(
-        主选择器="button:has-text('开启推广')",
+        主选择器='//button[@data-testid="beginPromotionButton" and @class="anq-btn anq-btn-primary" and contains(span/text(), "开启推广")]',
         备选选择器=[
-            "button[class*='primary']:has-text('开启')",
+            '//button[contains(@class, "anq-btn-primary") and not(contains(@class, "anq-btn-disabled")) and @data-testid="beginPromotionButton" and .//span[contains(text(), "开启推广")]]',
         ],
     )
 
@@ -109,44 +85,61 @@ class 推广页选择器:
     )
 
     @staticmethod
-    def 获取投产设置按钮(商品ID: str) -> 选择器配置:
-        """根据商品ID生成投产设置按钮（铅笔图标）选择器。"""
+    def 获取商品行容器(商品ID: str) -> 选择器配置:
+        """根据商品ID生成商品行容器选择器。"""
         return 选择器配置(
-            主选择器=f"tr:has-text('{商品ID}') [data-testid*='edit']",
+            主选择器=f'//div[@data-testid="create_item_{商品ID}"]',
+            备选选择器=[],
+        )
+
+    @staticmethod
+    def 获取修改投产铅笔按钮(商品ID: str) -> 选择器配置:
+        """根据商品ID生成修改投产铅笔按钮选择器。"""
+        return 选择器配置(
+            主选择器=(
+                f'//span[@data-testid="editBid_{商品ID}_create_create" and '
+                'contains(@class, "MultiSuggestBidPop_triggerNode__Qx_dI")]'
+            ),
             备选选择器=[
-                f"tr:has-text('{商品ID}') svg[class*='edit']",
-                f"tr:has-text('{商品ID}') button[class*='edit']",
+                (
+                    f'//div[@data-testid="create_goods_promotion_setting_container_{商品ID}"]'
+                    '//span[contains(@class, "MultiSuggestBidPop_icon__4lMUm")]'
+                ),
             ],
         )
 
     @staticmethod
-    def 获取极速起量开关(商品ID: str) -> 选择器配置:
-        """根据商品ID生成极速起量开关选择器。"""
+    def 获取更多设置按钮(商品ID: str) -> 选择器配置:
+        """根据商品ID生成更多设置按钮选择器。"""
         return 选择器配置(
-            主选择器=f"tr:has-text('{商品ID}') button[role='switch']",
-            备选选择器=[],
+            主选择器=f'//div[@data-testid="create_goods_more-setting_{商品ID}"]/button',
+            备选选择器=[
+                (
+                    f'//div[@data-testid="create_goods_more-setting_{商品ID}"]'
+                    '/button[contains(@class, "anq-dropdown-trigger")]'
+                ),
+            ],
         )
 
     @staticmethod
-    def 获取确认按钮(商品ID: str) -> 选择器配置:
-        """根据商品ID生成确认按钮选择器。"""
+    def 获取极速起量高级版开关(商品ID: str) -> 选择器配置:
+        """根据商品ID生成极速起量高级版开关选择器。"""
         return 选择器配置(
-            主选择器="button:has-text('确定')",
-            备选选择器=["button[class*='primary']:has-text('确定')"],
+            主选择器=f'//button[@data-testid="bidPop-{商品ID}-assist-switch"]',
+            备选选择器=[
+                f'//button[@data-testid="bidPop-{商品ID}-assist-switch" and @role="switch"]',
+            ],
         )
 
     @staticmethod
-    def 获取取消按钮(商品ID: str) -> 选择器配置:
-        """根据商品ID生成取消按钮选择器。"""
+    def 获取投产设置确认按钮(商品ID: str) -> 选择器配置:
+        """根据商品ID生成投产设置确认按钮选择器。"""
         return 选择器配置(
-            主选择器="button:has-text('取消')",
-            备选选择器=["button:has-text('取消')"],
-        )
-
-    @staticmethod
-    def 获取取消勾选框(商品ID: str) -> 选择器配置:
-        """根据商品ID生成取消勾选框选择器。"""
-        return 选择器配置(
-            主选择器=f"tr:has-text('{商品ID}') label[data-testid='beast-core-checkbox']",
-            备选选择器=[],
+            主选择器=f'//button[@data-testid="confirm_{商品ID}" and @class="anq-btn anq-btn-primary anq-btn-sm"]',
+            备选选择器=[
+                (
+                    f'//button[@data-testid="confirm_{商品ID}" and contains(@class, "anq-btn-primary") '
+                    'and .//span[text()="确定"]]'
+                ),
+            ],
         )

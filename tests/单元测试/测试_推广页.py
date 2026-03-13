@@ -19,7 +19,6 @@ class 测试_推广页:
         页面.click = AsyncMock()
         页面.wait_for_selector = AsyncMock()
         页面.query_selector = AsyncMock(return_value=None)
-        页面.query_selector_all = AsyncMock(return_value=[])
         页面.evaluate = AsyncMock()
         页面.url = "https://yingxiao.pinduoduo.com/goods/promotion/list?msfrom=mms_sidenav"
         页面.locator = MagicMock()
@@ -45,43 +44,60 @@ class 测试_推广页:
         页面对象._随机等待.assert_awaited_once()
 
     @pytest.mark.asyncio
-    async def test_点击添加推广商品_按选择器回退(self, 模拟页面, monkeypatch):
+    async def test_商品行是否存在_按商品ID动态选择器判断(self, 模拟页面):
+        from pages.推广页 import 推广页
+
+        模拟页面.query_selector = AsyncMock(return_value=object())
+        页面对象 = 推广页(模拟页面)
+        页面对象._随机等待 = AsyncMock()
+
+        结果 = await 页面对象.商品行是否存在("123456789012")
+
+        assert 结果 is True
+        assert "create_item_123456789012" in 模拟页面.query_selector.await_args.args[0]
+
+    @pytest.mark.asyncio
+    async def test_获取极速起量高级版状态_根据class判断开关(self, 模拟页面):
+        from pages.推广页 import 推广页
+
+        元素 = MagicMock()
+        元素.get_attribute = AsyncMock(return_value="anq-switch anq-switch-checked")
+        定位器 = MagicMock()
+        定位器.first = 元素
+        模拟页面.locator.return_value = 定位器
+
+        页面对象 = 推广页(模拟页面)
+        页面对象._随机等待 = AsyncMock()
+
+        结果 = await 页面对象.获取极速起量高级版状态("123456789012")
+
+        assert 结果 == "true"
+
+    @pytest.mark.asyncio
+    async def test_点击预算日限额_按选择器回退(self, 模拟页面, monkeypatch):
         from pages.推广页 import 推广页
         from selectors.推广页选择器 import 推广页选择器
 
         async def 点击副作用(选择器, timeout=10000):
             if 选择器 == "bad-selector":
-                raise RuntimeError("bad")
+                raise RuntimeError("bad selector")
             return None
 
-        monkeypatch.setattr(推广页选择器, "添加推广商品按钮", 选择器配置("bad-selector", ["good-selector"]))
+        monkeypatch.setattr(
+            推广页选择器,
+            "预算日限额菜单项",
+            选择器配置("bad-selector", ["good-selector"]),
+        )
         模拟页面.click.side_effect = 点击副作用
 
         页面对象 = 推广页(模拟页面)
         页面对象._随机等待 = AsyncMock()
 
-        结果 = await 页面对象.点击添加推广商品()
+        结果 = await 页面对象.点击预算日限额()
 
         assert 结果 is True
         assert 模拟页面.click.await_args_list[0].args[0] == "bad-selector"
         assert 模拟页面.click.await_args_list[1].args[0] == "good-selector"
-
-    @pytest.mark.asyncio
-    async def test_获取列表商品ID_提取12位数字并去重(self, 模拟页面):
-        from pages.推广页 import 推广页
-
-        行1 = MagicMock()
-        行1.inner_text = AsyncMock(return_value="商品ID 123456789012 文案")
-        行2 = MagicMock()
-        行2.inner_text = AsyncMock(return_value="另一个 123456789012 和 987654321098")
-        模拟页面.query_selector_all = AsyncMock(return_value=[行1, 行2])
-
-        页面对象 = 推广页(模拟页面)
-        页面对象._随机等待 = AsyncMock()
-
-        结果 = await 页面对象.获取列表商品ID()
-
-        assert 结果 == ["123456789012", "987654321098"]
 
     @pytest.mark.asyncio
     async def test_点击开启推广_点击失败时使用JS兜底(self, 模拟页面, monkeypatch):
@@ -97,7 +113,6 @@ class 测试_推广页:
         模拟页面.evaluate = AsyncMock(return_value=None)
         页面对象 = 推广页(模拟页面)
         页面对象._随机等待 = AsyncMock()
-        页面对象._random_wait_after_click = AsyncMock()
 
         结果 = await 页面对象.点击开启推广()
 

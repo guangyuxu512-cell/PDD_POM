@@ -17,20 +17,11 @@ class 推广任务(基础任务):
         self._执行结果: dict[str, Any] = {}
 
     @staticmethod
-    def _读取字符串参数(任务参数: dict[str, Any], *键名: str) -> str:
-        for 键名项 in 键名:
-            值 = 任务参数.get(键名项)
-            if isinstance(值, str):
-                清理值 = 值.strip()
-                if 清理值:
-                    return 清理值
-        return ""
-
-    @staticmethod
     def _读取商品ID列表(任务参数: dict[str, Any]) -> list[str]:
         原始值 = (
             任务参数.get("商品ID列表")
             or 任务参数.get("商品ID")
+            or 任务参数.get("新商品ID")
             or 任务参数.get("product_ids")
             or 任务参数.get("goods_ids")
         )
@@ -52,13 +43,29 @@ class 推广任务(基础任务):
                 continue
         return 默认值
 
+    @staticmethod
+    def _读取布尔参数(任务参数: dict[str, Any], 默认值: bool, *键名: str) -> bool:
+        for 键名项 in 键名:
+            原始值 = 任务参数.get(键名项)
+            if 原始值 in (None, ""):
+                continue
+            if isinstance(原始值, bool):
+                return 原始值
+            if isinstance(原始值, str):
+                标准值 = 原始值.strip().lower()
+                if 标准值 in {"true", "1", "yes", "y", "是", "开启"}:
+                    return True
+                if 标准值 in {"false", "0", "no", "n", "否", "关闭"}:
+                    return False
+        return 默认值
+
     @自动回调("设置推广")
     async def 执行(self, 页面, 店铺配置: dict) -> str:
         任务参数 = 店铺配置.get("task_param") or {}
         商品ID列表 = self._读取商品ID列表(任务参数)
-        一阶段投产比 = self._读取浮点参数(任务参数, 5.0, "一阶段投产比", "phase1_roi")
-        二阶段投产比 = self._读取浮点参数(任务参数, 5.0, "二阶段投产比", "phase2_roi")
-        需要关闭极速起量 = True
+        投产比 = self._读取浮点参数(任务参数, 5.0, "投产比", "phase1_roi", "一阶段投产比")
+        日限额 = self._读取浮点参数(任务参数, 0.0, "日限额")
+        关闭极速起量 = self._读取布尔参数(任务参数, True, "关闭极速起量")
         店铺ID = 店铺配置.get("shop_id") or 店铺配置.get("username") or "临时店铺"
 
         if not 商品ID列表:
@@ -81,77 +88,63 @@ class 推广任务(基础任务):
             if not await 页面对象.点击添加推广商品():
                 raise RuntimeError("点击添加推广商品失败")
 
+            搜索文本 = ",".join(商品ID列表)
+            await 上报("输入商品ID并查询", 店铺ID)
+            if not await 页面对象.输入商品ID(搜索文本):
+                raise RuntimeError("输入商品ID失败")
+            if not await 页面对象.点击查询():
+                raise RuntimeError("点击查询失败")
+
+            for 商品ID in 商品ID列表:
+                if not await 页面对象.商品行是否存在(商品ID):
+                    raise RuntimeError(f"商品行不存在: {商品ID}")
+
             await 上报("检查全局优先起量状态", 店铺ID)
             if await 页面对象.获取全局优先起量状态() == "true":
                 await 上报("关闭全局优先起量", 店铺ID)
                 if not await 页面对象.点击全局优先起量开关():
                     raise RuntimeError("点击全局优先起量开关失败")
-                if not await 页面对象.确认关闭优先起量():
-                    raise RuntimeError("确认关闭优先起量失败")
-
-            搜索文本 = ",".join(商品ID列表)
-            已搜索商品ID列表: list[str] = []
-            for 重试次数 in range(1, 6):
-                await 上报(f"查询推广商品（第{重试次数}次）", 店铺ID)
-                if not await 页面对象.输入商品ID(搜索文本):
-                    continue
-                if not await 页面对象.点击查询():
-                    continue
-                已搜索商品ID列表 = await 页面对象.获取列表商品ID()
-                if set(商品ID列表).issubset(set(已搜索商品ID列表)):
-                    break
-            else:
-                raise RuntimeError(f"商品查询结果不完整: {已搜索商品ID列表}")
-
-            await 上报("全选推广商品", 店铺ID)
-            if not await 页面对象.点击全选():
-                raise RuntimeError("点击全选失败")
 
             for 商品ID in 商品ID列表:
-                await 上报(f"设置商品投产比: {商品ID}", 店铺ID)
-                if not await 页面对象.点击投产设置按钮(商品ID):
-                    失败列表.append(商品ID)
-                    continue
+                try:
+                    if 日限额 > 0:
+                        await 上报(f"设置日限额: {商品ID}", 店铺ID)
+                        if not await 页面对象.点击更多设置(商品ID):
+                            raise RuntimeError("点击更多设置失败")
+                        if not await 页面对象.点击预算日限额():
+                            raise RuntimeError("点击预算日限额失败")
+                        if not await 页面对象.输入日限额(日限额):
+                            raise RuntimeError("输入日限额失败")
+                        if not await 页面对象.确认日限额():
+                            raise RuntimeError("确认日限额失败")
 
-                if 需要关闭极速起量 and await 页面对象.获取极速起量状态(商品ID) == "true":
-                    await 上报(f"关闭极速起量: {商品ID}", 店铺ID)
-                    if not await 页面对象.点击极速起量开关(商品ID):
-                        失败列表.append(商品ID)
-                        continue
-                    await 页面对象.确认关闭极速起量()
+                    await 上报(f"设置投产比: {商品ID}", 店铺ID)
+                    if not await 页面对象.点击修改投产铅笔按钮(商品ID):
+                        raise RuntimeError("点击修改投产铅笔按钮失败")
+                    if not await 页面对象.等待投产弹窗():
+                        raise RuntimeError("等待投产弹窗失败")
 
-                if not await 页面对象.填写一阶段投产比(一阶段投产比):
-                    失败列表.append(商品ID)
-                    continue
+                    if 关闭极速起量 and await 页面对象.获取极速起量高级版状态(商品ID) == "true":
+                        await 上报(f"关闭极速起量高级版: {商品ID}", 店铺ID)
+                        if not await 页面对象.点击极速起量高级版开关(商品ID):
+                            raise RuntimeError("点击极速起量高级版开关失败")
 
-                if await 页面对象.检测投产比限制():
-                    await 上报(f"商品受投产比限制，跳过: {商品ID}", 店铺ID)
-                    await 页面对象.取消投产设置(商品ID)
-                    await 页面对象.取消勾选商品(商品ID)
-                    失败列表.append(商品ID)
-                    continue
+                    if not await 页面对象.输入投产比(投产比):
+                        raise RuntimeError("输入投产比失败")
+                    if not await 页面对象.确认投产比设置():
+                        raise RuntimeError("确认投产比设置失败")
 
-                if not await 页面对象.点击编辑二阶段(商品ID):
+                    成功列表.append(商品ID)
+                except Exception as 异常:
                     失败列表.append(商品ID)
-                    continue
-                if not await 页面对象.填写二阶段投产比(二阶段投产比):
-                    失败列表.append(商品ID)
-                    continue
-                if not await 页面对象.确认二阶段():
-                    失败列表.append(商品ID)
-                    continue
-                if not await 页面对象.确认投产设置(商品ID):
-                    失败列表.append(商品ID)
-                    continue
-
-                成功列表.append(商品ID)
+                    await 上报(f"[失败] 商品推广设置失败: {商品ID}, error={异常}", 店铺ID)
 
             self._执行结果 = {
                 "推广商品数": len(成功列表),
                 "成功列表": 成功列表,
                 "失败列表": 失败列表,
-                "一阶段投产比": 一阶段投产比,
-                "二阶段投产比": 二阶段投产比,
+                "投产比": 投产比,
+                "日限额": 日限额 if 日限额 > 0 else None,
             }
 
             if not 成功列表:
@@ -176,8 +169,8 @@ class 推广任务(基础任务):
                 "推广商品数": len(成功列表),
                 "成功列表": 成功列表,
                 "失败列表": 失败列表,
-                "一阶段投产比": 一阶段投产比,
-                "二阶段投产比": 二阶段投产比,
+                "投产比": 投产比,
+                "日限额": 日限额 if 日限额 > 0 else None,
             }
             try:
                 await 页面对象.截图("推广任务异常")

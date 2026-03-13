@@ -1770,3 +1770,16 @@
 - [x] 邻近回归验证结果：`11 passed`
 - [x] 验证通过：`python -m pytest -c tests/pytest.ini -q`
 - [x] 全量验证结果：`253 passed, 16 warnings`（10 条为第三方 `openpyxl` 警告，6 条为现有 Celery 警告）
+
+## Prompt 78：Task 34 推广页改版重写 ✅
+
+- [x] 全量重写 `selectors/推广页选择器.py`，切换到新版推广页选择器结构
+- [x] 全量重写 `pages/推广页.py`，删除旧的“全选 / 二阶段投产比”原子方法，改成新版逐商品操作原子方法
+- [x] 全量重写 `tasks/推广任务.py`，按新版 10 步流程编排
+- [x] 更新 `tests/单元测试/测试_推广页.py`
+- [x] 更新 `tests/单元测试/测试_推广任务.py`
+- [x] 更新 `tests/单元测试/测试_推广任务服务.py`
+- [x] 针对性验证通过：`python -m pytest -c tests/pytest.ini -q tests/单元测试/测试_推广页.py tests/单元测试/测试_推广任务.py tests/单元测试/测试_推广任务服务.py`
+- [x] 针对性验证结果：`12 passed`
+- [x] 验证通过：`python -m pytest -c tests/pytest.ini -q`
+- [x] 全量验证结果：`254 passed, 16 warnings`（10 条为第三方 `openpyxl` 警告，6 条为现有 Celery 警告）

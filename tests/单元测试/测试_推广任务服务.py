@@ -24,7 +24,7 @@ class 测试_推广任务服务:
             "backend.services.任务服务.任务参数服务实例.获取待执行列表",
             new=AsyncMock(return_value=[{
                 "id": 51,
-                "params": {"商品ID列表": ["123456789012"], "一阶段投产比": 5, "二阶段投产比": 6},
+                "params": {"商品ID列表": ["123456789012"], "投产比": 5, "日限额": 100},
             }]),
         ), patch(
             "backend.services.任务服务.任务参数服务实例.更新执行结果",
@@ -43,8 +43,8 @@ class 测试_推广任务服务:
         assert 结果["result"] == "成功"
         assert 店铺配置["task_param"] == {
             "商品ID列表": ["123456789012"],
-            "一阶段投产比": 5,
-            "二阶段投产比": 6,
+            "投产比": 5,
+            "日限额": 100,
             "task_param_id": 51,
         }
         assert 模拟回填.await_count == 2
