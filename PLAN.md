@@ -1754,3 +1754,19 @@
 - [x] 兼容验证结果：`4 passed`
 - [x] 验证通过：`python -m pytest -c tests/pytest.ini -q`
 - [x] 全量验证结果：`242 passed, 16 warnings`（10 条为第三方 `openpyxl` 警告，6 条为现有 Celery 警告）
+
+## Prompt 77：Task 34 新增“设置推广”任务 ✅
+
+- [x] 新建 `selectors/推广页选择器.py`，补充推广页所需静态选择器与按商品ID生成的动态选择器方法
+- [x] 新建 `pages/推广页.py`，按原子方法拆分推广页操作，并在每个页面操作间加入 `0.5~1.5s` 随机延迟
+- [x] 新建 `tasks/推广任务.py`，注册任务名 `"设置推广"`，按任务单给定顺序完成推广编排
+- [x] 更新 `backend/services/任务服务.py`，将 `"设置推广"` 纳入 `任务参数任务集合`
+- [x] 新增 `tests/单元测试/测试_推广页.py`
+- [x] 新增 `tests/单元测试/测试_推广任务.py`
+- [x] 新增 `tests/单元测试/测试_推广任务服务.py`
+- [x] 针对性验证通过：`python -m pytest -c tests/pytest.ini -q tests/单元测试/测试_推广页.py tests/单元测试/测试_推广任务.py tests/单元测试/测试_推广任务服务.py`
+- [x] 针对性验证结果：`11 passed`
+- [x] 邻近回归验证通过：`python -m pytest -c tests/pytest.ini -q tests/单元测试/测试_任务服务.py tests/单元测试/测试_任务注册表.py`
+- [x] 邻近回归验证结果：`11 passed`
+- [x] 验证通过：`python -m pytest -c tests/pytest.ini -q`
+- [x] 全量验证结果：`253 passed, 16 warnings`（10 条为第三方 `openpyxl` 警告，6 条为现有 Celery 警告）

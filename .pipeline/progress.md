@@ -1226,3 +1226,59 @@
 - 已执行 `python -m pytest -c tests/pytest.ini -q tests/单元测试/测试_线程池事件循环.py`，结果 `4 passed`
 - 已执行全量 `python -m pytest -c tests/pytest.ini -q`，结果 `242 passed, 16 warnings`
 - 16 条 warning 仍为既有存量：10 条来自第三方 `openpyxl`，6 条来自 Celery `datetime.utcnow()` 弃用提示
+
+---
+
+## 任务摘要
+
+完成 Task 34：新增“设置推广”任务，包括推广页选择器、推广页 POM、推广任务编排，以及 `任务服务` 对该任务的 task_params 注入接入。
+
+## 改动文件列表
+
+- `selectors/推广页选择器.py`
+- `pages/推广页.py`
+- `tasks/推广任务.py`
+- `backend/services/任务服务.py`
+- `tests/单元测试/测试_推广页.py`
+- `tests/单元测试/测试_推广任务.py`
+- `tests/单元测试/测试_推广任务服务.py`
+- `PLAN.md`
+- `改造进度.md`
+- `.pipeline/progress.md`
+
+## 改动说明
+
+- `selectors/推广页选择器.py`
+  - 新增推广页静态选择器和按商品ID动态生成的选择器方法
+- `pages/推广页.py`
+  - 新建推广页 POM，拆分为导航、弹窗、查询、全选、投产设置、开启推广、成功等待和返回商品列表页等原子方法
+  - 每个方法内都带 `0.5~1.5s` 随机延迟，保持页面操作节奏一致
+- `tasks/推广任务.py`
+  - 新建 `"设置推广"` 任务，按任务单要求编排整条推广流程
+  - 支持从参数中读取商品ID列表、一阶段投产比和二阶段投产比
+  - 对投产比受限商品会取消设置并取消勾选，最终回写成功/失败商品列表
+- `backend/services/任务服务.py`
+  - 将 `"设置推广"` 纳入 `任务参数任务集合`
+- `tests/单元测试/测试_推广页.py`
+  - 覆盖推广页原子方法与兜底行为
+- `tests/单元测试/测试_推广任务.py`
+  - 覆盖任务注册、正常路径和异常路径
+- `tests/单元测试/测试_推广任务服务.py`
+  - 覆盖任务服务对 `"设置推广"` 的参数注入与跳过逻辑
+- `PLAN.md` / `改造进度.md` / `.pipeline/progress.md`
+  - 同步记录 Task 34 的实现范围与验证结果
+
+## 影响范围
+
+- 项目新增 `"设置推广"` 任务后，可通过现有 task_params 链路驱动全站推广设置
+- 推广页流程中的弹窗处理、商品查询、投产比设置和开启推广已拆为独立页面动作，便于后续维护
+- 现有任务链路未被改动，仅新增新任务及其执行入口接入
+
+## 注意事项
+
+- 本轮未修改前端代码
+- 本轮未改动任何已有任务的业务流程
+- 已执行 `python -m pytest -c tests/pytest.ini -q tests/单元测试/测试_推广页.py tests/单元测试/测试_推广任务.py tests/单元测试/测试_推广任务服务.py`，结果 `11 passed`
+- 已执行 `python -m pytest -c tests/pytest.ini -q tests/单元测试/测试_任务服务.py tests/单元测试/测试_任务注册表.py`，结果 `11 passed`
+- 已执行全量 `python -m pytest -c tests/pytest.ini -q`，结果 `253 passed, 16 warnings`
+- 16 条 warning 仍为既有存量：10 条来自第三方 `openpyxl`，6 条来自 Celery `datetime.utcnow()` 弃用提示

@@ -1,11 +1,15 @@
-2026/03/14-00:37:49.402 5b10 Reusing MANIFEST E:\pdd_zd\data\profiles\8eec98e4-89b9-49d5-ab1f-c72be3c405f6\Default\Session Storage/MANIFEST-000001
-2026/03/14-00:37:49.403 5b10 Recovering log #37
-2026/03/14-00:37:49.403 5b10 Level-0 table #40: started
-2026/03/14-00:37:49.433 5b10 Level-0 table #40: 13473 bytes OK
-2026/03/14-00:37:49.433 5b10 Recovering log #40
-2026/03/14-00:37:49.436 5b10 Reusing old log E:\pdd_zd\data\profiles\8eec98e4-89b9-49d5-ab1f-c72be3c405f6\Default\Session Storage/000040.log 
-2026/03/14-00:37:49.471 5b10 Delete type=0 #37
-2026/03/14-00:37:49.471 5b10 Delete type=2 #41
-2026/03/14-00:39:06.799 159c Level-0 table #42: started
-2026/03/14-00:39:06.834 159c Level-0 table #42: 14210 bytes OK
-2026/03/14-00:39:06.854 159c Delete type=0 #40
+2026/03/14-01:03:33.371 8bb4 Reusing MANIFEST E:\pdd_zd\data\profiles\8eec98e4-89b9-49d5-ab1f-c72be3c405f6\Default\Session Storage/MANIFEST-000001
+2026/03/14-01:03:33.374 8bb4 Recovering log #41
+2026/03/14-01:03:33.387 8bb4 Reusing old log E:\pdd_zd\data\profiles\8eec98e4-89b9-49d5-ab1f-c72be3c405f6\Default\Session Storage/000041.log 
+2026/03/14-01:04:36.659 40a4 Level-0 table #45: started
+2026/03/14-01:04:36.696 40a4 Level-0 table #45: 15078 bytes OK
+2026/03/14-01:04:36.730 40a4 Delete type=0 #41
+2026/03/14-01:04:36.730 40a4 Compacting 4@0 + 1@1 files
+2026/03/14-01:04:36.754 40a4 Generated table #46@0: 83 keys, 7135 bytes
+2026/03/14-01:04:36.754 40a4 Compacted 4@0 + 1@1 files => 7135 bytes
+2026/03/14-01:04:36.780 40a4 compacted to: files[ 0 1 0 0 0 0 0 ]
+2026/03/14-01:04:36.780 40a4 Delete type=2 #36
+2026/03/14-01:04:36.780 40a4 Delete type=2 #38
+2026/03/14-01:04:36.780 40a4 Delete type=2 #40
+2026/03/14-01:04:36.780 40a4 Delete type=2 #42
+2026/03/14-01:04:36.780 40a4 Delete type=2 #45
