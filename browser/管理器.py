@@ -37,6 +37,23 @@ class 浏览器管理器:
         self.playwright实例: Optional[Playwright] = None
         self.用户目录工厂 = 用户目录工厂()
 
+    @staticmethod
+    def _页面已关闭(页面: Any) -> bool:
+        """兼容真实 Page 与测试替身，判断页面是否已关闭。"""
+        if 页面 is None:
+            return True
+
+        检查方法 = getattr(页面, "is_closed", None)
+        if not callable(检查方法):
+            return False
+
+        try:
+            检查结果 = 检查方法()
+        except Exception:
+            return False
+
+        return 检查结果 if isinstance(检查结果, bool) else False
+
     async def 初始化(self, 配置: dict = None) -> None:
         """
         启动 Playwright
@@ -114,6 +131,7 @@ class 浏览器管理器:
         # 启动浏览器
         浏览器上下文: BrowserContext = await self.playwright实例.chromium.launch_persistent_context(
             用户目录,
+            no_viewport=True,
             **启动参数
         )
 
@@ -183,7 +201,25 @@ class 浏览器管理器:
         if 店铺ID not in self.实例集:
             raise RuntimeError(f"店铺 {店铺ID} 未启动，请先调用 打开店铺() 方法")
 
-        return self.实例集[店铺ID]["页面"]
+        实例 = self.实例集[店铺ID]
+        页面 = 实例.get("页面") or 实例.get("page")
+        浏览器 = 实例["浏览器"]
+
+        if self._页面已关闭(页面):
+            可用页面列表 = [
+                当前页面
+                for 当前页面 in getattr(浏览器, "pages", [])
+                if not self._页面已关闭(当前页面)
+            ]
+            if not 可用页面列表:
+                raise RuntimeError(f"店铺 {店铺ID} 所有页面已关闭，需要重新打开")
+
+            页面 = 可用页面列表[0]
+            实例["页面"] = 页面
+            实例["page"] = 页面
+            print(f"✓ 店铺 {店铺ID} 页面已刷新")
+
+        return 页面
 
     def 获取实例列表(self) -> Dict[str, dict]:
         """

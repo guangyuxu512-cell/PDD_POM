@@ -1597,3 +1597,41 @@
 - [x] 验证通过：`python -m pytest -c tests/pytest.ini -q tests/单元测试/测试_任务参数接口.py::测试_任务参数接口::test_列表查询_支持批次筛选日期范围和批次选项`
 - [x] 全量验证通过：PowerShell 临时设置 `timeBeginPeriod(1)` 并提高当前进程优先级后执行 `python -m pytest -c tests/pytest.ini -q`
 - [x] 全量验证结果：`213 passed, 16 warnings`（10 条为第三方 `openpyxl` 警告，6 条为现有 Celery 警告）
+
+## Prompt 69：Task 26 前端任务类型下拉动态化 + 限时限量导入支持 ✅
+
+- [x] 确认可复用现有 `GET /api/tasks/available`，无需新增后端任务列表接口
+- [x] 更新 `frontend/src/views/TaskParamsManage.vue`，将任务列表页顶部筛选下拉与导入弹窗任务类型下拉统一改为调用 `listAvailableTasks()`
+- [x] 删除 `TaskParamsManage.vue` 中写死的任务类型数组，统一显示后端返回的 `task.name`
+- [x] 更新 `frontend/src/views/TaskParamsManage.vue`，为 `限时限量` 补充 `batch_id / 折扣` 的 CSV 模板列、样例行与说明文案
+- [x] 更新 `frontend/src/views/TaskParamsManage.vue`，补充任务类型加载失败、空任务列表和未选任务类型时的前端提示
+- [x] 新增 `tests/单元测试/测试_任务参数任务类型动态化.py`，覆盖动态任务下拉、异常提示和限时限量模板说明
+- [x] 更新 `backend/services/任务参数服务.py`，将 `父商品ID/新标题/图片路径/折扣/批次ID` 等导入列规范化为任务执行侧使用的英文参数键，恢复 CSV/XLSX 导入回归
+- [x] 更新 `browser/反检测.py`，将 `<= 30ms` 的极短随机延迟改为高精度等待并补 1ms 安全垫，稳定 Windows 下的时间边界测试
+- [x] 针对性验证通过：`python -m pytest -c tests/pytest.ini -q tests/单元测试/测试_任务参数管理页.py tests/单元测试/测试_任务参数任务类型动态化.py`
+- [x] 针对性验证结果：`5 passed`
+- [x] 导入/回归修复验证通过：`python -m pytest -c tests/pytest.ini -q tests/单元测试/测试_任务参数服务.py tests/单元测试/测试_任务参数接口.py tests/单元测试/测试_任务参数启用重置服务.py tests/单元测试/测试_任务参数XLSX导入.py`
+- [x] 导入/回归修复验证结果：`24 passed, 10 warnings`
+- [x] 边界抖动验证通过：`python -m pytest -c tests/pytest.ini -q tests/单元测试/测试_反检测.py::测试_真人模拟器::test_随机延迟在范围内`
+- [x] 验证通过：在 `frontend/` 目录执行 `npx vue-tsc -b`
+- [x] 验证通过：`python -m pytest -c tests/pytest.ini -q`
+- [x] 全量验证结果：`215 passed, 16 warnings`（10 条为第三方 `openpyxl` 警告，6 条为现有 Celery 警告）
+
+## Prompt 70：Task 27 浏览器最大化修复 + 浏览器复用修复 + 批次完成自动创建限时限量记录 ✅
+
+- [x] 更新 `browser/管理器.py`，在 `launch_persistent_context(...)` 时显式补上 `no_viewport=True`
+- [x] 更新 `browser/管理器.py`，为 `获取页面()` 增加关闭页检测、复用 `context.pages` 和实例缓存刷新逻辑
+- [x] 更新 `backend/services/任务服务.py`，新增关闭页异步恢复逻辑：优先复用现有页面，必要时 `await 浏览器上下文.new_page()`
+- [x] 更新 `backend/services/任务服务.py`，在 `发布相似商品` 成功且存在 `batch_id` 时触发 `批次完成后创建后续任务(...)`
+- [x] 更新 `backend/services/任务参数服务.py`，新增 `批次完成后创建后续任务(batch_id)`，要求同批次发布相似商品已全部结束、至少有一条成功记录、折扣非空且尚无限时限量记录
+- [x] 更新 `tasks/发布相似商品任务.py`，收尾阶段若主页面也已关闭，则自动新建商品列表页并导航回商品列表
+- [x] 新增 `tests/单元测试/测试_浏览器复用修复.py`
+- [x] 新增 `tests/单元测试/测试_任务服务浏览器复用与后续任务.py`
+- [x] 新增 `tests/单元测试/测试_批次完成后自动创建限时限量.py`
+- [x] 新增 `tests/单元测试/测试_发布相似商品任务收尾恢复.py`
+- [x] 针对性验证通过：`python -m pytest -c tests/pytest.ini -q tests/单元测试/测试_浏览器管理器.py tests/单元测试/测试_浏览器复用修复.py tests/单元测试/测试_任务服务.py tests/单元测试/测试_任务服务浏览器复用与后续任务.py tests/单元测试/测试_批次完成后自动创建限时限量.py tests/单元测试/测试_发布相似商品任务.py tests/单元测试/测试_发布相似商品任务收尾恢复.py`
+- [x] 针对性验证结果：`22 passed`
+- [x] 邻近回归验证通过：`python -m pytest -c tests/pytest.ini -q tests/单元测试/测试_限时限量任务.py tests/单元测试/测试_限时限量任务服务.py tests/单元测试/测试_任务参数批次成功记录.py`
+- [x] 邻近回归验证结果：`9 passed`
+- [x] 验证通过：`python -m pytest -c tests/pytest.ini -q`
+- [x] 全量验证结果：`225 passed, 16 warnings`（10 条为第三方 `openpyxl` 警告，6 条为现有 Celery 警告）

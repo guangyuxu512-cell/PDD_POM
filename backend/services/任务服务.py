@@ -28,6 +28,56 @@ class 任务服务:
         """初始化任务服务"""
         self._数据库路径 = Path(配置实例.DATA_DIR) / "ecom.db"
 
+    @staticmethod
+    def _页面已关闭(页面: Any) -> bool:
+        """兼容真实 Page 与测试替身，判断页面是否关闭。"""
+        if 页面 is None:
+            return True
+
+        检查方法 = getattr(页面, "is_closed", None)
+        if not callable(检查方法):
+            return False
+
+        try:
+            检查结果 = 检查方法()
+        except Exception:
+            return False
+
+        return 检查结果 if isinstance(检查结果, bool) else False
+
+    async def _确保页面可用(self, 管理器实例: Any, shop_id: str):
+        """确保任务执行前拿到一个可用页面。"""
+        页面 = None
+        try:
+            页面 = 管理器实例.获取页面(shop_id)
+        except RuntimeError as 异常:
+            if "所有页面已关闭" not in str(异常):
+                raise
+
+        if 页面 is not None and not self._页面已关闭(页面):
+            return 页面
+
+        if shop_id not in 管理器实例.实例集:
+            raise RuntimeError(f"店铺 {shop_id} 未启动，请先调用 打开店铺() 方法")
+
+        实例 = 管理器实例.实例集[shop_id]
+        浏览器上下文 = 实例["浏览器"]
+        现有页面 = [
+            当前页面
+            for 当前页面 in getattr(浏览器上下文, "pages", [])
+            if not self._页面已关闭(当前页面)
+        ]
+
+        if 现有页面:
+            页面 = 现有页面[0]
+        else:
+            页面 = await 浏览器上下文.new_page()
+
+        实例["页面"] = 页面
+        实例["page"] = 页面
+        print(f"[任务服务] 页面已刷新: {页面}")
+        return 页面
+
     async def _获取待执行任务参数记录(
         self,
         shop_id: str,
@@ -372,7 +422,7 @@ class 任务服务:
                 print(f"[任务服务] 店铺浏览器已打开，复用现有实例")
 
             # 获取页面
-            页面 = 管理器实例.获取页面(shop_id)
+            页面 = await self._确保页面可用(管理器实例, shop_id)
             if 页面 is None:
                 raise RuntimeError("浏览器页面获取失败: 页面对象为空")
             print(f"[任务服务] 获取到页面对象: {页面}")
@@ -668,6 +718,13 @@ class 任务服务:
                     "success",
                     结果=执行结果数据,
                 )
+                if task_name == "发布相似商品":
+                    批次ID = str(任务参数记录.get("batch_id") or "").strip()
+                    if 批次ID:
+                        try:
+                            await 任务参数服务实例.批次完成后创建后续任务(批次ID)
+                        except Exception as e:
+                            print(f"[任务服务] 自动创建后续任务失败（忽略）: {e}")
             elif 结果 != "跳过":
                 await self._回填任务参数执行结果(
                     任务参数记录,

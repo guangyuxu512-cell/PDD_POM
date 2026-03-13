@@ -37,6 +37,30 @@ class 发布相似商品任务(基础任务):
         except Exception as 异常:
             print(f"[发布相似商品任务] 回填任务参数失败: {异常}")
 
+    @staticmethod
+    def _页面已关闭(页面) -> bool:
+        """兼容真实 Page 与测试替身判断页面关闭状态。"""
+        if 页面 is None:
+            return True
+
+        检查方法 = getattr(页面, "is_closed", None)
+        if not callable(检查方法):
+            return False
+
+        try:
+            检查结果 = 检查方法()
+        except Exception:
+            return False
+
+        return 检查结果 if isinstance(检查结果, bool) else False
+
+    @staticmethod
+    def _获取页面上下文(页面):
+        """获取页面所属 context。"""
+        if 页面 is None:
+            return None
+        return getattr(页面, "context", None)
+
     async def _安全截图并关闭(
         self,
         发布页对象: 发布商品页 | None,
@@ -45,6 +69,8 @@ class 发布相似商品任务(基础任务):
         """安全截图并关闭发布页。"""
         if 发布页对象 is None:
             return
+
+        浏览器上下文 = self._获取页面上下文(getattr(发布页对象, "页面", None))
 
         try:
             await 发布页对象.截图当前状态()
@@ -58,6 +84,11 @@ class 发布相似商品任务(基础任务):
 
         if 商品列表对象 is not None:
             try:
+                主页面 = getattr(商品列表对象, "页面", None)
+                if self._页面已关闭(主页面) and 浏览器上下文 is not None:
+                    新主页面 = await 浏览器上下文.new_page()
+                    商品列表对象 = 商品列表页(新主页面)
+                    await 商品列表对象.导航到商品列表()
                 await 商品列表对象.切回前台()
             except Exception:
                 pass

@@ -5,6 +5,7 @@ import ConfirmDialog from '../components/ConfirmDialog.vue'
 import Modal from '../components/Modal.vue'
 import StatusBadge from '../components/StatusBadge.vue'
 import { listShops } from '../api/shops'
+import { listAvailableTasks } from '../api/tasks'
 import {
   batchDisableTaskParams,
   batchEnableTaskParams,
@@ -19,6 +20,7 @@ import {
   resetTaskParam,
 } from '../api/taskParams'
 import type {
+  AvailableTask,
   Shop,
   TaskParam,
   TaskParamBatchOption,
@@ -38,12 +40,12 @@ type JsonTooltipState = {
   width: number
 }
 
-const taskOptions = ['发布相似商品', '发布换图商品']
 const pageSize = 10
 const tooltipMaxWidth = 500
 const tooltipViewportPadding = 16
 const tooltipGap = 10
 
+const availableTasks = ref<AvailableTask[]>([])
 const shops = ref<Shop[]>([])
 const batchOptions = ref<TaskParamBatchOption[]>([])
 const taskParams = ref<TaskParam[]>([])
@@ -57,7 +59,7 @@ const loading = ref(false)
 const showImportModal = ref(false)
 const showClearConfirm = ref(false)
 const selectedFile = ref<File | null>(null)
-const importTaskName = ref('发布相似商品')
+const importTaskName = ref('')
 const importing = ref(false)
 const importSummary = ref<TaskParamImportResult | null>(null)
 const rowActioningIds = ref<number[]>([])
@@ -94,17 +96,72 @@ const totalPages = computed(() => {
 })
 const currentPage = computed(() => (isTaskListTab.value ? taskListPage.value : resultPage.value))
 const currentTotal = computed(() => (isTaskListTab.value ? taskParamTotal.value : resultTotal.value))
+const taskOptions = computed(() => availableTasks.value.map((task) => task.name))
 
 const currentTemplateColumns = computed(() => {
   if (importTaskName.value === '发布换图商品') {
     return ['店铺ID', '父商品ID', '新标题', '发布次数', '图片路径']
   }
+
+  if (importTaskName.value === '限时限量') {
+    return ['店铺ID', 'batch_id', '折扣']
+  }
+
   return ['店铺ID', '父商品ID', '新标题', '发布次数']
 })
+const currentTemplateSampleRow = computed(() => {
+  if (importTaskName.value === '发布换图商品') {
+    return '示例店铺名称,123456,示例标题,3,E:/images/demo.png'
+  }
+
+  if (importTaskName.value === '限时限量') {
+    return '示例店铺名称,batch-20260313,6'
+  }
+
+  return '示例店铺名称,123456,示例标题,3'
+})
+const currentTemplateExample = computed(() => {
+  if (importTaskName.value === '发布换图商品') {
+    return '示例：店铺ID、父商品ID、新标题、发布次数、图片路径（本地绝对路径）'
+  }
+
+  if (importTaskName.value === '限时限量') {
+    return '示例：店铺ID、batch_id、折扣'
+  }
+
+  return '示例：店铺ID、父商品ID、新标题、发布次数'
+})
+const supportsPublishCount = computed(() => currentTemplateColumns.value.includes('发布次数'))
 
 const shopNameMap = computed<Record<string, string>>(() =>
   Object.fromEntries(shops.value.map((shop) => [shop.id, shop.name])),
 )
+
+function getDefaultImportTaskName(preferredTaskName = taskListFilters.value.task_name) {
+  if (preferredTaskName && taskOptions.value.includes(preferredTaskName)) {
+    return preferredTaskName
+  }
+
+  return taskOptions.value[0] || ''
+}
+
+function normalizeTaskFilters() {
+  if (taskListFilters.value.task_name && !taskOptions.value.includes(taskListFilters.value.task_name)) {
+    taskListFilters.value.task_name = ''
+  }
+
+  if (resultFilters.value.task_name && !taskOptions.value.includes(resultFilters.value.task_name)) {
+    resultFilters.value.task_name = ''
+  }
+}
+
+function syncImportTaskName(preferredTaskName = taskListFilters.value.task_name) {
+  if (importTaskName.value && taskOptions.value.includes(importTaskName.value)) {
+    return
+  }
+
+  importTaskName.value = getDefaultImportTaskName(preferredTaskName)
+}
 
 function buildTaskListFilters(page = taskListPage.value): TaskParamFilters {
   return {
@@ -381,6 +438,17 @@ async function loadShops() {
   }
 }
 
+async function loadAvailableTaskOptions() {
+  try {
+    availableTasks.value = await listAvailableTasks()
+    normalizeTaskFilters()
+    syncImportTaskName()
+  } catch (error) {
+    const message = error instanceof Error ? error.message : '加载任务类型失败'
+    toast.error(message)
+  }
+}
+
 async function loadBatchOptions() {
   try {
     batchOptions.value = await listTaskParamBatchOptions(buildBatchOptionFilters())
@@ -471,7 +539,12 @@ function handlePageChange(page: number) {
 }
 
 function openImportModal() {
-  importTaskName.value = taskListFilters.value.task_name || '发布相似商品'
+  if (taskOptions.value.length === 0) {
+    toast.warning('暂无可导入的任务类型')
+    return
+  }
+
+  importTaskName.value = getDefaultImportTaskName()
   selectedFile.value = null
   importSummary.value = null
   showImportModal.value = true
@@ -483,6 +556,11 @@ function handleFileChange(event: Event) {
 }
 
 async function handleImport() {
+  if (!importTaskName.value) {
+    toast.warning('请选择任务类型')
+    return
+  }
+
   if (!selectedFile.value) {
     toast.warning('请选择 CSV 文件')
     return
@@ -605,9 +683,7 @@ async function runBatchAction(action: Exclude<BatchActionKey, ''>) {
 function downloadTemplate() {
   const rows = [
     currentTemplateColumns.value.join(','),
-    importTaskName.value === '发布换图商品'
-      ? '示例店铺名称,123456,示例标题,3,E:/images/demo.png'
-      : '示例店铺名称,123456,示例标题,3',
+    currentTemplateSampleRow.value,
   ]
   const blob = new Blob([`\uFEFF${rows.join('\n')}`], { type: 'text/csv;charset=utf-8;' })
   const link = document.createElement('a')
@@ -618,6 +694,7 @@ function downloadTemplate() {
 }
 
 onMounted(() => {
+  void loadAvailableTaskOptions()
   void loadShops()
   void loadBatchOptions()
   void loadTaskParams()
@@ -661,7 +738,7 @@ onBeforeUnmount(() => {
     <div v-if="isTaskListTab" class="filters">
       <select v-model="taskListFilters.task_name" class="filter-select" @change="handleTaskListSearch">
         <option value="">全部任务类型</option>
-        <option v-for="task in taskOptions" :key="task" :value="task">{{ task }}</option>
+        <option v-for="task in availableTasks" :key="task.name" :value="task.name">{{ task.name }}</option>
       </select>
 
       <select v-model="taskListFilters.status" class="filter-select" @change="handleTaskListSearch">
@@ -691,7 +768,7 @@ onBeforeUnmount(() => {
     <div v-else class="filters">
       <select v-model="resultFilters.task_name" class="filter-select" @change="handleResultSearch">
         <option value="">全部任务类型</option>
-        <option v-for="task in taskOptions" :key="task" :value="task">{{ task }}</option>
+        <option v-for="task in availableTasks" :key="task.name" :value="task.name">{{ task.name }}</option>
       </select>
 
       <select v-model="resultFilters.status" class="filter-select" @change="handleResultSearch">
@@ -919,7 +996,7 @@ onBeforeUnmount(() => {
         <div class="form-group">
           <label>任务类型</label>
           <select v-model="importTaskName">
-            <option v-for="task in taskOptions" :key="task" :value="task">{{ task }}</option>
+            <option v-for="task in availableTasks" :key="task.name" :value="task.name">{{ task.name }}</option>
           </select>
         </div>
 
@@ -930,10 +1007,10 @@ onBeforeUnmount(() => {
           </div>
           <p>列名：{{ currentTemplateColumns.join('、') }}</p>
           <p>“店铺ID”列支持填写店铺ID或店铺名称，导入时会自动匹配。</p>
-          <p>“发布次数”列可选，留空默认导入 1 条，填写 3 会自动展开 3 条 pending 记录。</p>
-          <p>多次展开后的记录会自动写入批次序号，便于区分同一批次内的重复发布任务。</p>
-          <p v-if="importTaskName === '发布换图商品'">示例：店铺ID、父商品ID、新标题、发布次数、图片路径（本地绝对路径）</p>
-          <p v-else>示例：店铺ID、父商品ID、新标题、发布次数</p>
+          <p v-if="supportsPublishCount">“发布次数”列可选，留空默认导入 1 条，填写 3 会自动展开 3 条 pending 记录。</p>
+          <p v-if="supportsPublishCount">多次展开后的记录会自动写入批次序号，便于区分同一批次内的重复发布任务。</p>
+          <p v-if="importTaskName === '限时限量'">`batch_id` 需要填写同批次成功发布商品对应的批次号。</p>
+          <p>{{ currentTemplateExample }}</p>
         </div>
 
         <div class="form-group">

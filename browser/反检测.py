@@ -37,7 +37,9 @@ class 真人模拟器:
             return
 
         if 延迟时间 <= 0.03:
-            time.sleep(延迟时间)
+            结束时间 = time.perf_counter() + 延迟时间 + 0.001
+            while time.perf_counter() < 结束时间:
+                pass
             return
 
         开始时间 = time.perf_counter()

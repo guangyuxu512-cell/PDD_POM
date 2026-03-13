@@ -16,22 +16,33 @@ from backend.models.数据库 import 获取连接
 
 
 允许状态集合 = {"pending", "running", "success", "failed", "skipped"}
-CSV映射配置: Dict[str, Dict[str, str]] = {
-    "发布相似商品": {
-        "店铺ID": "shop_id",
-        "父商品ID": "params.parent_product_id",
-        "新标题": "params.new_title",
-    },
-    "发布换图商品": {
-        "店铺ID": "shop_id",
-        "父商品ID": "params.parent_product_id",
-        "新标题": "params.new_title",
-        "图片路径": "params.image_path",
-    },
-}
+
 科学计数法正则 = re.compile(r"^[+-]?\d+\.?\d*[eE][+\-]?\d+$")
 整数值正则 = re.compile(r"^\d+$")
 整数浮点正则 = re.compile(r"^\d+\.0+$")
+参数键名映射 = {
+    "父商品ID": "parent_product_id",
+    "parent_product_id": "parent_product_id",
+    "新标题": "new_title",
+    "new_title": "new_title",
+    "图片路径": "image_path",
+    "image_path": "image_path",
+    "批次ID": "batch_id",
+    "批次号": "batch_id",
+    "批次编号": "batch_id",
+    "batch_id": "batch_id",
+    "batchId": "batch_id",
+    "折扣": "discount",
+    "discount": "discount",
+    "投产比": "roi",
+    "roi": "roi",
+}
+保持字符串字段 = {
+    "parent_product_id",
+    "new_title",
+    "image_path",
+    "batch_id",
+}
 
 
 class 任务参数服务:
@@ -62,6 +73,27 @@ class 任务参数服务:
             return json.loads(数据)
         except (TypeError, json.JSONDecodeError):
             return {}
+
+    @staticmethod
+    def _读取非空参数值(参数: Dict[str, Any], *键名列表: str) -> Any:
+        """按优先级读取参数中的首个非空值。"""
+        for 键名 in 键名列表:
+            if 键名 not in 参数:
+                continue
+
+            值 = 参数.get(键名)
+            if 值 is None:
+                continue
+
+            if isinstance(值, str):
+                清理值 = 值.strip()
+                if 清理值:
+                    return 清理值
+                continue
+
+            return 值
+
+        return None
 
     def _转换记录(self, 行: Dict[str, Any]) -> Dict[str, Any]:
         记录 = dict(行)
@@ -196,59 +228,63 @@ class 任务参数服务:
             raise ValueError(f"第 {行号} 行发布次数必须大于 0")
         return 发布次数
 
-    async def _映射CSV行(
-        self,
-        任务名称: str,
-        行数据: Dict[str, str],
-        行号: int,
-    ) -> List[Dict[str, Any]]:
-        映射 = CSV映射配置.get(任务名称)
-        if not 映射:
-            raise ValueError(f"暂不支持的任务类型: {任务名称}")
+    def _规范参数键名(self, 列名: str) -> str:
+        标准列名 = str(列名).strip()
+        return 参数键名映射.get(标准列名, 标准列名)
 
-        缺失列 = [列名 for 列名 in 映射 if 列名 not in 行数据]
-        if 缺失列:
-            raise ValueError(f"CSV 缺少列: {', '.join(缺失列)}")
+    def _转换参数值(self, 参数键名: str, 原始值: str) -> Any:
+        清理值 = str(原始值).strip()
+        if not 清理值:
+            return 清理值
 
+        if 参数键名 in 保持字符串字段:
+            return 清理值
+
+        if 参数键名.endswith("_id"):
+            return 清理值
+
+        try:
+            return float(清理值) if "." in 清理值 else int(清理值)
+        except ValueError:
+            return 清理值
+
+    async def _映射CSV行(self, 任务名称: str, 行数据: Dict[str, str], 行号: int) -> List[Dict[str, Any]]:
+        # 提取店铺ID（必填）
         店铺标识 = str(行数据.get("店铺ID", "")).strip()
-        父商品ID = str(行数据.get("父商品ID", "")).strip()
         if not 店铺标识:
             raise ValueError(f"第 {行号} 行店铺ID不能为空")
-        if not 父商品ID:
-            raise ValueError(f"第 {行号} 行父商品ID不能为空")
-
         店铺ID = await self._解析店铺标识(店铺标识, 行号)
 
-        参数: Dict[str, Any] = {"parent_product_id": 父商品ID}
-
-        新标题 = str(行数据.get("新标题", "")).strip()
-        if 新标题:
-            参数["new_title"] = 新标题
-
-        图片路径 = str(行数据.get("图片路径", "")).strip()
-        if 图片路径:
-            参数["image_path"] = 图片路径
-
+        # 提取发布次数（可选，默认1）
         发布次数 = self._解析发布次数(行数据, 行号)
-        记录列表: List[Dict[str, Any]] = []
+
+        # 除了 店铺ID 和 发布次数，其余所有列都写入 params
+        排除列 = {"店铺ID", "发布次数"}
+        参数: Dict[str, Any] = {}
+        for 列名, 值 in 行数据.items():
+            if 列名 in 排除列 or not 列名.strip():
+                continue
+            清理值 = str(值).strip() if 值 else ""
+            if not 清理值:
+                continue
+            参数键名 = self._规范参数键名(列名)
+            参数[参数键名] = self._转换参数值(参数键名, 清理值)
+
+        记录列表 = []
         for 批次序号 in range(1, 发布次数 + 1):
             当前参数 = dict(参数)
             if 发布次数 > 1:
                 当前参数["batch_index"] = 批次序号
-
-            记录列表.append(
-                {
-                    "shop_id": 店铺ID,
-                    "task_name": 任务名称,
-                    "params": 当前参数,
-                    "status": "pending",
-                    "result": {},
-                    "error": None,
-                    "batch_id": None,
-                    "enabled": True,
-                }
-            )
-
+            记录列表.append({
+                "shop_id": 店铺ID,
+                "task_name": 任务名称,
+                "params": 当前参数,
+                "status": "pending",
+                "result": {},
+                "error": None,
+                "batch_id": None,
+                "enabled": True,
+            })
         return 记录列表
 
     def _构建条件SQL(
@@ -662,6 +698,99 @@ class 任务参数服务:
                 行列表 = await 游标.fetchall()
 
         return [self._解析JSON(行["result"]) for 行 in 行列表]
+
+    async def 批次完成后创建后续任务(self, batch_id: str) -> int:
+        """为已完成的发布相似商品批次幂等创建一条限时限量记录。"""
+        批次ID = str(batch_id or "").strip()
+        if not 批次ID:
+            return 0
+
+        async with 获取连接() as 连接:
+            await 连接.execute("BEGIN IMMEDIATE")
+            try:
+                async with 连接.execute(
+                    """
+                    SELECT 1
+                    FROM task_params
+                    WHERE batch_id = ?
+                      AND task_name = '限时限量'
+                    LIMIT 1
+                    """,
+                    (批次ID,),
+                ) as 游标:
+                    if await 游标.fetchone():
+                        await 连接.rollback()
+                        return 0
+
+                async with 连接.execute(
+                    """
+                    SELECT id, shop_id, params, status
+                    FROM task_params
+                    WHERE batch_id = ?
+                      AND task_name = '发布相似商品'
+                    ORDER BY id ASC
+                    """,
+                    (批次ID,),
+                ) as 游标:
+                    发布记录列表 = await 游标.fetchall()
+
+                if not 发布记录列表:
+                    await 连接.rollback()
+                    return 0
+
+                if any(str(记录["status"]) in {"pending", "running"} for 记录 in 发布记录列表):
+                    await 连接.rollback()
+                    return 0
+
+                成功记录列表 = [
+                    记录
+                    for 记录 in 发布记录列表
+                    if str(记录["status"]) == "success"
+                ]
+                if not 成功记录列表:
+                    await 连接.rollback()
+                    return 0
+
+                店铺ID = ""
+                折扣值 = None
+                for 成功记录 in 成功记录列表:
+                    参数 = self._解析JSON(成功记录["params"])
+                    当前折扣值 = self._读取非空参数值(参数, "折扣", "discount")
+                    if 当前折扣值 in (None, ""):
+                        continue
+
+                    店铺ID = str(成功记录["shop_id"] or "").strip()
+                    折扣值 = 当前折扣值
+                    break
+
+                if not 店铺ID or 折扣值 in (None, ""):
+                    await 连接.rollback()
+                    return 0
+
+                await 连接.execute(
+                    """
+                    INSERT INTO task_params (
+                        shop_id, task_name, params, status, result, error, batch_id, enabled, run_count
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        店铺ID,
+                        "限时限量",
+                        self._序列化JSON({"batch_id": 批次ID, "折扣": 折扣值}),
+                        "pending",
+                        self._序列化JSON({}),
+                        None,
+                        批次ID,
+                        1,
+                        0,
+                    ),
+                )
+                await 连接.commit()
+                print(f"[任务参数服务] 已自动创建限时限量记录: batch_id={批次ID}, shop_id={店铺ID}")
+                return 1
+            except Exception:
+                await 连接.rollback()
+                raise
 
     async def 启用(self, 记录ID: int) -> Optional[Dict[str, Any]]:
         """启用单条任务参数记录。"""

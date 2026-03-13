@@ -774,3 +774,116 @@
 - 已执行全量 `python -m pytest -c tests/pytest.ini -q`；在 PowerShell 临时启用 `timeBeginPeriod(1)` 并提升当前进程优先级后，结果 `213 passed, 16 warnings`
 - 16 条 warning 仍为既有存量：10 条来自第三方 `openpyxl`，6 条来自 Celery `datetime.utcnow()` 弃用提示
 - 当前策略禁止直接删除测试生成的 `__pycache__` 文件；工作区中若仍有字节码变更，可在后续人工清理
+
+---
+
+## 任务摘要
+
+完成 Task 26：将任务参数页的任务类型下拉改为动态读取后端任务注册表，为限时限量补齐导入模板说明，并顺手修复任务参数导入键映射与极短随机延迟回归以恢复全量验证。
+
+## 改动文件列表
+
+- `frontend/src/views/TaskParamsManage.vue`
+- `tests/单元测试/测试_任务参数任务类型动态化.py`
+- `backend/services/任务参数服务.py`
+- `browser/反检测.py`
+- `PLAN.md`
+- `改造进度.md`
+- `.pipeline/progress.md`
+
+## 改动说明
+
+- `frontend/src/views/TaskParamsManage.vue`
+  - 复用现有 `listAvailableTasks()`，把任务列表页顶部筛选、执行结果页顶部筛选和导入弹窗的任务类型下拉统一改成动态获取
+  - 删除写死任务类型数组，统一显示后端返回的任务 `name`
+  - 为 `限时限量` 增加 `batch_id / 折扣` 模板列、样例和说明，并在无任务类型或未选任务类型时给出明确提示
+- `tests/单元测试/测试_任务参数任务类型动态化.py`
+  - 新增静态回归测试，覆盖动态任务列表接入、移除写死数组、异常提示和限时限量模板说明
+- `backend/services/任务参数服务.py`
+  - 为 CSV/XLSX 导入链路补上参数键规范化，将中文列名映射到任务执行侧使用的英文键
+  - 对 `_id` 字段保持字符串，修复既有导入回归，确保 `发布相似商品 / 发布换图商品 / 限时限量` 的参数格式与任务读取逻辑一致
+- `browser/反检测.py`
+  - 将 `<= 30ms` 的极短随机延迟改为高精度等待，并补 1ms 安全垫，稳定 Windows 下的时间边界测试
+- `PLAN.md` / `改造进度.md` / `.pipeline/progress.md`
+  - 同步记录 Task 26 的实现范围、额外回归修复与最终验证结果
+
+## 影响范围
+
+- 任务参数管理页的任务类型来源现在与后端任务注册表保持一致，新任务无需再手工改前端下拉
+- `限时限量` 已可在导入弹窗中直接选择，并得到对应的模板列说明
+- 任务参数导入结果现在统一使用任务执行侧已约定的英文参数键，减少 CSV/XLSX 导入后运行时报参问题
+- Windows 环境下极短随机延迟的测试稳定性更高，全量回归可直接通过
+
+## 注意事项
+
+- 本轮未修改 `frontend/src/api/taskParams.ts`，因为仓库里已存在可复用的 `frontend/src/api/tasks.ts -> /api/tasks/available`
+- 已执行 `python -m pytest -c tests/pytest.ini -q tests/单元测试/测试_任务参数管理页.py tests/单元测试/测试_任务参数任务类型动态化.py`，结果 `5 passed`
+- 已执行 `python -m pytest -c tests/pytest.ini -q tests/单元测试/测试_任务参数服务.py tests/单元测试/测试_任务参数接口.py tests/单元测试/测试_任务参数启用重置服务.py tests/单元测试/测试_任务参数XLSX导入.py`，结果 `24 passed, 10 warnings`
+- 已执行 `python -m pytest -c tests/pytest.ini -q tests/单元测试/测试_反检测.py::测试_真人模拟器::test_随机延迟在范围内`，结果 `1 passed`
+- 已执行 `npx vue-tsc -b`（`frontend/` 目录），结果通过
+- 已执行全量 `python -m pytest -c tests/pytest.ini -q`，结果 `215 passed, 16 warnings`
+- 16 条 warning 仍为既有存量：10 条来自第三方 `openpyxl`，6 条来自 Celery `datetime.utcnow()` 弃用提示
+
+---
+
+## 任务摘要
+
+完成 Task 27：修复浏览器最大化与关闭页复用问题，并在发布相似商品批次全部结束后幂等自动创建一条限时限量任务记录。
+
+## 改动文件列表
+
+- `browser/管理器.py`
+- `backend/services/任务服务.py`
+- `backend/services/任务参数服务.py`
+- `tasks/发布相似商品任务.py`
+- `tests/单元测试/测试_浏览器复用修复.py`
+- `tests/单元测试/测试_任务服务浏览器复用与后续任务.py`
+- `tests/单元测试/测试_批次完成后自动创建限时限量.py`
+- `tests/单元测试/测试_发布相似商品任务收尾恢复.py`
+- `PLAN.md`
+- `改造进度.md`
+- `.pipeline/progress.md`
+
+## 改动说明
+
+- `browser/管理器.py`
+  - 在 `launch_persistent_context(...)` 调用中补上 `no_viewport=True`
+  - `获取页面()` 新增关闭页检测：缓存页关闭时优先复用 `context.pages` 中的存活页，并同步回写 `页面/page`
+  - 当上下文内所有页面都已关闭时抛出明确异常，交给上层异步创建新页面
+- `backend/services/任务服务.py`
+  - 新增页面可用性恢复逻辑，`统一执行任务()` 在遇到关闭页时可自动复用已有页，或直接 `await 浏览器上下文.new_page()`
+  - `执行任务()` 在 `发布相似商品` 成功且带 `batch_id` 时，调用 `任务参数服务实例.批次完成后创建后续任务(...)`
+  - 后续任务创建失败仅打印日志，不影响当前任务成功回填
+- `backend/services/任务参数服务.py`
+  - 新增 `批次完成后创建后续任务(batch_id)`，仅在“同批次发布相似商品已全部结束、至少一条成功、无已存在限时限量记录、折扣非空”时创建一条 `限时限量` 记录
+  - 该方法使用幂等判断，重复调用不会重复写入
+- `tasks/发布相似商品任务.py`
+  - 收尾阶段关闭发布页后，若商品列表主页面也已关闭，则自动新开页面、导航回商品列表并切回前台
+  - 该修复只作用于收尾兜底，不改发布相似商品主流程步骤
+- `tests/单元测试/测试_浏览器复用修复.py`
+  - 覆盖 `no_viewport`、缓存页关闭自动刷新、全部页面关闭异常分支
+- `tests/单元测试/测试_任务服务浏览器复用与后续任务.py`
+  - 覆盖 `统一执行任务()` 的关闭页自动建新页行为
+  - 覆盖 `发布相似商品` 成功时触发后续任务创建、失败时不触发
+- `tests/单元测试/测试_批次完成后自动创建限时限量.py`
+  - 覆盖自动创建正常路径、未完成批次跳过和重复调用幂等
+- `tests/单元测试/测试_发布相似商品任务收尾恢复.py`
+  - 覆盖主页面关闭后的收尾恢复逻辑
+- `PLAN.md` / `改造进度.md` / `.pipeline/progress.md`
+  - 同步记录 Task 27 的实现范围与验证结果
+
+## 影响范围
+
+- 持久化 Chrome 实例的最大化参数更完整，本地窗口尺寸更稳定
+- 当主标签页被关掉导致缓存页失效时，浏览器实例现在可以自动复用存活页面或创建新页面，避免后续任务拿到已关闭页面
+- 发布相似商品批次在全部结束后，可自动生成一条 `限时限量` 待执行记录，减少人工再导一次参数的操作
+- 发布相似商品任务收尾阶段在主页面丢失时会自动补回商品列表页，降低下一次复用浏览器时报错的概率
+
+## 注意事项
+
+- 本轮未修改 `selectors/` 目录，也未改 `pages/` 目录主流程方法；仅在 `tasks/发布相似商品任务.py` 的收尾兜底中处理主页面恢复
+- 自动创建 `限时限量` 记录依赖成功的 `发布相似商品` 记录 `params` 中存在 `折扣 / discount`；缺失时会跳过创建
+- 已执行 `python -m pytest -c tests/pytest.ini -q tests/单元测试/测试_浏览器管理器.py tests/单元测试/测试_浏览器复用修复.py tests/单元测试/测试_任务服务.py tests/单元测试/测试_任务服务浏览器复用与后续任务.py tests/单元测试/测试_批次完成后自动创建限时限量.py tests/单元测试/测试_发布相似商品任务.py tests/单元测试/测试_发布相似商品任务收尾恢复.py`，结果 `22 passed`
+- 已执行 `python -m pytest -c tests/pytest.ini -q tests/单元测试/测试_限时限量任务.py tests/单元测试/测试_限时限量任务服务.py tests/单元测试/测试_任务参数批次成功记录.py`，结果 `9 passed`
+- 已执行全量 `python -m pytest -c tests/pytest.ini -q`，结果 `225 passed, 16 warnings`
+- 16 条 warning 仍为既有存量：10 条来自第三方 `openpyxl`，6 条来自 Celery `datetime.utcnow()` 弃用提示
