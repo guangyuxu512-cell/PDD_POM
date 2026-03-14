@@ -151,3 +151,33 @@ class 测试_推广任务:
         模拟推广页.点击更多设置.assert_not_awaited()
         模拟推广页.点击预算日限额.assert_not_awaited()
         模拟推广页.点击极速起量高级版开关.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    @patch("browser.任务回调._回调", new_callable=AsyncMock)
+    async def test_合并参数映射_按商品读取投产比和日限额(self, 模拟回调, 模拟页面, 模拟推广页):
+        from tasks.推广任务 import 推广任务
+
+        with patch("tasks.推广任务.上报", new_callable=AsyncMock), \
+                patch("tasks.推广任务.推广页", return_value=模拟推广页):
+            任务 = 推广任务()
+            结果 = await 任务.执行(
+                模拟页面,
+                {
+                    "shop_id": "shop-1",
+                    "task_param": {
+                        "商品ID列表": ["123456789012", "987654321098"],
+                        "投产比": 5.0,
+                        "日限额": 80,
+                        "商品参数映射": {
+                            "123456789012": {"投产比": 6.2, "日限额": 120},
+                            "987654321098": {"投产比": 4.5},
+                        },
+                    },
+                },
+            )
+
+        assert 结果 == "成功"
+        assert 模拟推广页.输入日限额.await_args_list[0].args == (120.0,)
+        assert 模拟推广页.输入日限额.await_args_list[1].args == (80.0,)
+        assert 模拟推广页.输入投产比.await_args_list[0].args == (6.2,)
+        assert 模拟推广页.输入投产比.await_args_list[1].args == (4.5,)

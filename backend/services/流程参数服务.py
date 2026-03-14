@@ -13,10 +13,36 @@ from backend.services.流程服务 import 流程服务实例
 
 
 允许状态集合 = {"pending", "running", "success", "failed"}
+步骤终态集合 = {"completed", "failed", "merged_skip"}
+步骤元数据字段 = {
+    "status",
+    "error",
+    "merged_to",
+    "merged_by",
+    "merged_context",
+    "merge_members",
+    "result_status",
+}
 
 
 class 流程参数服务:
     """flow_params 业务服务。"""
+
+    @staticmethod
+    def _获取步骤状态(步骤结果: Optional[Dict[str, Any]]) -> str:
+        if not isinstance(步骤结果, dict):
+            return "pending"
+        return str(步骤结果.get("status") or "pending")
+
+    @staticmethod
+    def _提取步骤业务结果(步骤结果: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+        if not isinstance(步骤结果, dict):
+            return {}
+        return {
+            键: 值
+            for 键, 值 in 步骤结果.items()
+            if 键 not in 步骤元数据字段
+        }
 
     def _校验状态(self, 状态: str) -> None:
         if 状态 not in 允许状态集合:
@@ -460,6 +486,115 @@ class 流程参数服务:
 
         return [self._转换记录(行) for 行 in 行列表]
 
+    async def 查询同批次步骤状态(
+        self,
+        shop_id: str,
+        batch_id: str,
+        flow_id: str,
+        step_name: str,
+    ) -> Dict[str, Any]:
+        """查询同店铺同批次同流程下某一步的执行状态。"""
+        async with 获取连接() as 连接:
+            async with 连接.execute(
+                """
+                SELECT fp.*, s.name AS shop_name
+                FROM flow_params fp
+                LEFT JOIN shops s ON s.id = fp.shop_id
+                WHERE fp.shop_id = ?
+                  AND fp.batch_id = ?
+                  AND fp.flow_id = ?
+                ORDER BY fp.id ASC
+                """,
+                (shop_id, batch_id, flow_id),
+            ) as 游标:
+                行列表 = await 游标.fetchall()
+
+        记录列表 = [self._转换记录(行) for 行 in 行列表]
+        完成列表: List[Dict[str, Any]] = []
+        未完成列表: List[Dict[str, Any]] = []
+        终态列表: List[Dict[str, Any]] = []
+
+        for 记录 in 记录列表:
+            步骤结果 = (记录.get("step_results") or {}).get(step_name)
+            步骤状态 = self._获取步骤状态(步骤结果)
+            记录["step_status"] = 步骤状态
+            if 步骤状态 == "completed":
+                完成列表.append(记录)
+            else:
+                未完成列表.append(记录)
+            if 步骤状态 in 步骤终态集合:
+                终态列表.append(记录)
+
+        return {
+            "records": 记录列表,
+            "completed_records": 完成列表,
+            "unfinished_records": 未完成列表,
+            "terminal_records": 终态列表,
+        }
+
+    async def 批量推进到下一步(self, record_ids: List[int]) -> int:
+        """将指定记录的 current_step 统一加一，供下一步任务投递前调用。"""
+        有效ID列表 = [int(记录ID) for 记录ID in record_ids if int(记录ID) > 0]
+        if not 有效ID列表:
+            return 0
+
+        占位符 = ", ".join("?" for _ in 有效ID列表)
+        async with 获取连接() as 连接:
+            游标 = await 连接.execute(
+                f"""
+                UPDATE flow_params
+                SET current_step = current_step + 1,
+                    status = 'running',
+                    error = NULL,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE id IN ({占位符})
+                """,
+                有效ID列表,
+            )
+            await 连接.commit()
+            return 游标.rowcount
+
+    async def 更新步骤结果(
+        self,
+        flow_param_id: int,
+        任务名: str,
+        *,
+        步骤状态: str,
+        step_index: int,
+        结果字典: Optional[Dict[str, Any]] = None,
+        错误信息: Optional[str] = None,
+        附加数据: Optional[Dict[str, Any]] = None,
+        当前步骤: Optional[int] = None,
+    ) -> Optional[Dict[str, Any]]:
+        """更新单个步骤的结构化结果。"""
+        记录 = await self.根据ID获取(flow_param_id)
+        if not 记录:
+            return None
+
+        步骤结果表 = dict(记录.get("step_results") or {})
+        原步骤结果 = dict(步骤结果表.get(str(任务名)) or {})
+        if 结果字典:
+            原步骤结果.update(dict(结果字典))
+        if 附加数据:
+            原步骤结果.update(dict(附加数据))
+        原步骤结果["status"] = 步骤状态
+        if 错误信息:
+            原步骤结果["error"] = 错误信息
+        else:
+            原步骤结果.pop("error", None)
+        步骤结果表[str(任务名)] = 原步骤结果
+
+        更新数据: Dict[str, Any] = {
+            "step_results": 步骤结果表,
+            "current_step": 当前步骤 if 当前步骤 is not None else step_index,
+        }
+        if 错误信息 is not None:
+            更新数据["error"] = 错误信息
+        elif 步骤状态 in {"completed", "merged_skip", "running"}:
+            更新数据["error"] = None
+
+        return await self.更新(flow_param_id, 更新数据)
+
     async def 获取步骤上下文(self, flow_param_id: int, 当前任务名: str) -> Dict[str, Any]:
         """读取流程共享参数并按步骤顺序叠加前序步骤结果。"""
         记录 = await self.根据ID获取(flow_param_id)
@@ -484,7 +619,13 @@ class 流程参数服务:
 
             结果数据 = 步骤结果.get(步骤任务名)
             if isinstance(结果数据, dict):
-                上下文.update(结果数据)
+                上下文.update(self._提取步骤业务结果(结果数据))
+
+        当前步骤结果 = 步骤结果.get(当前任务名)
+        if isinstance(当前步骤结果, dict):
+            合并上下文 = 当前步骤结果.get("merged_context")
+            if isinstance(合并上下文, dict):
+                上下文.update(合并上下文)
 
         return 上下文
 
@@ -496,19 +637,13 @@ class 流程参数服务:
         step_index: int,
     ) -> Optional[Dict[str, Any]]:
         """回写单步执行结果。"""
-        记录 = await self.根据ID获取(flow_param_id)
-        if not 记录:
-            return None
-
-        步骤结果 = dict(记录.get("step_results") or {})
-        步骤结果[str(任务名)] = dict(结果字典 or {})
-        return await self.更新(
+        return await self.更新步骤结果(
             flow_param_id,
-            {
-                "step_results": 步骤结果,
-                "current_step": step_index,
-                "error": None,
-            },
+            任务名,
+            步骤状态="completed",
+            step_index=step_index,
+            结果字典=结果字典,
+            错误信息=None,
         )
 
     async def 更新执行状态(

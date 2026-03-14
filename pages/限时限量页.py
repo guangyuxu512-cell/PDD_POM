@@ -140,12 +140,12 @@ class 限时限量页(基础页):
                 print(f"[限时限量页] 弹窗确认选择失败({选择器}): {异常}")
         raise RuntimeError(f"弹窗确认选择失败: {最后异常}")
 
-    async def 填写折扣(self, 折扣值: float) -> None:
-        """填写统一折扣。"""
+    async def 输入商品折扣(self, 商品ID: str, 折扣值: float) -> bool:
+        """在指定商品行输入折扣。"""
         await self.操作前延迟()
         最后异常 = None
         文本值 = str(int(折扣值)) if float(折扣值).is_integer() else str(折扣值)
-        for 选择器 in 限时限量页选择器.折扣输入框.所有选择器():
+        for 选择器 in 限时限量页选择器.商品行折扣输入框(商品ID).所有选择器():
             try:
                 输入框 = self.页面.locator(选择器).first
                 await 输入框.click(timeout=10000)
@@ -153,27 +153,12 @@ class 限时限量页(基础页):
                 await self.随机延迟(0.2, 0.5)
                 await 输入框.fill(文本值)
                 await self.操作后延迟()
-                print(f"[限时限量页] 折扣填写完成: {选择器}")
-                return
+                print(f"[限时限量页] 商品折扣填写完成: 商品ID={商品ID}, 选择器={选择器}")
+                return True
             except Exception as 异常:
                 最后异常 = 异常
-                print(f"[限时限量页] 折扣填写失败({选择器}): {异常}")
-        raise RuntimeError(f"折扣填写失败: {最后异常}")
-
-    async def 点击确认设置(self) -> None:
-        """点击确认设置按钮。"""
-        await self.操作前延迟()
-        最后异常 = None
-        for 选择器 in 限时限量页选择器.确认设置按钮.所有选择器():
-            try:
-                await self.页面.click(选择器, timeout=10000)
-                await self.操作后延迟()
-                print(f"[限时限量页] 确认设置完成: {选择器}")
-                return
-            except Exception as 异常:
-                最后异常 = 异常
-                print(f"[限时限量页] 确认设置失败({选择器}): {异常}")
-        raise RuntimeError(f"确认设置失败: {最后异常}")
+                print(f"[限时限量页] 商品折扣填写失败(商品ID={商品ID}, 选择器={选择器}): {异常}")
+        raise RuntimeError(f"商品折扣填写失败: 商品ID={商品ID}, error={最后异常}")
 
     async def 点击创建(self) -> None:
         """点击创建按钮。"""

@@ -194,10 +194,50 @@ class 测试_执行任务:
         assert 结果["result"] == "成功"
         请求体 = 客户端.post.call_args.kwargs["json"]
         assert 请求体["flow_param_id"] == 88
+        assert 请求体["params"]["flow_param_ids"] == [88]
+        assert 请求体["params"]["merge"] is False
         assert 请求体["params"]["step_index"] == 2
         assert 请求体["params"]["total_steps"] == 2
         assert 请求体["params"]["on_fail"] == "abort"
         模拟更新批次状态.assert_called()
+
+    def test_flow_param_ids会透传给内部执行接口(self):
+        假任务对象 = SimpleNamespace(
+            request=SimpleNamespace(id="celery-4", retries=0),
+            retry=MagicMock(),
+        )
+        客户端, 客户端上下文 = 构造HTTP客户端上下文(
+            {
+                "code": 0,
+                "data": {
+                    "task_id": "task-log-5",
+                    "status": "completed",
+                    "result": "成功",
+                    "result_data": {"处理数量": 2},
+                },
+            }
+        )
+
+        with patch("tasks.执行任务.初始化Worker环境"), \
+                patch("tasks.执行任务.获取任务类"), \
+                patch("tasks.执行任务.httpx.Client", return_value=客户端上下文), \
+                patch("tasks.执行任务.同步更新批次店铺状态"):
+            执行任务函数(
+                假任务对象,
+                batch_id="batch-1",
+                shop_id="shop-1",
+                task_name="限时限量",
+                on_fail="continue",
+                step_index=2,
+                total_steps=3,
+                flow_param_ids=[11, 12],
+                merge=False,
+            )
+
+        请求体 = 客户端.post.call_args.kwargs["json"]
+        assert "flow_param_id" not in 请求体
+        assert 请求体["params"]["flow_param_ids"] == [11, 12]
+        assert 请求体["params"]["merge"] is False
 
     def test_内部接口返回业务失败时直接抛错(self):
         假任务对象 = SimpleNamespace(

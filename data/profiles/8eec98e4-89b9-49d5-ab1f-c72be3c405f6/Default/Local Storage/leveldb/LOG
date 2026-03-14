@@ -1,8 +1,21 @@
-2026/03/14-02:09:56.177 5b28 Reusing MANIFEST E:\pdd_zd\data\profiles\8eec98e4-89b9-49d5-ab1f-c72be3c405f6\Default\Local Storage\leveldb/MANIFEST-000001
-2026/03/14-02:09:56.183 5b28 Recovering log #119
-2026/03/14-02:09:56.184 5b28 Reusing old log E:\pdd_zd\data\profiles\8eec98e4-89b9-49d5-ab1f-c72be3c405f6\Default\Local Storage\leveldb/000119.log 
-2026/03/14-02:10:56.197 6b98 Level-0 table #123: started
-2026/03/14-02:10:56.222 6b98 Level-0 table #123: 18772 bytes OK
-2026/03/14-02:10:56.240 6b98 Delete type=0 #119
-2026/03/14-02:33:03.160 8798 Level-0 table #125: started
-2026/03/14-02:33:03.226 8798 Level-0 table #125: 15611 bytes OK
+2026/03/14-15:16:03.493 8434 Reusing MANIFEST E:\pdd_zd\data\profiles\8eec98e4-89b9-49d5-ab1f-c72be3c405f6\Default\Local Storage\leveldb/MANIFEST-000001
+2026/03/14-15:16:03.499 8434 Recovering log #122
+2026/03/14-15:16:03.499 8434 Level-0 table #125: started
+2026/03/14-15:16:03.537 8434 Level-0 table #125: 15611 bytes OK
+2026/03/14-15:16:03.537 8434 Recovering log #124
+2026/03/14-15:16:03.539 8434 Reusing old log E:\pdd_zd\data\profiles\8eec98e4-89b9-49d5-ab1f-c72be3c405f6\Default\Local Storage\leveldb/000124.log 
+2026/03/14-15:16:03.553 8434 Delete type=0 #122
+2026/03/14-15:16:03.553 26b8 Compacting 4@0 + 1@1 files
+2026/03/14-15:16:03.587 26b8 Generated table #126@0: 91 keys, 175013 bytes
+2026/03/14-15:16:03.588 26b8 Compacted 4@0 + 1@1 files => 175013 bytes
+2026/03/14-15:16:03.614 26b8 compacted to: files[ 0 1 0 0 0 0 0 ]
+2026/03/14-15:16:03.616 26b8 Delete type=2 #116
+2026/03/14-15:16:03.616 26b8 Delete type=2 #118
+2026/03/14-15:16:03.616 26b8 Delete type=2 #120
+2026/03/14-15:16:03.616 26b8 Delete type=2 #123
+2026/03/14-15:16:03.617 26b8 Delete type=2 #125
+2026/03/14-15:17:03.571 26b8 Level-0 table #128: started
+2026/03/14-15:17:03.599 26b8 Level-0 table #128: 15892 bytes OK
+2026/03/14-15:17:03.621 26b8 Delete type=0 #124
+2026/03/14-15:26:33.258 6870 Level-0 table #130: started
+2026/03/14-15:26:33.358 6870 Level-0 table #130: 15627 bytes OK

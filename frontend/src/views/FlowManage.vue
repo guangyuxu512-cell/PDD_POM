@@ -15,6 +15,8 @@ interface StepDraft {
   task: string
   failurePolicy: FailurePolicy
   retryCount: number
+  barrier: boolean
+  merge: boolean
 }
 
 interface FlowFormModel {
@@ -77,6 +79,8 @@ function createStepDraft(seed?: Partial<StepDraft>): StepDraft {
     task: seed?.task ?? tasks.value[0]?.name ?? '',
     failurePolicy: seed?.failurePolicy ?? 'continue',
     retryCount: seed?.retryCount ?? 2,
+    barrier: seed?.barrier ?? false,
+    merge: seed?.merge ?? false,
   }
 }
 
@@ -95,6 +99,8 @@ function normalizeSteps(steps: FlowStep[]) {
       task: step.task,
       failurePolicy,
       retryCount,
+      barrier: Boolean(step.barrier),
+      merge: Boolean(step.merge),
     })
   })
 }
@@ -109,6 +115,17 @@ function formatPolicy(step: FlowStep) {
     failurePolicyOptions.find((option) => option.value === step.on_fail)?.label ??
     step.on_fail
   )
+}
+
+function formatStepFeatures(step: FlowStep) {
+  const labels: string[] = []
+  if (step.barrier) {
+    labels.push('同步屏障')
+  }
+  if (step.merge) {
+    labels.push('合并执行')
+  }
+  return labels.join(' / ')
 }
 
 function getTaskDescription(taskName: string) {
@@ -177,6 +194,8 @@ function copyStep(stepId: string) {
     task: source.task,
     failurePolicy: source.failurePolicy,
     retryCount: source.retryCount,
+    barrier: source.barrier,
+    merge: source.merge,
   })
   form.value.steps.splice(index + 1, 0, copied)
 }
@@ -228,6 +247,8 @@ function buildPayload(): FlowPayload {
         step.failurePolicy === 'retry:N'
           ? `retry:${Math.max(1, step.retryCount)}`
           : step.failurePolicy,
+      barrier: step.barrier,
+      merge: step.barrier ? step.merge : false,
     })),
   }
 }
@@ -342,7 +363,10 @@ onMounted(() => {
 
           <ol class="step-list-preview">
             <li v-for="step in flow.steps" :key="`${flow.id}-${step.task}-${step.on_fail}`">
-              <span class="step-task">{{ step.task }}</span>
+              <div class="step-preview-main">
+                <span class="step-task">{{ step.task }}</span>
+                <span v-if="formatStepFeatures(step)" class="step-feature">{{ formatStepFeatures(step) }}</span>
+              </div>
               <span class="step-policy">{{ formatPolicy(step) }}</span>
             </li>
           </ol>
@@ -438,6 +462,31 @@ onMounted(() => {
                 <label v-if="step.failurePolicy === 'retry:N'" class="field retry-field">
                   <span>重试次数</span>
                   <input v-model.number="step.retryCount" type="number" min="1" />
+                </label>
+
+                <label class="toggle-field">
+                  <input
+                    v-model="step.barrier"
+                    type="checkbox"
+                    @change="!step.barrier && (step.merge = false)"
+                  />
+                  <div>
+                    <strong>同步屏障</strong>
+                    <small>等全部完成再进入下一步</small>
+                  </div>
+                </label>
+
+                <label class="toggle-field" :class="{ 'is-disabled': !step.barrier }">
+                  <input
+                    v-model="step.merge"
+                    type="checkbox"
+                    :disabled="!step.barrier"
+                    @change="!step.barrier && (step.merge = false)"
+                  />
+                  <div>
+                    <strong>合并执行</strong>
+                    <small>合并成一次操作，仅在同步屏障开启后可用</small>
+                  </div>
                 </label>
               </div>
             </article>
@@ -619,6 +668,13 @@ h1 {
   color: #334155;
 }
 
+.step-preview-main {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
 .step-task {
   font-weight: 600;
 }
@@ -626,6 +682,15 @@ h1 {
 .step-policy {
   color: #64748b;
   font-size: 13px;
+}
+
+.step-feature {
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(14, 116, 144, 0.1);
+  color: #0f766e;
+  font-size: 12px;
+  font-weight: 700;
 }
 
 .flow-actions {
@@ -739,6 +804,39 @@ h1 {
 
 .retry-field {
   grid-column: span 2;
+}
+
+.toggle-field {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  border: 1px solid #cbd5e1;
+  border-radius: 12px;
+  background: #f8fafc;
+}
+
+.toggle-field input {
+  width: 18px;
+  height: 18px;
+}
+
+.toggle-field strong {
+  display: block;
+  color: #0f172a;
+  font-size: 14px;
+}
+
+.toggle-field small {
+  display: block;
+  margin-top: 4px;
+  color: #64748b;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.toggle-field.is-disabled {
+  opacity: 0.6;
 }
 
 .empty-state {

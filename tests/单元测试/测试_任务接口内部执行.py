@@ -43,15 +43,15 @@ class 测试_任务接口内部执行:
             "backend.api.任务接口.流程参数服务实例.更新",
             new=AsyncMock(return_value={}),
         ) as 模拟更新, patch(
+            "backend.api.任务接口.流程参数服务实例.更新步骤结果",
+            new=AsyncMock(return_value={}),
+        ) as 模拟更新步骤结果, patch(
             "backend.api.任务接口.流程参数服务实例.获取步骤上下文",
             new=AsyncMock(return_value={"discount": 6}),
         ) as 模拟获取上下文, patch(
-            "backend.api.任务接口.流程参数服务实例.回写步骤结果",
+            "backend.api.任务接口.任务服务.处理流程步骤执行完成",
             new=AsyncMock(return_value={}),
-        ) as 模拟回写, patch(
-            "backend.api.任务接口.流程参数服务实例.更新执行状态",
-            new=AsyncMock(return_value={}),
-        ) as 模拟更新状态:
+        ) as 模拟处理流程:
             响应 = 客户端.post(
                 "/api/tasks/execute-internal",
                 json={
@@ -71,9 +71,10 @@ class 测试_任务接口内部执行:
         assert 响应.json()["code"] == 0
         assert 响应.json()["data"]["task_id"] == "task-1"
         assert 模拟更新.await_count >= 1
+        assert 模拟更新步骤结果.await_count >= 1
         assert 模拟获取上下文.await_args.args == (99, "登录")
-        assert 模拟回写.await_args.args == (99, "登录", {"token": "ok"}, 2)
-        assert 模拟更新状态.await_args.args == (99, "success", None)
+        assert 模拟处理流程.await_args.kwargs["flow_param_id"] == 99
+        assert 模拟处理流程.await_args.kwargs["task_name"] == "登录"
 
     def test_execute_internal_异常时返回业务错误(self, 客户端: TestClient):
         with patch(

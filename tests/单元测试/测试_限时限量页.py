@@ -103,8 +103,9 @@ class 测试_限时限量页:
         页面对象.随机延迟.assert_awaited_once_with(0.2, 0.5)
 
     @pytest.mark.asyncio
-    async def test_填写折扣_清空后输入(self, 模拟页面):
+    async def test_输入商品折扣_清空后输入(self, 模拟页面, monkeypatch):
         from pages.限时限量页 import 限时限量页
+        from selectors.限时限量页选择器 import 限时限量页选择器
 
         输入框 = MagicMock()
         输入框.click = AsyncMock()
@@ -112,13 +113,18 @@ class 测试_限时限量页:
         定位器 = MagicMock()
         定位器.first = 输入框
         模拟页面.locator.return_value = 定位器
+        monkeypatch.setattr(
+            限时限量页选择器,
+            "商品行折扣输入框",
+            staticmethod(lambda 商品ID: 选择器配置("row-discount")),
+        )
 
         页面对象 = 限时限量页(模拟页面)
         页面对象.操作前延迟 = AsyncMock()
         页面对象.操作后延迟 = AsyncMock()
         页面对象.随机延迟 = AsyncMock()
 
-        await 页面对象.填写折扣(6)
+        assert await 页面对象.输入商品折扣("1001", 6) is True
 
         模拟页面.keyboard.press.assert_awaited_once_with("Control+A")
         输入框.fill.assert_awaited_once_with("6")

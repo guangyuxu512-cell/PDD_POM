@@ -59,12 +59,24 @@ class 推广任务(基础任务):
                     return False
         return 默认值
 
+    @staticmethod
+    def _读取商品参数映射(任务参数: dict[str, Any]) -> dict[str, dict[str, Any]]:
+        原始值 = 任务参数.get("商品参数映射")
+        if not isinstance(原始值, dict):
+            return {}
+        return {
+            str(商品ID).strip(): dict(参数)
+            for 商品ID, 参数 in 原始值.items()
+            if str(商品ID).strip() and isinstance(参数, dict)
+        }
+
     @自动回调("设置推广")
     async def 执行(self, 页面, 店铺配置: dict) -> str:
         任务参数 = 店铺配置.get("task_param") or {}
         商品ID列表 = self._读取商品ID列表(任务参数)
-        投产比 = self._读取浮点参数(任务参数, 5.0, "投产比", "phase1_roi", "一阶段投产比")
-        日限额 = self._读取浮点参数(任务参数, 0.0, "日限额")
+        商品参数映射 = self._读取商品参数映射(任务参数)
+        默认投产比 = self._读取浮点参数(任务参数, 5.0, "投产比", "phase1_roi", "一阶段投产比")
+        默认日限额 = self._读取浮点参数(任务参数, 0.0, "日限额")
         关闭极速起量 = self._读取布尔参数(任务参数, True, "关闭极速起量")
         店铺ID = 店铺配置.get("shop_id") or 店铺配置.get("username") or "临时店铺"
 
@@ -107,13 +119,23 @@ class 推广任务(基础任务):
 
             for 商品ID in 商品ID列表:
                 try:
-                    if 日限额 > 0:
+                    商品参数 = 商品参数映射.get(商品ID, {})
+                    商品投产比 = self._读取浮点参数(
+                        商品参数,
+                        默认投产比,
+                        "投产比",
+                        "phase1_roi",
+                        "一阶段投产比",
+                    )
+                    商品日限额 = self._读取浮点参数(商品参数, 默认日限额, "日限额")
+
+                    if 商品日限额 > 0:
                         await 上报(f"设置日限额: {商品ID}", 店铺ID)
                         if not await 页面对象.点击更多设置(商品ID):
                             raise RuntimeError("点击更多设置失败")
                         if not await 页面对象.点击预算日限额():
                             raise RuntimeError("点击预算日限额失败")
-                        if not await 页面对象.输入日限额(日限额):
+                        if not await 页面对象.输入日限额(商品日限额):
                             raise RuntimeError("输入日限额失败")
                         if not await 页面对象.确认日限额():
                             raise RuntimeError("确认日限额失败")
@@ -129,7 +151,7 @@ class 推广任务(基础任务):
                         if not await 页面对象.点击极速起量高级版开关(商品ID):
                             raise RuntimeError("点击极速起量高级版开关失败")
 
-                    if not await 页面对象.输入投产比(投产比):
+                    if not await 页面对象.输入投产比(商品投产比):
                         raise RuntimeError("输入投产比失败")
                     if not await 页面对象.确认投产比设置():
                         raise RuntimeError("确认投产比设置失败")
@@ -143,8 +165,8 @@ class 推广任务(基础任务):
                 "推广商品数": len(成功列表),
                 "成功列表": 成功列表,
                 "失败列表": 失败列表,
-                "投产比": 投产比,
-                "日限额": 日限额 if 日限额 > 0 else None,
+                "投产比": 默认投产比,
+                "日限额": 默认日限额 if 默认日限额 > 0 else None,
             }
 
             if not 成功列表:
@@ -169,8 +191,8 @@ class 推广任务(基础任务):
                 "推广商品数": len(成功列表),
                 "成功列表": 成功列表,
                 "失败列表": 失败列表,
-                "投产比": 投产比,
-                "日限额": 日限额 if 日限额 > 0 else None,
+                "投产比": 默认投产比,
+                "日限额": 默认日限额 if 默认日限额 > 0 else None,
             }
             try:
                 await 页面对象.截图("推广任务异常")

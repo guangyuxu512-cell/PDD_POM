@@ -1783,3 +1783,59 @@
 - [x] 针对性验证结果：`12 passed`
 - [x] 验证通过：`python -m pytest -c tests/pytest.ini -q`
 - [x] 全量验证结果：`254 passed, 16 warnings`（10 条为第三方 `openpyxl` 警告，6 条为现有 Celery 警告）
+
+## Prompt 79：ask 36 同步屏障 + 合并执行 + 限时限量逐商品折扣 + 前端执行结果展示 ✅
+
+- [x] 更新 `backend/models/流程模型.py`，为 flow steps 持久化 `barrier` / `merge`
+- [x] 更新 `backend/models/数据结构.py`，补充后端流程步骤结构定义
+- [x] 更新 `backend/services/执行服务.py`，移除整条 `celery chain`，改为单步投递模型
+- [x] 更新 `backend/services/流程参数服务.py`，新增同批次步骤状态查询、批量推进到下一步与结构化 `step_results`
+- [x] 更新 `backend/services/任务服务.py`，新增 flow 步骤完成后的 barrier / merge 推进逻辑
+- [x] 更新 `backend/api/任务接口.py`，内部执行接口改为委托 `任务服务` 统一推进 flow 步骤
+- [x] 更新 `selectors/限时限量页选择器.py`，删除批量折扣相关选择器，新增逐商品折扣输入框动态选择器
+- [x] 更新 `pages/限时限量页.py`，删除统一折扣方法，新增 `输入商品折扣(商品ID, 折扣值)` 原子方法
+- [x] 更新 `tasks/限时限量任务.py`，改为逐商品选品和逐行折扣输入
+- [x] 更新 `tasks/推广任务.py`，兼容 merge 场景下按 `商品参数映射` 读取每个商品各自的投产比和日限额
+- [x] 更新 `frontend/src/api/types.ts`，为 `FlowStep` 新增 `barrier?` / `merge?`
+- [x] 更新 `frontend/src/views/FlowManage.vue`，新增同步屏障和合并执行开关及联动禁用
+- [x] 更新 `frontend/src/views/TaskParamsManage.vue`，流程参数 Tab 改为 tag 化展示 `step_results` 并支持展开明细
+- [x] 更新 `tests/单元测试/测试_执行服务.py`
+- [x] 更新 `tests/单元测试/测试_流程参数服务.py`
+- [x] 更新 `tests/单元测试/测试_任务接口内部执行.py`
+- [x] 更新 `tests/单元测试/测试_限时限量页.py`
+- [x] 更新 `tests/单元测试/测试_限时限量任务.py`
+- [x] 更新 `tests/单元测试/测试_批量执行店铺名.py`
+- [x] 更新 `tests/单元测试/测试_批量执行回调.py`
+- [x] 更新 `tests/单元测试/测试_推广任务.py`
+- [x] 更新 `tests/单元测试/测试_前端管理页.py`
+- [x] 更新 `tests/单元测试/测试_前端显示细节.py`
+- [x] 更新 `tests/单元测试/测试_流程参数管理页静态.py`
+- [x] 更新 `tests/单元测试/测试_店铺和流程接口.py`
+- [x] 更新 `tests/单元测试/测试_数据库模型.py`
+- [x] 针对性验证通过：`python -m pytest -c tests/pytest.ini -q tests/单元测试/测试_执行服务.py tests/单元测试/测试_流程参数服务.py tests/单元测试/测试_任务接口内部执行.py tests/单元测试/测试_限时限量页.py tests/单元测试/测试_限时限量任务.py tests/单元测试/测试_批量执行店铺名.py tests/单元测试/测试_批量执行回调.py tests/单元测试/测试_推广任务.py`
+- [x] 针对性验证结果：`40 passed`
+- [x] 邻近回归验证通过：`python -m pytest -c tests/pytest.ini -q tests/单元测试/测试_任务服务.py tests/单元测试/测试_任务服务浏览器复用与后续任务.py tests/单元测试/测试_限时限量任务服务.py tests/单元测试/测试_前端管理页.py tests/单元测试/测试_前端显示细节.py tests/单元测试/测试_流程参数管理页静态.py tests/单元测试/测试_任务参数管理页.py tests/单元测试/测试_流程参数导入静态页.py`
+- [x] 邻近回归验证结果：`22 passed`
+- [x] 验证通过：`python -m pytest -c tests/pytest.ini -q`
+- [x] 全量验证结果：`257 passed, 16 warnings`（10 条为第三方 `openpyxl` 警告，6 条为现有 Celery 警告）
+- [x] 验证通过：在 `frontend/` 目录执行 `npx vue-tsc -b`
+
+## Prompt 80：Task 37 屏障模式单任务投递修复 — 同店铺合并为 1 个 Celery 任务 ✅
+
+- [x] 更新 `backend/services/执行服务.py`，让 barrier / merge 步骤在同店铺下只投递 1 个 Celery 任务
+- [x] 更新 `backend/services/任务服务.py`，支持 `flow_param_ids` 多记录执行入口
+- [x] 更新 `backend/services/任务服务.py`，在 barrier-only 模式下复用同一页面循环执行多条 flow_params
+- [x] 更新 `backend/services/任务服务.py`，在 merge 模式下只执行一次任务并复用现有合并回写逻辑
+- [x] 更新 `tasks/执行任务.py`，扩展 Worker 签名：`flow_param_ids` / `merge`
+- [x] 保持 `tasks/发布相似商品任务.py`、`tasks/限时限量任务.py`、`tasks/推广任务.py` 业务实现不变
+- [x] 更新 `tests/单元测试/测试_执行服务.py`
+- [x] 更新 `tests/单元测试/测试_执行任务.py`
+- [x] 更新 `tests/单元测试/测试_任务服务.py`
+- [x] 更新 `tests/单元测试/测试_批量执行店铺名.py`
+- [x] 更新 `tests/单元测试/测试_批量执行回调.py`
+- [x] 针对性验证通过：`python -m pytest -c tests/pytest.ini -q tests/单元测试/测试_执行服务.py tests/单元测试/测试_执行任务.py tests/单元测试/测试_任务服务.py tests/单元测试/测试_批量执行店铺名.py tests/单元测试/测试_批量执行回调.py tests/单元测试/测试_任务服务浏览器复用与后续任务.py`
+- [x] 针对性验证结果：`34 passed`
+- [x] 邻近回归验证通过：`python -m pytest -c tests/pytest.ini -q tests/单元测试/测试_流程参数服务.py tests/单元测试/测试_任务接口内部执行.py tests/单元测试/测试_限时限量任务.py tests/单元测试/测试_限时限量任务服务.py tests/单元测试/测试_推广任务.py tests/单元测试/测试_执行任务.py`
+- [x] 邻近回归验证结果：`26 passed`
+- [x] 验证通过：`python -m pytest -c tests/pytest.ini -q`
+- [x] 全量验证结果：`261 passed, 16 warnings`（10 条为第三方 `openpyxl` 警告，6 条为现有 Celery 警告）

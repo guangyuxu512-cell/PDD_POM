@@ -98,11 +98,76 @@ class 测试_流程参数服务:
             1,
         )
 
+        已回写记录 = await 流程参数服务实例.根据ID获取(记录["id"])
+        assert 已回写记录["step_results"]["发布相似商品"]["status"] == "completed"
+
         上下文 = await 流程参数服务实例.获取步骤上下文(记录["id"], "限时限量")
         assert 上下文["parent_product_id"] == "9001"
         assert 上下文["discount"] == 6
         assert 上下文["新商品ID"] == "new-1001"
         assert 上下文["标题"] == "测试标题"
+
+    @pytest.mark.asyncio
+    async def test_查询同批次步骤状态与批量推进到下一步(self, 临时环境: Path):
+        店铺 = await 店铺服务实例.创建({"name": "屏障店铺", "username": "barrier-user", "password": "pwd"})
+        流程 = await 流程服务实例.创建(
+            {
+                "name": "屏障流程",
+                "steps": [
+                    {"task": "发布相似商品", "on_fail": "continue", "barrier": True, "merge": False},
+                    {"task": "设置推广", "on_fail": "abort", "barrier": True, "merge": True},
+                ],
+            }
+        )
+
+        记录1 = await 流程参数服务实例.创建(
+            {
+                "shop_id": 店铺["id"],
+                "flow_id": 流程["id"],
+                "params": {"新商品ID": "1001"},
+                "batch_id": "batch-1",
+            }
+        )
+        记录2 = await 流程参数服务实例.创建(
+            {
+                "shop_id": 店铺["id"],
+                "flow_id": 流程["id"],
+                "params": {"新商品ID": "1002"},
+                "batch_id": "batch-1",
+            }
+        )
+
+        await 流程参数服务实例.更新步骤结果(
+            记录1["id"],
+            "发布相似商品",
+            步骤状态="completed",
+            step_index=1,
+            结果字典={"新商品ID": "1001"},
+        )
+        await 流程参数服务实例.更新步骤结果(
+            记录2["id"],
+            "发布相似商品",
+            步骤状态="waiting_barrier",
+            step_index=0,
+            当前步骤=0,
+        )
+
+        状态 = await 流程参数服务实例.查询同批次步骤状态(
+            店铺["id"],
+            "batch-1",
+            流程["id"],
+            "发布相似商品",
+        )
+        assert len(状态["records"]) == 2
+        assert len(状态["completed_records"]) == 1
+        assert len(状态["unfinished_records"]) == 1
+
+        推进数量 = await 流程参数服务实例.批量推进到下一步([记录1["id"], 记录2["id"]])
+        assert 推进数量 == 2
+        推进后记录1 = await 流程参数服务实例.根据ID获取(记录1["id"])
+        推进后记录2 = await 流程参数服务实例.根据ID获取(记录2["id"])
+        assert 推进后记录1["current_step"] == 2
+        assert 推进后记录2["current_step"] == 1
 
     @pytest.mark.asyncio
     async def test_获取步骤上下文_记录不存在时报错(self, 临时环境: Path):

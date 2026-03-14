@@ -32,7 +32,7 @@ class 测试_数据库模型:
         assert 记录["status"] == "online"
 
     def test_流程模型_步骤序列化为JSON(self):
-        """流程模型应将步骤序列化为 task/on_fail 结构。"""
+        """流程模型应将步骤序列化为 task/on_fail/barrier/merge 结构。"""
         模型 = 流程模型(
             流程ID="flow-1",
             名称="基础流程",
@@ -48,8 +48,8 @@ class 测试_数据库模型:
 
         assert 记录["id"] == "flow-1"
         assert 步骤列表 == [
-            {"task": "登录", "on_fail": "continue"},
-            {"task": "采集商品", "on_fail": "retry:3"},
+            {"task": "登录", "on_fail": "continue", "barrier": False, "merge": False},
+            {"task": "采集商品", "on_fail": "retry:3", "barrier": False, "merge": False},
         ]
 
     def test_流程步骤_非法失败策略抛出异常(self):

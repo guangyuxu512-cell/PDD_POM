@@ -3,7 +3,7 @@
 """
 from __future__ import annotations
 
-from unittest.mock import AsyncMock, patch, call
+from unittest.mock import AsyncMock, MagicMock, patch, call
 
 import pytest
 
@@ -11,39 +11,14 @@ from backend.services import 执行服务 as 执行服务模块
 
 
 class 假签名:
-    """用于模拟 Celery signature。"""
+    """用于记录单步任务的 apply_async 调用。"""
 
-    def __init__(self, **kwargs):
-        self.kwargs = kwargs
-        self.options = {}
-
-    def set(self, **options):
-        self.options.update(options)
-        return self
-
-
-class 假Celery任务:
-    """用于构造批次链路中的假任务签名。"""
-
-    @staticmethod
-    def si(**kwargs):
-        return 假签名(**kwargs)
-
-
-class 假任务链:
-    """用于记录 freeze 和 apply_async 调用顺序。"""
-
-    def __init__(self, *任务, 调用顺序):
-        self.tasks = list(任务)
+    def __init__(self, task_id: str, 调用顺序: list[object]):
+        self.task_id = task_id
         self._调用顺序 = 调用顺序
 
-    def freeze(self):
-        for 索引, 任务 in enumerate(self.tasks, start=1):
-            任务.options.setdefault("task_id", f"{任务.kwargs['shop_id']}-step-{索引}")
-        return self
-
     def apply_async(self):
-        self._调用顺序.append(("apply", self.tasks[0].kwargs["shop_id"]))
+        self._调用顺序.append(("apply", self.task_id))
         return self
 
 
@@ -51,21 +26,24 @@ class 测试_执行服务:
     """验证批次创建、校验与停止逻辑。"""
 
     @pytest.mark.asyncio
-    async def test_创建批次_流程模式先写入状态再投递链路(self):
-        """批次元数据应先落 Redis，再投递 Celery，避免 Worker 抢跑。"""
+    async def test_创建批次_流程模式先写入状态再投递首步任务(self):
+        """批次元数据应先落 Redis，再投递首步任务，且同店铺全部 flow_params 都会纳入批次。"""
         服务 = 执行服务模块.执行服务()
-        调用顺序 = []
+        调用顺序: list[object] = []
         已写入批次 = {}
-        任务链列表 = []
-        步骤列表 = [
-            {"task": "登录", "on_fail": "continue"},
-            {"task": "采集商品", "on_fail": "abort"},
-        ]
+        投递调用列表: list[dict[str, object]] = []
 
-        def 假任务链工厂(*任务):
-            任务链 = 假任务链(*任务, 调用顺序=调用顺序)
-            任务链列表.append(任务链)
-            return 任务链
+        async def 假投递单步任务(**kwargs):
+            投递调用列表.append(kwargs)
+            记录标识 = kwargs.get("flow_param_ids") or [kwargs.get("flow_param_id") or kwargs["task_name"]]
+            task_id = f"{kwargs['shop_id']}-{'-'.join(str(标识) for 标识 in 记录标识)}"
+            kwargs["批次数据"]["shops"][kwargs["shop_id"]]["task_ids"].append(task_id)
+            kwargs["批次数据"]["task_ids"].append(task_id)
+            return {
+                "task_id": task_id,
+                "signature": 假签名(task_id, 调用顺序),
+                "batch": kwargs["批次数据"],
+            }
 
         async def 假写入批次状态(批次数据):
             调用顺序.append("write")
@@ -77,17 +55,29 @@ class 测试_执行服务:
                 patch("backend.services.执行服务.初始化任务注册表"), \
                 patch("backend.services.执行服务.获取任务类", side_effect=lambda 名称: object()), \
                 patch("backend.services.执行服务.店铺服务实例.根据ID获取", new=AsyncMock(side_effect=lambda 店铺ID: {"id": 店铺ID})), \
-                patch("backend.services.执行服务.流程服务实例.根据ID获取", new=AsyncMock(return_value={"id": "flow-1", "steps": 步骤列表})), \
+                patch(
+                    "backend.services.执行服务.流程服务实例.根据ID获取",
+                    new=AsyncMock(
+                        return_value={
+                            "id": "flow-1",
+                            "steps": [
+                                {"task": "发布相似商品", "on_fail": "continue", "barrier": True, "merge": False},
+                                {"task": "限时限量", "on_fail": "abort", "barrier": True, "merge": False},
+                            ],
+                        }
+                    ),
+                ), \
                 patch(
                     "backend.services.执行服务.流程参数服务实例.获取待执行列表",
-                    new=AsyncMock(side_effect=[
-                        [{"id": 101}],
-                        [{"id": 102}],
-                    ]),
+                    new=AsyncMock(
+                        side_effect=[
+                            [{"id": 101}, {"id": 102}],
+                            [{"id": 201}],
+                        ]
+                    ),
                 ), \
-                patch("backend.services.执行服务.流程参数服务实例.更新", new=AsyncMock()), \
-                patch("backend.services.执行服务.celery_chain", side_effect=假任务链工厂), \
-                patch("tasks.执行任务.执行任务", new=假Celery任务), \
+                patch("backend.services.执行服务.流程参数服务实例.更新", new=AsyncMock()) as 模拟更新流程参数, \
+                patch.object(服务, "投递单步任务", new=AsyncMock(side_effect=假投递单步任务)), \
                 patch.object(服务, "_写入批次状态", new=AsyncMock(side_effect=假写入批次状态)):
             结果 = await 服务.创建批次(
                 flow_id="flow-1",
@@ -98,26 +88,34 @@ class 测试_执行服务:
 
         assert 结果["total"] == 2
         assert 结果["status"] == "running"
-        assert 调用顺序 == ["write", ("apply", "shop-1"), ("apply", "shop-2")]
-        assert len(任务链列表) == 2
+        assert 调用顺序 == [
+            "write",
+            ("apply", "shop-1-101-102"),
+            ("apply", "shop-2-201"),
+        ]
         assert 已写入批次["queue_name"] == "worker.machine-1"
         assert 已写入批次["requested_concurrency"] == 2
-        assert 已写入批次["shops"]["shop-1"]["task_ids"] == ["shop-1-step-1", "shop-1-step-2"]
-        assert 已写入批次["shops"]["shop-2"]["task_ids"] == ["shop-2-step-1", "shop-2-step-2"]
-        assert 任务链列表[0].tasks[0].kwargs["flow_param_id"] == 101
-        assert 任务链列表[1].tasks[0].kwargs["flow_param_id"] == 102
+        assert 已写入批次["shops"]["shop-1"]["task_ids"] == ["shop-1-101-102"]
+        assert 已写入批次["shops"]["shop-2"]["task_ids"] == ["shop-2-201"]
+        assert 投递调用列表[0]["flow_param_ids"] == [101, 102]
+        assert 投递调用列表[0]["merge"] is False
+        assert 投递调用列表[1]["flow_param_ids"] == [201]
+        assert 模拟更新流程参数.await_count == 3
 
     @pytest.mark.asyncio
     async def test_创建批次_流程模式跳过无待执行流程参数的店铺(self):
         """flow 模式下，无待执行 flow_params 的店铺应被静默跳过。"""
         服务 = 执行服务模块.执行服务()
         已写入批次 = {}
-        任务链列表 = []
 
-        def 假任务链工厂(*任务):
-            任务链 = 假任务链(*任务, 调用顺序=[])
-            任务链列表.append(任务链)
-            return 任务链
+        async def 假投递单步任务(**kwargs):
+            kwargs["批次数据"]["shops"][kwargs["shop_id"]]["task_ids"].append("task-1")
+            kwargs["批次数据"]["task_ids"].append("task-1")
+            return {
+                "task_id": "task-1",
+                "signature": 假签名("task-1", []),
+                "batch": kwargs["批次数据"],
+            }
 
         async def 假写入批次状态(批次数据):
             已写入批次.clear()
@@ -128,17 +126,16 @@ class 测试_执行服务:
                 patch("backend.services.执行服务.初始化任务注册表"), \
                 patch("backend.services.执行服务.获取任务类", side_effect=lambda 名称: object()), \
                 patch("backend.services.执行服务.店铺服务实例.根据ID获取", new=AsyncMock(side_effect=lambda 店铺ID: {"id": 店铺ID})), \
-                patch("backend.services.执行服务.流程服务实例.根据ID获取", new=AsyncMock(return_value={"id": "flow-1", "steps": [{"task": "登录", "on_fail": "abort"}]})), \
+                patch(
+                    "backend.services.执行服务.流程服务实例.根据ID获取",
+                    new=AsyncMock(return_value={"id": "flow-1", "steps": [{"task": "登录", "on_fail": "abort"}]}),
+                ), \
                 patch(
                     "backend.services.执行服务.流程参数服务实例.获取待执行列表",
-                    new=AsyncMock(side_effect=[
-                        [{"id": 201}],
-                        [],
-                    ]),
+                    new=AsyncMock(side_effect=[[{"id": 201}], []]),
                 ), \
                 patch("backend.services.执行服务.流程参数服务实例.更新", new=AsyncMock()), \
-                patch("backend.services.执行服务.celery_chain", side_effect=假任务链工厂), \
-                patch("tasks.执行任务.执行任务", new=假Celery任务), \
+                patch.object(服务, "投递单步任务", new=AsyncMock(side_effect=假投递单步任务)), \
                 patch.object(服务, "_写入批次状态", new=AsyncMock(side_effect=假写入批次状态)):
             结果 = await 服务.创建批次(
                 flow_id="flow-1",
@@ -149,8 +146,6 @@ class 测试_执行服务:
 
         assert 结果["total"] == 1
         assert list(已写入批次["shops"].keys()) == ["shop-1"]
-        assert len(任务链列表) == 1
-        assert 任务链列表[0].tasks[0].kwargs["shop_id"] == "shop-1"
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize(

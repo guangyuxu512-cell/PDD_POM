@@ -58,6 +58,11 @@ type JsonTooltipState = {
   top: number
   width: number
 }
+type StepResultItem = {
+  name: string
+  status: string
+  detail: Record<string, any>
+}
 
 const pageSize = 10
 const tooltipMaxWidth = 500
@@ -96,6 +101,7 @@ const jsonTooltip = ref<JsonTooltipState>({
   top: 0,
   width: tooltipMaxWidth,
 })
+const expandedStepResultKey = ref<string | null>(null)
 let tooltipHideTimer: ReturnType<typeof setTimeout> | null = null
 
 const taskListFilters = ref({
@@ -486,6 +492,53 @@ function formatStepResultsSummary(stepResults: unknown) {
     return '-'
   }
   return stepNames.slice(0, 3).join(' / ')
+}
+
+function getStepResultItems(stepResults: unknown): StepResultItem[] {
+  const record = normalizeJson(stepResults)
+  return Object.entries(record).map(([name, rawDetail]) => {
+    const detail = normalizeJson(rawDetail)
+    return {
+      name,
+      status: String(detail.status || 'pending'),
+      detail,
+    }
+  })
+}
+
+function formatStepResultTag(step: StepResultItem) {
+  const iconMap: Record<string, string> = {
+    completed: '✓',
+    failed: '✗',
+    running: '⏳',
+    waiting_barrier: '⏳',
+    merged_skip: '🔗',
+  }
+  return `${step.name} ${iconMap[step.status] || '⏳'}`
+}
+
+function getStepResultStatusClass(status: string) {
+  const statusMap: Record<string, string> = {
+    completed: 'is-success',
+    failed: 'is-danger',
+    running: 'is-pending',
+    waiting_barrier: 'is-pending',
+    merged_skip: 'is-merge',
+  }
+  return statusMap[status] || 'is-pending'
+}
+
+function getStepResultToggleKey(flowParamId: number, stepName: string) {
+  return `${flowParamId}:${stepName}`
+}
+
+function toggleStepResultDetail(flowParamId: number, stepName: string) {
+  const targetKey = getStepResultToggleKey(flowParamId, stepName)
+  expandedStepResultKey.value = expandedStepResultKey.value === targetKey ? null : targetKey
+}
+
+function isStepResultDetailOpen(flowParamId: number, stepName: string) {
+  return expandedStepResultKey.value === getStepResultToggleKey(flowParamId, stepName)
 }
 
 function clearTooltipHideTimer() {
@@ -1330,7 +1383,7 @@ onBeforeUnmount(() => {
             <th>共享参数</th>
             <th>步骤进度</th>
             <th>状态</th>
-            <th>步骤结果</th>
+            <th>执行结果</th>
             <th>错误信息</th>
             <th>创建时间</th>
             <th>操作</th>
@@ -1378,13 +1431,36 @@ onBeforeUnmount(() => {
                 <StatusBadge :status="flowParam.status" type="task" />
               </td>
               <td class="cell-wide">
-                <span
-                  class="tooltip-trigger cell-ellipsis cell-wide"
-                  @mouseenter="showJsonTooltip($event, flowParam.step_results)"
-                  @mouseleave="scheduleHideJsonTooltip"
+                <div
+                  class="step-result-list"
+                  :title="formatStepResultsSummary(flowParam.step_results)"
                 >
-                  {{ formatStepResultsSummary(flowParam.step_results) }}
-                </span>
+                  <button
+                    v-for="step in getStepResultItems(flowParam.step_results)"
+                    :key="`${flowParam.id}-${step.name}`"
+                    type="button"
+                    class="step-result-tag"
+                    :class="getStepResultStatusClass(step.status)"
+                    @click="toggleStepResultDetail(flowParam.id, step.name)"
+                  >
+                    {{ formatStepResultTag(step) }}
+                  </button>
+                  <span
+                    v-if="getStepResultItems(flowParam.step_results).length === 0"
+                    class="cell-ellipsis"
+                  >
+                    -
+                  </span>
+                  <div
+                    v-for="step in getStepResultItems(flowParam.step_results)"
+                    v-show="isStepResultDetailOpen(flowParam.id, step.name)"
+                    :key="`${flowParam.id}-${step.name}-detail`"
+                    class="step-result-detail"
+                  >
+                    <strong>{{ step.name }}</strong>
+                    <pre>{{ formatJsonTooltip(step.detail) }}</pre>
+                  </div>
+                </div>
               </td>
               <td class="cell-ellipsis error-text" :title="flowParam.error || '-'">
                 {{ flowParam.error || '-' }}
@@ -1679,6 +1755,69 @@ h1 {
   display: block;
   width: 100%;
   cursor: help;
+}
+
+.step-result-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.step-result-tag {
+  border: none;
+  border-radius: 999px;
+  padding: 6px 10px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.step-result-tag:hover {
+  transform: translateY(-1px);
+}
+
+.step-result-tag.is-success {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.step-result-tag.is-danger {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.step-result-tag.is-pending {
+  background: #e5e7eb;
+  color: #4b5563;
+}
+
+.step-result-tag.is-merge {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.step-result-detail {
+  width: 100%;
+  margin-top: 8px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+}
+
+.step-result-detail strong {
+  display: block;
+  margin-bottom: 8px;
+  color: #0f172a;
+}
+
+.step-result-detail pre {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 
 .json-tooltip-panel {

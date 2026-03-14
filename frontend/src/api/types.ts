@@ -48,6 +48,8 @@ export interface AvailableTask {
 export interface FlowStep {
   task: string
   on_fail: string
+  barrier?: boolean
+  merge?: boolean
 }
 
 export interface Flow {

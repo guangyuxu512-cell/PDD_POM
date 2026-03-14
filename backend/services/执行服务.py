@@ -16,7 +16,6 @@ from urllib.parse import urlsplit, urlunsplit
 import httpx
 import redis
 import redis.asyncio as aioredis
-from celery import chain as celery_chain
 
 from backend.配置 import 配置实例
 from backend.services.店铺服务 import 店铺服务实例
@@ -115,6 +114,8 @@ def 构建店铺执行状态(
             {
                 "task": 步骤["task"],
                 "on_fail": 步骤["on_fail"],
+                "barrier": bool(步骤.get("barrier", False)),
+                "merge": bool(步骤.get("merge", False)),
                 "status": "waiting",
                 "error": None,
                 "result": None,
@@ -416,7 +417,7 @@ class 执行服务:
         self,
         flow_id: Optional[str],
         task_name: Optional[str],
-    ) -> List[Dict[str, str]]:
+    ) -> List[Dict[str, Any]]:
         """根据请求构建执行步骤。"""
         if bool(flow_id) == bool(task_name):
             raise ValueError("flow_id 和 task_name 必须二选一")
@@ -445,7 +446,72 @@ class 执行服务:
         except KeyError as e:
             raise ValueError(f"任务未注册: {task_name}") from e
 
-        return [{"task": str(task_name), "on_fail": "abort"}]
+        return [{"task": str(task_name), "on_fail": "abort", "barrier": False, "merge": False}]
+
+    async def 投递单步任务(
+        self,
+        *,
+        batch_id: str,
+        shop_id: str,
+        shop_name: str,
+        task_name: str,
+        on_fail: str,
+        step_index: int,
+        total_steps: int,
+        flow_param_id: Optional[int] = None,
+        flow_param_ids: Optional[List[int]] = None,
+        merge: bool = False,
+        queue_name: Optional[str] = None,
+        批次数据: Optional[Dict[str, Any]] = None,
+        立即投递: bool = True,
+    ) -> Dict[str, Any]:
+        """创建并投递单个 Celery 步骤任务。"""
+        from tasks.执行任务 import 执行任务 as 执行Celery任务
+
+        目标队列 = queue_name or 获取队列名称()
+        任务签名 = 执行Celery任务.si(
+            batch_id=batch_id,
+            shop_id=shop_id,
+            shop_name=shop_name,
+            task_name=task_name,
+            on_fail=on_fail,
+            step_index=step_index,
+            total_steps=total_steps,
+            flow_param_id=flow_param_id,
+            flow_param_ids=flow_param_ids,
+            merge=merge,
+        ).set(queue=目标队列, routing_key=目标队列)
+
+        冻结方法 = getattr(任务签名, "freeze", None)
+        if callable(冻结方法):
+            冻结方法()
+
+        任务ID = 任务签名.options.get("task_id")
+        待更新批次数据 = 批次数据
+        if 待更新批次数据 is None:
+            待更新批次数据 = await self._获取批次状态(batch_id)
+
+        if 待更新批次数据:
+            店铺状态 = 待更新批次数据.get("shops", {}).get(shop_id)
+            if 店铺状态 is not None and 任务ID:
+                if 任务ID not in 店铺状态["task_ids"]:
+                    店铺状态["task_ids"].append(任务ID)
+                if 任务ID not in 待更新批次数据["task_ids"]:
+                    待更新批次数据["task_ids"].append(任务ID)
+
+            if 批次数据 is None:
+                await self._写入批次状态(计算批次汇总(待更新批次数据))
+
+        if 立即投递:
+            投递方法 = getattr(任务签名, "apply_async", None)
+            if callable(投递方法):
+                投递方法()
+
+        return {
+            "task_id": 任务ID,
+            "signature": 任务签名,
+            "batch": 待更新批次数据,
+        }
 
     async def 创建批次(
         self,
@@ -473,7 +539,7 @@ class 执行服务:
 
         步骤模板 = await self._构建步骤列表(flow_id=flow_id, task_name=task_name)
         可执行店铺ID列表 = list(标准店铺ID列表)
-        流程参数ID映射: Dict[str, int] = {}
+        流程参数记录映射: Dict[str, List[Dict[str, Any]]] = {}
 
         if flow_id:
             可执行店铺ID列表 = []
@@ -482,8 +548,7 @@ class 执行服务:
                 if not 待执行记录列表:
                     continue
 
-                首条记录 = 待执行记录列表[0]
-                流程参数ID映射[店铺ID] = int(首条记录["id"])
+                流程参数记录映射[店铺ID] = 待执行记录列表
                 可执行店铺ID列表.append(店铺ID)
 
         batch_id = uuid.uuid4().hex
@@ -492,14 +557,16 @@ class 执行服务:
         标准回调地址 = str(callback_url or "").strip() or None
 
         if flow_id:
-            for 店铺ID, flow_param_id in 流程参数ID映射.items():
-                await 流程参数服务实例.更新(
-                    flow_param_id,
-                    {
-                        "batch_id": batch_id,
-                        "error": None,
-                    },
-                )
+            for 记录列表 in 流程参数记录映射.values():
+                for 流程参数记录 in 记录列表:
+                    await 流程参数服务实例.更新(
+                        int(流程参数记录["id"]),
+                        {
+                            "batch_id": batch_id,
+                            "error": None,
+                            "status": "pending",
+                        },
+                    )
 
         批次数据: Dict[str, Any] = {
             "batch_id": batch_id,
@@ -530,38 +597,68 @@ class 执行服务:
             "updated_at": datetime.now().isoformat(),
         }
 
-        from tasks.执行任务 import 执行任务 as 执行Celery任务
-
-        任务链列表 = []
+        待投递任务列表: List[Any] = []
+        首步骤 = 步骤模板[0]
         for 店铺ID in 可执行店铺ID列表:
             店铺名称 = str(店铺信息映射[店铺ID].get("name") or 店铺ID)
-            任务链 = celery_chain(
-                *[
-                    执行Celery任务.si(
+            if flow_id:
+                店铺流程参数记录 = 流程参数记录映射.get(店铺ID, [])
+                if 首步骤.get("barrier") or 首步骤.get("merge"):
+                    投递结果 = await self.投递单步任务(
                         batch_id=batch_id,
                         shop_id=店铺ID,
                         shop_name=店铺名称,
-                        task_name=步骤["task"],
-                        on_fail=步骤["on_fail"],
-                        step_index=索引,
+                        task_name=首步骤["task"],
+                        on_fail=首步骤["on_fail"],
+                        step_index=1,
                         total_steps=len(步骤模板),
-                        flow_param_id=流程参数ID映射.get(店铺ID),
-                    ).set(queue=queue_name, routing_key=queue_name)
-                    for 索引, 步骤 in enumerate(步骤模板, start=1)
-                ]
-            )
+                        flow_param_ids=[int(流程参数记录["id"]) for 流程参数记录 in 店铺流程参数记录],
+                        merge=bool(首步骤.get("merge")),
+                        queue_name=queue_name,
+                        批次数据=批次数据,
+                        立即投递=False,
+                    )
+                    待投递任务列表.append(投递结果["signature"])
+                    continue
 
-            任务链.freeze()
-            店铺任务ID列表 = [任务.options.get("task_id") for 任务 in 任务链.tasks]
-            批次数据["shops"][店铺ID]["task_ids"] = 店铺任务ID列表
-            批次数据["task_ids"].extend([任务ID for 任务ID in 店铺任务ID列表 if 任务ID])
-            任务链列表.append(任务链)
+                for 流程参数记录 in 店铺流程参数记录:
+                    投递结果 = await self.投递单步任务(
+                        batch_id=batch_id,
+                        shop_id=店铺ID,
+                        shop_name=店铺名称,
+                        task_name=首步骤["task"],
+                        on_fail=首步骤["on_fail"],
+                        step_index=1,
+                        total_steps=len(步骤模板),
+                        flow_param_id=int(流程参数记录["id"]),
+                        queue_name=queue_name,
+                        批次数据=批次数据,
+                        立即投递=False,
+                    )
+                    待投递任务列表.append(投递结果["signature"])
+            else:
+                投递结果 = await self.投递单步任务(
+                    batch_id=batch_id,
+                    shop_id=店铺ID,
+                    shop_name=店铺名称,
+                    task_name=首步骤["task"],
+                    on_fail=首步骤["on_fail"],
+                    step_index=1,
+                    total_steps=len(步骤模板),
+                    flow_param_id=None,
+                    queue_name=queue_name,
+                    批次数据=批次数据,
+                    立即投递=False,
+                )
+                待投递任务列表.append(投递结果["signature"])
 
         await self._写入批次状态(计算批次汇总(批次数据))
 
-        # 先写入批次状态，再投递链路，避免 Worker 抢先启动后查不到批次元数据。
-        for 任务链 in 任务链列表:
-            任务链.apply_async()
+        # 先写入批次状态，再投递首步任务，避免 Worker 抢先启动后查不到批次元数据。
+        for 任务签名 in 待投递任务列表:
+            投递方法 = getattr(任务签名, "apply_async", None)
+            if callable(投递方法):
+                投递方法()
 
         return {
             "batch_id": batch_id,

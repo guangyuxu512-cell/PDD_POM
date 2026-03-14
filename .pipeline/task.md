@@ -1,78 +1,80 @@
-ask 36：聚合执行框架 + 前端执行结果展示 + 推广选择器修复
+Task 37：屏障模式单任务投递修复 — 同店铺合并为1个Celery任务
 一、做什么
-三件事：
-流程步骤支持"聚合执行"：同店铺同批次多条记录在同一步骤聚合处理
-前端流程参数Tab展示执行结果（step_results）
-修复推广页3个选择器（投产比输入框、确认按钮、开启推广按钮）
+修复 barrier 模式下同店铺同批次投递多个独立 Celery 任务的问题。改为只投递1个任务，任务内部循环处理所有 flow_params 记录。
 二、涉及文件
-后端：
-backend/services/流程参数服务.py — 新增 查询同批次待聚合记录(shop_id, batch_id, flow_id, step_name) 方法
-backend/services/任务服务.py — 执行任务() 增加聚合判断逻辑
-backend/services/流程服务.py — 流程 steps 结构支持 aggregable 字段
-backend/models/数据结构.py — 流程创建/更新请求里 steps 结构允许 aggregable
-前端：
-frontend/src/views/FlowManage.vue — 步骤编辑区加"聚合执行"开关
-frontend/src/views/FlowParamsTab.vue（或流程参数展示的组件） — 加执行结果列，展示 step_results
-选择器：
-selectors/推广页选择器.py — 修复3个选择器
-三、聚合执行设计
-1) flows 表 steps JSON 结构变更：
-每个步骤增加 "aggregable" 字段，默认 false
-例：{"task_name": "设置推广", "aggregable": true}
+backend/services/执行服务.py — 投递逻辑：barrier 步骤同店铺只投递1个 Celery 任务
+backend/services/任务服务.py — 执行逻辑：支持接收多条 flow_params 参数，内部循环执行
+tasks/执行任务.py — Celery 任务签名支持 flow_param_ids: list[int]（多条记录）
+tasks/发布相似商品任务.py — 无需改动（框架层循环调用）
+tasks/限时限量任务.py — 无需改动（框架层循环调用）
+tasks/推广任务.py — merge 模式已支持合并参数，无需改动
+测试同步更新
+三、核心改动
+3.1 投递逻辑（执行服务.py）
+当前步骤推进时的投递逻辑改为：
+推进到下一步(shop_id, batch_id, flow_id, step_name):
+    下一步配置 = 获取下一步(flow_id, current_step)
+    同店铺记录 = 查(shop_id, batch_id, flow_id, 当前步骤已完成)
+    
+    如果下一步 barrier == true 或 merge == true:
+        只投递1个 Celery 任务，参数为：
+            flow_param_ids = [所有记录的ID列表]
+            merge = 下一步的merge配置
+    否则:
+        每条记录各投递1个 Celery 任务（现有逻辑不变）
 ​
-2) 执行框架逻辑（在 任务服务.py 的执行入口）：
-读取当前步骤配置
-如果 aggregable == false（默认）:
-    正常执行单条，不变
-如果 aggregable == true:
-    查询同店铺、同batch_id、同flow_id、同current_step的所有记录
-    过滤：该步骤的 step_results 里没有 "status": "completed" 的
-    合并所有记录的参数：
-      - 商品相关字段（商品ID/新商品ID/商品父ID）→ 合并成列表
-      - 其他字段（投产比、日限额等）→ 保留各自的值，放入列表
-    调用任务执行（传入合并后的参数）
-    执行完毕后，逐条回写每条记录的 step_results：
-      该步骤名: {"status": "completed", ...各自的结果}
-    推进每条记录到下一步
+3.2 执行逻辑（任务服务.py）
+执行任务() / 统一执行任务() 入口支持两种模式：
+如果 flow_param_ids 是列表且长度 > 1:
+    如果 merge == true:
+        合并所有记录参数 → 商品ID列表 + 商品参数映射
+        调用任务.执行() 一次
+        逐条回写结果到每条 flow_params
+    如果 merge == false (barrier only):
+        循环每条记录：
+            读取该记录的参数
+            调用任务.执行()
+            回写该记录的 step_results
+            随机延时（避免操作过快）
+否则:
+    单条执行（现有逻辑不变）
 ​
-3) 回写防重复：
-查询聚合记录时过滤条件：
-  step_results -> '{步骤名}' -> 'status' 不存在或不等于 'completed'
+3.3 Celery 任务签名（执行任务.py）
+当前签名：
+执行任务(batch_id, shop_id, shop_name, task_name, on_fail, step_index, total_steps, flow_param_id)
 ​
-4) 任务层适配：
-各任务（发布相似、限时限量、推广）的 _读取商品ID列表 已经支持列表输入。聚合时框架层把多条记录的商品ID合并成列表传入即可。但每个商品的个性化参数（投产比、日限额）需要按商品ID索引：
-合并参数格式：
-{
-  "商品ID列表": ["111", "222", "333"],
-  "商品参数映射": {
-    "111": {"投产比": 5.0, "日限额": 50},
-    "222": {"投产比": 4.0, "日限额": null},
-    "333": {"投产比": 5.5, "日限额": 30}
-  }
-}
+改为兼容：
+执行任务(batch_id, shop_id, shop_name, task_name, on_fail, step_index, total_steps, flow_param_id=None, flow_param_ids=None, merge=False)
 ​
-推广任务从 商品参数映射[商品ID] 读取每个商品各自的投产比和日限额。
-四、前端执行结果展示
-流程参数Tab表格新增列：
-"执行结果" 列：读取 step_results JSON
-展示方式：折叠/展开，每个步骤一行，显示步骤名 + status + 关键数据（如新商品ID）
-颜色标记：completed=绿色，failed=红色，pending=灰色
-五、推广选择器修复
-selectors/推广页选择器.py 修改以下3个选择器：
-投产比输入框（固定选择器）：
-主用：//input[@data-testid="CustomInputNumber" and @class="anq-input" and @placeholder="请输入" and @inputwidth="280"]
-备用：//input[@data-testid="CustomInputNumber" and @type="text"]
-投产设置确认按钮（动态选择器，绑定商品ID）：
-主用：//button[@data-testid="confirm_{商品ID}" and @class="anq-btn anq-btn-primary anq-btn-sm"]
-备用：//button[@data-testid="confirm_{商品ID}" and contains(@class, "anq-btn-primary") and .//span[text()="确定"]]
-开启推广按钮（固定选择器）：
-主用：//button[@data-testid="beginPromotionButton" and @class="anq-btn anq-btn-primary" and contains(span/text(), "开启推广")]
-备用：//button[contains(@class, "anq-btn-primary") and not(contains(@class, "anq-btn-disabled")) and @data-testid="beginPromotionButton" and .//span[contains(text(), "开启推广")]]
-六、约束
-aggregable 默认 false，不影响现有任何流程
-聚合查询必须过滤已完成记录，防止重复执行
-每个商品的个性化参数通过 商品参数映射 字典索引，不丢失
-前端流程编排步骤编辑器里加"聚合执行"Switch开关，保存到 steps JSON
-前端执行结果列不影响现有列布局，加在最后
-选择器修复不改变 POM 层和任务层代码，只改选择器配置
-测试全部同步更新，确保 pytest 通过
+flow_param_id：单条模式（向后兼容）
+flow_param_ids：多条模式（barrier/merge）
+merge：是否合并执行
+如果传了 flow_param_ids，忽略 flow_param_id。
+如果传了 flow_param_id（旧模式），自动包装成 flow_param_ids = [flow_param_id]。
+3.4 循环执行时的浏览器复用
+barrier only（merge=false）模式下，框架层循环调用任务：
+打开浏览器页面（1次）
+for 记录 in 所有记录:
+    读取该记录参数
+    调用 任务.执行(页面, 店铺配置)  # 复用同一个页面对象
+    回写该记录 step_results
+    随机延时 2-5 秒
+​
+关键：页面对象在循环外创建，循环内复用。每个商品操作完后，任务内部会自动导航回起始页（现有任务已有"返回商品列表页"逻辑），下一个商品操作时再导航到目标页面。
+3.5 错误处理
+循环模式下某个商品失败不影响其他商品：
+for 记录 in 所有记录:
+    try:
+        执行并回写(记录, "completed")
+    except Exception as e:
+        回写(记录, "failed", error=str(e))
+        根据 on_fail 策略决定是否继续
+​
+四、约束
+向后兼容：flow_param_id 单条模式保持不变
+barrier 步骤同店铺同批次只投递1个 Celery 任务，不投递多个
+循环执行时复用同一个浏览器页面对象，不重复打开
+每个商品操作之间加随机延时 2-5 秒
+单个商品失败不影响其他商品的执行
+merge 模式逻辑不变（Task 36 已实现）
+测试同步更新，确保 pytest 通过

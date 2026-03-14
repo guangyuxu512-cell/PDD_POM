@@ -117,7 +117,7 @@ class 测试_流程接口:
         assert 创建数据["code"] == 0
         assert 创建数据["data"]["name"] == "日常售后"
         assert 创建数据["data"]["steps"] == [
-            {"task": "登录", "on_fail": "continue"}
+            {"task": "登录", "on_fail": "continue", "barrier": False, "merge": False}
         ]
         流程ID = 创建数据["data"]["id"]
 
@@ -144,7 +144,7 @@ class 测试_流程接口:
         assert 更新数据["code"] == 0
         assert 更新数据["data"]["description"] == "更新后的描述"
         assert 更新数据["data"]["steps"] == [
-            {"task": "登录", "on_fail": "retry:2"}
+            {"task": "登录", "on_fail": "retry:2", "barrier": False, "merge": False}
         ]
 
         删除响应 = 客户端.delete(f"/api/flows/{流程ID}")

@@ -19,41 +19,6 @@ from tasks.执行任务 import 执行任务 as 执行任务对象
 仓库根目录 = Path(__file__).resolve().parents[2]
 
 
-class 假签名:
-    """用于模拟 Celery signature。"""
-
-    def __init__(self, **kwargs):
-        self.kwargs = kwargs
-        self.options = {}
-
-    def set(self, **options):
-        self.options.update(options)
-        return self
-
-
-class 假Celery任务:
-    """用于构造批次链路中的假任务签名。"""
-
-    @staticmethod
-    def si(**kwargs):
-        return 假签名(**kwargs)
-
-
-class 假任务链:
-    """用于记录 freeze 与 apply_async 的调用。"""
-
-    def __init__(self, *任务):
-        self.tasks = list(任务)
-
-    def freeze(self):
-        for 索引, 任务 in enumerate(self.tasks, start=1):
-            任务.options.setdefault("task_id", f"{任务.kwargs['shop_id']}-step-{索引}")
-        return self
-
-    def apply_async(self):
-        return self
-
-
 def 读取文件(相对路径: str) -> str:
     return (仓库根目录 / 相对路径).read_text(encoding="utf-8")
 
@@ -65,7 +30,7 @@ class 测试_批次创建店铺名:
     async def test_创建批次_写入真实店铺名并传给子任务(self):
         服务 = 执行服务模块.执行服务()
         已写入批次 = {}
-        任务链列表 = []
+        投递调用列表 = []
         步骤列表 = [
             {"task": "登录", "on_fail": "continue"},
             {"task": "采集商品", "on_fail": "abort"},
@@ -75,15 +40,22 @@ class 测试_批次创建店铺名:
             "shop-2": {"id": "shop-2", "name": "Huanyu"},
         }
 
-        def 假任务链工厂(*任务):
-            任务链 = 假任务链(*任务)
-            任务链列表.append(任务链)
-            return 任务链
-
         async def 假写入批次状态(批次数据):
             已写入批次.clear()
             已写入批次.update(批次数据)
             return 批次数据
+
+        async def 假投递单步任务(**kwargs):
+            投递调用列表.append(kwargs)
+            记录标识 = kwargs.get("flow_param_ids") or [kwargs.get("flow_param_id")]
+            task_id = f"{kwargs['shop_id']}-{'-'.join(str(标识) for 标识 in 记录标识)}"
+            kwargs["批次数据"]["shops"][kwargs["shop_id"]]["task_ids"].append(task_id)
+            kwargs["批次数据"]["task_ids"].append(task_id)
+            return {
+                "task_id": task_id,
+                "signature": SimpleNamespace(apply_async=lambda: None),
+                "batch": kwargs["批次数据"],
+            }
 
         with patch.object(执行服务模块.配置实例, "AGENT_MACHINE_ID", "machine-1"), \
                 patch("backend.services.执行服务.初始化任务注册表"), \
@@ -104,8 +76,7 @@ class 测试_批次创建店铺名:
                     ]),
                 ), \
                 patch("backend.services.执行服务.流程参数服务实例.更新", new=AsyncMock()), \
-                patch("backend.services.执行服务.celery_chain", side_effect=假任务链工厂), \
-                patch("tasks.执行任务.执行任务", new=假Celery任务), \
+                patch.object(服务, "投递单步任务", new=AsyncMock(side_effect=假投递单步任务)), \
                 patch.object(服务, "_写入批次状态", new=AsyncMock(side_effect=假写入批次状态)):
             结果 = await 服务.创建批次(
                 flow_id="flow-1",
@@ -117,24 +88,31 @@ class 测试_批次创建店铺名:
         assert 结果["status"] == "running"
         assert 已写入批次["shops"]["shop-1"]["shop_name"] == "MyCookLab"
         assert 已写入批次["shops"]["shop-2"]["shop_name"] == "Huanyu"
-        assert 任务链列表[0].tasks[0].kwargs["shop_name"] == "MyCookLab"
-        assert 任务链列表[1].tasks[0].kwargs["shop_name"] == "Huanyu"
+        assert 投递调用列表[0]["shop_name"] == "MyCookLab"
+        assert 投递调用列表[1]["shop_name"] == "Huanyu"
+        assert 投递调用列表[0]["flow_param_id"] == 301
+        assert 投递调用列表[1]["flow_param_id"] == 302
 
     @pytest.mark.asyncio
     async def test_创建批次_店铺缺少名称时回退店铺ID(self):
         服务 = 执行服务模块.执行服务()
         已写入批次 = {}
-        任务链列表 = []
-
-        def 假任务链工厂(*任务):
-            任务链 = 假任务链(*任务)
-            任务链列表.append(任务链)
-            return 任务链
+        投递调用列表 = []
 
         async def 假写入批次状态(批次数据):
             已写入批次.clear()
             已写入批次.update(批次数据)
             return 批次数据
+
+        async def 假投递单步任务(**kwargs):
+            投递调用列表.append(kwargs)
+            kwargs["批次数据"]["shops"][kwargs["shop_id"]]["task_ids"].append("task-1")
+            kwargs["批次数据"]["task_ids"].append("task-1")
+            return {
+                "task_id": "task-1",
+                "signature": SimpleNamespace(apply_async=lambda: None),
+                "batch": kwargs["批次数据"],
+            }
 
         with patch.object(执行服务模块.配置实例, "AGENT_MACHINE_ID", "machine-1"), \
                 patch("backend.services.执行服务.初始化任务注册表"), \
@@ -143,11 +121,7 @@ class 测试_批次创建店铺名:
                     "backend.services.执行服务.店铺服务实例.根据ID获取",
                     new=AsyncMock(return_value={"id": "shop-1", "name": ""}),
                 ), \
-                patch(
-                    "backend.services.执行服务.celery_chain",
-                    side_effect=假任务链工厂,
-                ), \
-                patch("tasks.执行任务.执行任务", new=假Celery任务), \
+                patch.object(服务, "投递单步任务", new=AsyncMock(side_effect=假投递单步任务)), \
                 patch.object(服务, "_写入批次状态", new=AsyncMock(side_effect=假写入批次状态)):
             await 服务.创建批次(
                 flow_id=None,
@@ -157,7 +131,7 @@ class 测试_批次创建店铺名:
             )
 
         assert 已写入批次["shops"]["shop-1"]["shop_name"] == "shop-1"
-        assert 任务链列表[0].tasks[0].kwargs["shop_name"] == "shop-1"
+        assert 投递调用列表[0]["shop_name"] == "shop-1"
 
 
 class 测试_Worker店铺名日志:

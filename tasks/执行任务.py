@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import asyncio
 import threading
-from typing import Dict, Optional
+from typing import Any, Dict, List, Optional
 
 import httpx
 
@@ -75,6 +75,8 @@ def 执行任务(
     step_index: int = 1,
     total_steps: int = 1,
     flow_param_id: Optional[int] = None,
+    flow_param_ids: Optional[List[int]] = None,
+    merge: bool = False,
 ) -> Dict[str, Any]:
     """
     执行批次中的单个步骤任务。
@@ -91,6 +93,11 @@ def 执行任务(
     初始化Worker环境()
     获取任务类(task_name)
     展示店铺名 = shop_name or shop_id
+    标准流程参数ID列表 = [int(记录ID) for 记录ID in (flow_param_ids or []) if int(记录ID) > 0]
+    显式传入多记录 = bool(标准流程参数ID列表)
+    if not 标准流程参数ID列表 and flow_param_id is not None:
+        标准流程参数ID列表 = [int(flow_param_id)]
+
     任务参数 = {
         "batch_id": batch_id,
         "shop_name": shop_name,
@@ -99,6 +106,9 @@ def 执行任务(
         "celery_task_id": self.request.id,
         "on_fail": on_fail,
     }
+    if 标准流程参数ID列表:
+        任务参数["flow_param_ids"] = 标准流程参数ID列表
+        任务参数["merge"] = bool(merge)
 
     print(
         f"[执行任务] 开始执行: shop_name={展示店铺名}, "
@@ -120,8 +130,8 @@ def 执行任务(
         "task_name": task_name,
         "params": 任务参数,
     }
-    if flow_param_id is not None:
-        请求体["flow_param_id"] = flow_param_id
+    if flow_param_id is not None and not 显式传入多记录 and len(标准流程参数ID列表) == 1:
+        请求体["flow_param_id"] = 标准流程参数ID列表[0]
 
     基础地址 = str(配置实例.API_BASE_URL or "http://localhost:8000").rstrip("/")
     with httpx.Client(timeout=httpx.Timeout(1800.0, connect=10.0)) as 客户端:

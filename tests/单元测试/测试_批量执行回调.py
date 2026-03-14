@@ -46,41 +46,6 @@ def 客户端():
         yield 测试客户端
 
 
-class 假签名:
-    """用于模拟 Celery signature。"""
-
-    def __init__(self, **kwargs):
-        self.kwargs = kwargs
-        self.options = {}
-
-    def set(self, **options):
-        self.options.update(options)
-        return self
-
-
-class 假Celery任务:
-    """用于构造批次链路中的假任务签名。"""
-
-    @staticmethod
-    def si(**kwargs):
-        return 假签名(**kwargs)
-
-
-class 假任务链:
-    """用于构造可冻结和投递的假任务链。"""
-
-    def __init__(self, *任务):
-        self.tasks = list(任务)
-
-    def freeze(self):
-        for 索引, 任务 in enumerate(self.tasks, start=1):
-            任务.options.setdefault("task_id", f"{任务.kwargs['shop_id']}-step-{索引}")
-        return self
-
-    def apply_async(self):
-        return self
-
-
 class 测试_批量执行回调:
     """验证批量执行完成回调。"""
 
@@ -196,11 +161,19 @@ class 测试_批量执行回调:
             已写入批次.update(批次数据)
             return 批次数据
 
+        async def 假投递单步任务(**kwargs):
+            kwargs["批次数据"]["shops"][kwargs["shop_id"]]["task_ids"].append("task-1")
+            kwargs["批次数据"]["task_ids"].append("task-1")
+            return {
+                "task_id": "task-1",
+                "signature": MagicMock(apply_async=MagicMock()),
+                "batch": kwargs["批次数据"],
+            }
+
         with patch("backend.services.执行服务.初始化任务注册表"), \
                 patch("backend.services.执行服务.获取任务类", side_effect=lambda 名称: object()), \
                 patch("backend.services.执行服务.店铺服务实例.根据ID获取", new=AsyncMock(return_value={"id": "shop-1", "name": "店铺一"})), \
-                patch("tasks.执行任务.执行任务", new=假Celery任务), \
-                patch("backend.services.执行服务.celery_chain", side_effect=lambda *任务: 假任务链(*任务)), \
+                patch.object(服务, "投递单步任务", new=AsyncMock(side_effect=假投递单步任务)), \
                 patch.object(服务, "_写入批次状态", new=AsyncMock(side_effect=假写入批次状态)):
             await 服务.创建批次(
                 flow_id=None,

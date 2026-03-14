@@ -1340,3 +1340,148 @@
 - 已执行 `python -m pytest -c tests/pytest.ini -q tests/单元测试/测试_任务服务.py tests/单元测试/测试_任务注册表.py`，结果 `11 passed`
 - 已执行全量 `python -m pytest -c tests/pytest.ini -q`，结果 `254 passed, 16 warnings`
 - 16 条 warning 仍为既有存量：10 条来自第三方 `openpyxl`，6 条来自 Celery `datetime.utcnow()` 弃用提示
+
+---
+
+## 任务摘要
+
+完成 ask 36：为 flow 执行框架接入同步屏障与合并执行，限时限量改为逐商品折扣输入，并在前端补齐 `barrier/merge` 编辑与 `step_results` 执行结果展示。
+
+## 改动文件列表
+
+- `backend/api/任务接口.py`
+- `backend/models/数据结构.py`
+- `backend/models/流程模型.py`
+- `backend/services/任务服务.py`
+- `backend/services/执行服务.py`
+- `backend/services/流程参数服务.py`
+- `frontend/src/api/types.ts`
+- `frontend/src/views/FlowManage.vue`
+- `frontend/src/views/TaskParamsManage.vue`
+- `pages/限时限量页.py`
+- `selectors/限时限量页选择器.py`
+- `tasks/推广任务.py`
+- `tasks/限时限量任务.py`
+- `tests/单元测试/测试_任务接口内部执行.py`
+- `tests/单元测试/测试_前端显示细节.py`
+- `tests/单元测试/测试_前端管理页.py`
+- `tests/单元测试/测试_店铺和流程接口.py`
+- `tests/单元测试/测试_执行服务.py`
+- `tests/单元测试/测试_批量执行回调.py`
+- `tests/单元测试/测试_批量执行店铺名.py`
+- `tests/单元测试/测试_推广任务.py`
+- `tests/单元测试/测试_数据库模型.py`
+- `tests/单元测试/测试_流程参数服务.py`
+- `tests/单元测试/测试_流程参数管理页静态.py`
+- `tests/单元测试/测试_限时限量任务.py`
+- `tests/单元测试/测试_限时限量页.py`
+- `PLAN.md`
+- `改造进度.md`
+- `.pipeline/progress.md`
+
+## 改动说明
+
+- `backend/models/流程模型.py` / `backend/models/数据结构.py`
+  - 为流程步骤补齐 `barrier` / `merge` 字段，并在后端响应结构中持久化返回
+- `backend/services/执行服务.py`
+  - 将 flow 批次调度从整条 `celery chain` 改为单步投递
+  - flow 模式下会把同店铺全部待执行 `flow_params` 记录挂到同一 `batch_id` 下的首步任务
+  - 新增 `投递单步任务(...)` 供创建批次和后续步骤推进共用
+- `backend/services/流程参数服务.py`
+  - `step_results` 改为结构化步骤状态
+  - 新增同批次步骤状态查询和批量推进到下一步能力
+  - `获取步骤上下文(...)` 过滤步骤元数据，避免 `status` 等控制字段进入任务参数
+- `backend/services/任务服务.py`
+  - 新增 flow 步骤完成后的 barrier / merge 推进逻辑
+  - 当前步骤完成后会按步骤配置决定等待、合并或直接投递下一步
+  - 合并执行时会构造 `商品ID列表 + 商品参数映射`，并按商品逐条回写执行结果
+- `backend/api/任务接口.py`
+  - 内部执行接口改为在步骤开始时标记 `running`，结束后统一委托 `任务服务` 处理 flow 推进
+- `selectors/限时限量页选择器.py` / `pages/限时限量页.py` / `tasks/限时限量任务.py`
+  - 删除批量折扣相关选择器与 POM 方法
+  - 新增逐商品折扣输入选择器和原子页面方法
+  - 限时限量任务改为逐商品选品、逐商品折扣输入
+- `tasks/推广任务.py`
+  - 增加 merge 参数兼容，可按商品从 `商品参数映射` 读取独立的 `投产比 / 日限额`
+- `frontend/src/views/FlowManage.vue` / `frontend/src/api/types.ts`
+  - 步骤编辑区新增“同步屏障”“合并执行”开关，并实现 `merge` 依赖 `barrier` 的联动
+- `frontend/src/views/TaskParamsManage.vue`
+  - 流程参数 Tab 将 `step_results` 改为 tag 化执行结果展示，支持展开查看每步明细
+- `tests/...`
+  - 同步更新执行服务、流程参数服务、内部执行接口、限时限量、推广任务及前端静态测试
+  - 更新既有流程接口和数据库模型测试，适配 `barrier=false / merge=false` 的默认回传
+
+## 影响范围
+
+- flow 执行链路现在支持等待同批次同步屏障，并支持将下一步合并为单次执行
+- `flow_params.step_results` 会记录每一步的运行、完成、失败、等待屏障和聚合跳过状态，前端可直接查看
+- 限时限量任务不再依赖统一折扣输入，后续可以按商品维度配置折扣
+- 设置推广任务已兼容 merge 输入格式，可按商品读取各自的投产比和日限额
+
+## 注意事项
+
+- 本轮额外修改了 `backend/models/流程模型.py`、`backend/api/任务接口.py` 和 `tasks/推广任务.py`，这是实现 ask 36 所需的最小联动范围
+- 已执行针对性回归：`40 passed`
+- 已执行邻近回归：`22 passed`
+- 已执行全量测试：`python -m pytest -c tests/pytest.ini -q`，结果 `257 passed, 16 warnings`
+- 已执行前端类型检查：`cd frontend && npx vue-tsc -b`
+- 16 条 warning 仍为既有存量：10 条来自第三方 `openpyxl`，6 条来自 Celery `datetime.utcnow()` 弃用提示
+- 工作区仍存在 `.pipeline/task.md`、`data/ecom.db`、`__pycache__/` 等本地运行副产物，非本轮交付代码
+
+---
+
+## 任务摘要
+
+完成 Task 37：修复屏障模式下同店铺多条 `flow_params` 重复投递多个 Celery 子任务的问题，改为同店铺只投递 1 个 Celery 任务并在主进程内循环处理。
+
+## 改动文件列表
+
+- `backend/services/执行服务.py`
+- `backend/services/任务服务.py`
+- `tasks/执行任务.py`
+- `tests/单元测试/测试_执行服务.py`
+- `tests/单元测试/测试_执行任务.py`
+- `tests/单元测试/测试_任务服务.py`
+- `tests/单元测试/测试_批量执行店铺名.py`
+- `tests/单元测试/测试_批量执行回调.py`
+- `PLAN.md`
+- `改造进度.md`
+- `.pipeline/progress.md`
+
+## 改动说明
+
+- `backend/services/执行服务.py`
+  - `投递单步任务(...)` 增加 `flow_param_ids` 和 `merge`
+  - flow 模式下，当步骤 `barrier=true` 或 `merge=true` 时，同店铺只投递 1 个 Celery 任务
+  - 首步 barrier/merge 现在也遵守这一规则，不再首步就拆成多条 Worker 子任务
+- `tasks/执行任务.py`
+  - Worker 任务签名兼容 `flow_param_ids: list[int]` 和 `merge: bool`
+  - 多记录模式会把 `flow_param_ids` 放进 `params` 透传给主进程
+  - 旧 `flow_param_id` 单条模式保持兼容
+- `backend/services/任务服务.py`
+  - `执行任务()` 新增多记录 flow 执行分支
+  - barrier-only 模式下，会在同一页面对象上串行执行多条记录，并在记录之间随机等待 `2~5` 秒
+  - merge 模式下，只调用一次具体任务，随后复用已有步骤完成逻辑统一回写所有记录
+  - 某条记录失败时按 `on_fail` 决定继续或中断；`abort` 时剩余未执行记录会被标记为失败终止
+  - 具体任务文件无需改动，发布相似商品 / 限时限量 / 设置推广继续由框架层循环驱动
+- `tests/...`
+  - 更新执行服务测试，验证 barrier 首步同店铺只投递 1 个任务
+  - 更新 Worker 测试，验证 `flow_param_ids / merge` 透传
+  - 更新任务服务测试，覆盖 barrier-only 循环执行、merge 单次执行和 abort 终止路径
+  - 更新店铺名与批次回调相关测试，适配新投递参数
+
+## 影响范围
+
+- 屏障模式下，同店铺同批次不再产生成倍的 Celery 子任务，Worker 数量和调度开销会下降
+- barrier-only 步骤现在会在主进程内复用同一个浏览器页面处理多条记录，避免重复打开页面
+- merge 模式继续保持“只执行一次任务”的语义，但投递侧也同步收敛成 1 个 Celery 任务
+
+## 注意事项
+
+- 本轮未修改前端代码
+- 本轮未修改具体任务文件实现，变更集中在执行框架和 Worker 参数透传
+- 已执行针对性回归：`34 passed`
+- 已执行邻近回归：`26 passed`
+- 已执行全量测试：`python -m pytest -c tests/pytest.ini -q`，结果 `261 passed, 16 warnings`
+- 16 条 warning 仍为既有存量：10 条来自第三方 `openpyxl`，6 条来自 Celery `datetime.utcnow()` 弃用提示
+- 工作区仍存在 `.pipeline/task.md`、`data/ecom.db`、`__pycache__/` 等本地运行副产物，非本轮交付代码

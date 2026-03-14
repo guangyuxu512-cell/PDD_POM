@@ -46,17 +46,23 @@ class 流程步骤:
 
     任务: str
     失败策略: str = "abort"
+    同步屏障: bool = False
+    合并执行: bool = False
 
     def __post_init__(self) -> None:
         if not self.任务:
             raise ValueError("流程步骤 task 不能为空")
         校验失败策略(self.失败策略)
+        if self.合并执行 and not self.同步屏障:
+            raise ValueError("merge=true 时 barrier 必须为 true")
 
-    def 转字典(self) -> dict[str, str]:
+    def 转字典(self) -> dict[str, object]:
         """转换为数据库 JSON 使用的英文键名。"""
         return {
             "task": self.任务,
             "on_fail": self.失败策略,
+            "barrier": self.同步屏障,
+            "merge": self.合并执行,
         }
 
 
@@ -71,7 +77,16 @@ def 标准化步骤列表(步骤列表: Iterable[流程步骤 | Mapping[str, Any
 
         任务 = str(步骤.get("task", "")).strip()
         失败策略 = str(步骤.get("on_fail", "abort")).strip() or "abort"
-        标准步骤.append(流程步骤(任务=任务, 失败策略=失败策略))
+        同步屏障 = bool(步骤.get("barrier", False))
+        合并执行 = bool(步骤.get("merge", False))
+        标准步骤.append(
+            流程步骤(
+                任务=任务,
+                失败策略=失败策略,
+                同步屏障=同步屏障,
+                合并执行=合并执行,
+            )
+        )
 
     if not 标准步骤:
         raise ValueError("流程 steps 至少需要一个步骤")

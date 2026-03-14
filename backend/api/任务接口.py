@@ -112,6 +112,13 @@ async def 内部执行任务(请求: 内部执行请求) -> 统一响应:
                     "batch_id": params.get("batch_id"),
                 },
             )
+            await 流程参数服务实例.更新步骤结果(
+                flow_param_id,
+                请求.task_name,
+                步骤状态="running",
+                step_index=step_index,
+                当前步骤=step_index,
+            )
             flow_context = await 流程参数服务实例.获取步骤上下文(flow_param_id, 请求.task_name)
             params["flow_context"] = flow_context
 
@@ -136,28 +143,14 @@ async def 内部执行任务(请求: 内部执行请求) -> 统一响应:
         )
 
         if flow_param_id is not None:
-            业务成功 = 结果["status"] == "completed" and 结果.get("result") == "成功"
-            if 业务成功:
-                await 流程参数服务实例.回写步骤结果(
-                    flow_param_id,
-                    请求.task_name,
-                    结果.get("result_data") or {},
-                    step_index,
-                )
-                if total_steps and step_index >= total_steps:
-                    await 流程参数服务实例.更新执行状态(flow_param_id, "success", None)
-            else:
-                错误信息 = str(结果.get("error") or 结果.get("result") or "任务执行失败")
-                if on_fail not in {"continue", "log_and_skip"} or (total_steps and step_index >= total_steps):
-                    await 流程参数服务实例.更新执行状态(flow_param_id, "failed", 错误信息)
-                else:
-                    await 流程参数服务实例.更新(
-                        flow_param_id,
-                        {
-                            "error": 错误信息,
-                            "current_step": step_index,
-                        },
-                    )
+            await 临时任务服务.处理流程步骤执行完成(
+                flow_param_id=flow_param_id,
+                task_name=请求.task_name,
+                step_index=step_index,
+                total_steps=total_steps,
+                on_fail=on_fail,
+                执行结果=结果,
+            )
 
         return 成功(data=结果)
     except Exception as e:

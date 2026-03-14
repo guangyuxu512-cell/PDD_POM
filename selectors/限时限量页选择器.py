@@ -71,22 +71,6 @@ class 限时限量页选择器:
             "button[data-testid='beast-core-button']:has-text('确认选择')"
         ]
     )
-    折扣输入框 = 选择器配置(
-        主选择器="input[placeholder='请输入折扣']",
-        备选选择器=[
-            # 🥈 亚军方案：inputNumber 类型
-            "input[data-testid='beast-core-inputNumber-htmlInput']"
-        ]
-    )
-    确认设置按钮 = 选择器配置(
-        主选择器="button[data-tracking-viewid='el_confirm_settings']",
-        备选选择器=[
-            # 🥈 亚军方案：精准文字匹配
-            "button:has-text('确认设置')",
-            # 🥉 季军方案：组合拳 (data-testid + 文字)
-            "button[data-testid='beast-core-button']:has-text('确认设置')"
-        ]
-    )
     创建按钮 = 选择器配置(
         主选择器="button[data-tracking-viewid='create_button_shared']",
         备选选择器=["button:has-text('创建')"]
@@ -101,3 +85,19 @@ class 限时限量页选择器:
             "svg[data-testid='beast-core-icon-check-circle_filled']"
         ]
     )
+
+    @staticmethod
+    def 商品行折扣输入框(商品ID: str) -> 选择器配置:
+        标准商品ID = str(商品ID).strip()
+        return 选择器配置(
+            主选择器=(
+                f'//tr[.//div[text()="ID: {标准商品ID}"]]'
+                '//input[@data-testid="beast-core-inputNumber-htmlInput"]'
+            ),
+            备选选择器=[
+                (
+                    f'//tr[.//div[contains(text(), "{标准商品ID}")]]'
+                    '//input[@data-testid="beast-core-inputNumber-htmlInput"]'
+                )
+            ],
+        )

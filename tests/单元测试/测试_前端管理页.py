@@ -66,6 +66,8 @@ class 测试_前端管理页:
         assert 'draggable="true"' in 流程页
         assert "listAvailableTasks" in 流程页
         assert "retry:N" in 流程页
+        assert "同步屏障" in 流程页
+        assert "合并执行" in 流程页
 
         assert "createBatchStatusEventSource" in 批量页
         assert "全部停止" in 批量页

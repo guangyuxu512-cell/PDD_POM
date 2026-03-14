@@ -32,6 +32,8 @@ class 测试_前端显示细节:
         assert "{{ task.name }}" in 流程页
         assert 'class="field-hint"' in 流程页
         assert "getTaskDescription(step.task)" in 流程页
+        assert "step.barrier" in 流程页
+        assert "step.merge" in 流程页
 
     def test_店铺页_编辑密码字段不回显(self):
         """编辑店铺时密码输入框应为 password 且提示留空不修改。"""

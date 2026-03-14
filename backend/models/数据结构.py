@@ -152,11 +152,19 @@ class 流程更新请求(BaseModel):
     description: Optional[str] = Field(default=None, description="流程描述")
 
 
+class 流程步骤配置(BaseModel):
+    """流程步骤配置。"""
+    task: str = Field(description="任务名称")
+    on_fail: str = Field(default="abort", description="失败策略")
+    barrier: bool = Field(default=False, description="是否等待同批次同步屏障")
+    merge: bool = Field(default=False, description="是否合并执行")
+
+
 class 流程响应(BaseModel):
     """流程响应"""
     id: str = Field(description="流程ID")
     name: str = Field(description="流程名称")
-    steps: List[Dict[str, Any]] = Field(description="流程步骤")
+    steps: List[流程步骤配置] = Field(description="流程步骤")
     description: Optional[str] = Field(default=None, description="流程描述")
     created_at: Optional[str] = Field(default=None, description="创建时间")
     updated_at: Optional[str] = Field(default=None, description="更新时间")
