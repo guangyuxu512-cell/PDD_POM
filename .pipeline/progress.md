@@ -1644,3 +1644,150 @@
 - 已执行全量测试：`python -m pytest -c tests/pytest.ini -q`，结果 `269 passed, 16 warnings`
 - 16 条 warning 仍为既有存量：10 条来自第三方 `openpyxl`，6 条来自 Celery `datetime.utcnow()` 弃用提示
 - 工作区仍存在 `.pipeline/task.md`、`data/ecom.db`、`__pycache__/` 等本地运行副产物，非本轮交付代码
+
+---
+
+## 任务摘要
+
+完成 Task 38.3：为极速起量关闭确认补充第三种 `popover` 气泡弹窗形态，并将其作为前两种失败后的精确回退。
+
+## 改动文件列表
+
+- `selectors/推广页选择器.py`
+- `pages/推广页.py`
+- `tests/单元测试/测试_推广页.py`
+- `PLAN.md`
+- `改造进度.md`
+- `.pipeline/progress.md`
+
+## 改动说明
+
+- `selectors/推广页选择器.py`
+  - 新增 `极速起量高级版关闭确认按钮_Popover`
+  - 主用和备用选择器都限定在 `anq-popover-footer` / `anq-popover-inner` 容器内，避免误匹配投产比弹窗
+- `pages/推广页.py`
+  - `确认关闭极速起量(商品ID)` 现在按三形态依次尝试：
+    - 商品绑定按钮 `assist_close_{商品ID}`
+    - 固定“确定关闭”按钮
+    - `popover` 气泡弹窗内主按钮
+  - 第三形态也沿用 `2` 秒等待超时和点击后 `1~2` 秒随机等待
+  - 三形态都失败时仍截图 `极速起量确认弹窗未找到`
+- `tests/单元测试/测试_推广页.py`
+  - 新增断言，验证 popover 选择器限定在 `anq-popover-footer` 容器内
+  - 新增“前两种失败后回退 popover 成功”的测试
+  - 原有失败路径和双形态逻辑保持覆盖
+
+## 影响范围
+
+- 极速起量关闭确认弹窗现在兼容第三种 `popover` 气泡形态
+- 当前两种确认按钮形态都不存在时，推广任务仍可通过 `popover` 形态继续完成关闭操作
+- `popover` 选择器受容器限制，不会回退成误点投产比弹窗底部按钮
+
+## 注意事项
+
+- 本轮未修改任务编排顺序或其他任务逻辑
+- 已执行针对性回归：`python -m pytest -c tests/pytest.ini -q tests/单元测试/测试_推广页.py tests/单元测试/测试_推广任务.py tests/单元测试/测试_推广任务服务.py`，结果 `23 passed`
+- 已执行全量测试：`python -m pytest -c tests/pytest.ini -q`，结果 `271 passed, 16 warnings`
+- 16 条 warning 仍为既有存量：10 条来自第三方 `openpyxl`，6 条来自 Celery `datetime.utcnow()` 弃用提示
+- 工作区仍存在 `.pipeline/task.md`、`data/ecom.db`、`__pycache__/` 等本地运行副产物，非本轮交付代码
+
+---
+
+## 任务摘要
+
+完成 Task 38.4：将极速起量确认弹窗的三形态优先级更新为“商品绑定按钮 → popover 内确定 → 任意确定关闭按钮”，并把商品绑定匹配改成 `contains(data-testid)`。
+
+## 改动文件列表
+
+- `selectors/推广页选择器.py`
+- `pages/推广页.py`
+- `tests/单元测试/测试_推广页.py`
+- `PLAN.md`
+- `改造进度.md`
+- `.pipeline/progress.md`
+
+## 改动说明
+
+- `selectors/推广页选择器.py`
+  - `获取极速起量高级版关闭确认按钮(商品ID)` 改为 `contains(@data-testid, "assist_close") and contains(@data-testid, "{商品ID}")`
+  - `极速起量高级版关闭确认按钮_Popover` 主用选择器改为限定在 `anq-popover` 容器内的主按钮
+  - `极速起量高级版关闭确认按钮` 保留为兜底的任意 `确定关闭` 按钮
+- `pages/推广页.py`
+  - `确认关闭极速起量(商品ID)` 的优先级更新为：
+    - 商品绑定按钮
+    - `anq-popover` 内的主按钮
+    - 任意 `确定关闭` 按钮
+  - 三种形态仍使用 `2` 秒等待超时和点击后 `1~2` 秒延时
+- `tests/单元测试/测试_推广页.py`
+  - 新增断言验证商品绑定形态使用 `contains(@data-testid, "assist_close")`
+  - 更新回退顺序测试，确认前两种失败后才进入兜底 `确定关闭`
+  - 更新 popover 容器断言，确认选择器限定在 `anq-popover` 范围内
+
+## 影响范围
+
+- 极速起量确认弹窗现在按最新优先级匹配，优先使用更精确的商品绑定形态
+- `popover` 形态会先于普通 `确定关闭` 按钮尝试，减少在混合弹窗场景下的误点概率
+
+## 注意事项
+
+- 本轮未修改任务编排、任务参数或其他任务文件
+- 已执行针对性回归：`python -m pytest -c tests/pytest.ini -q tests/单元测试/测试_推广页.py tests/单元测试/测试_推广任务.py tests/单元测试/测试_推广任务服务.py`，结果 `24 passed`
+- 已执行全量测试：`python -m pytest -c tests/pytest.ini -q`，结果 `272 passed, 16 warnings`
+- 16 条 warning 仍为既有存量：10 条来自第三方 `openpyxl`，6 条来自 Celery `datetime.utcnow()` 弃用提示
+- 工作区仍存在 `.pipeline/task.md`、`data/ecom.db`、`__pycache__/` 等本地运行副产物，非本轮交付代码
+
+---
+
+## 任务摘要
+
+完成 Task 38.5：修正限时限量逐商品折扣输入框主选择器，并将推广成功检测改为多条件轮询命中。
+
+## 改动文件列表
+
+- `selectors/限时限量页选择器.py`
+- `selectors/推广页选择器.py`
+- `pages/推广页.py`
+- `tests/单元测试/测试_限时限量页.py`
+- `tests/单元测试/测试_推广页.py`
+- `PLAN.md`
+- `改造进度.md`
+- `.pipeline/progress.md`
+
+## 改动说明
+
+- `selectors/限时限量页选择器.py`
+  - `商品行折扣输入框(商品ID)` 的主用选择器增加 `@placeholder="1～9.7"`，避免命中错误输入框
+- `selectors/推广页选择器.py`
+  - 新增 `推广成功Toast提示`
+  - 新增 `推广中状态文案`
+  - 保留现有 `开启推广按钮` 供“按钮消失”条件复用
+- `pages/推广页.py`
+  - `等待推广成功()` 从单个 `wait_for_selector` 改为最长 15 秒的轮询
+  - 轮询中依次检查：
+    - 成功 Toast
+    - URL 是否已回到列表页
+    - 开启推广按钮是否消失
+    - 页面是否出现“推广中”
+  - 任一条件满足即返回成功
+  - 超时后截图 `推广成功检测超时`
+- `tests/单元测试/测试_限时限量页.py`
+  - 新增断言，确保折扣输入框主选择器带 `placeholder="1～9.7"`
+- `tests/单元测试/测试_推广页.py`
+  - 新增 Toast 命中即成功的测试
+  - 新增开启推广按钮消失即成功的测试
+  - 新增成功检测超时截图的测试
+
+## 影响范围
+
+- 限时限量逐商品折扣输入更精确，降低命中到错误数字输入框的概率
+- 推广成功检测不再依赖单一提示，网络慢或页面跳转慢时成功判定更稳
+- 推广页在回到列表页、按钮消失或状态变成“推广中”时都能被识别为成功
+
+## 注意事项
+
+- 本轮按任务单要求修改的是实际存在的文件 `selectors/限时限量页选择器.py`；任务单中的 `selectors/限时限量选择器.py` 为现有仓库命名差异
+- 已执行针对性回归：`python -m pytest -c tests/pytest.ini -q tests/单元测试/测试_限时限量页.py tests/单元测试/测试_推广页.py`，结果 `22 passed`
+- 已执行邻近回归：`python -m pytest -c tests/pytest.ini -q tests/单元测试/测试_推广任务.py tests/单元测试/测试_推广任务服务.py`，结果 `11 passed`
+- 已执行全量测试：`python -m pytest -c tests/pytest.ini -q`，结果 `276 passed, 16 warnings`
+- 16 条 warning 仍为既有存量：10 条来自第三方 `openpyxl`，6 条来自 Celery `datetime.utcnow()` 弃用提示
+- 工作区仍存在 `.pipeline/task.md`、`data/ecom.db`、`__pycache__/` 等本地运行副产物，非本轮交付代码

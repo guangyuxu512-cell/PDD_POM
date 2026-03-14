@@ -130,6 +130,13 @@ class 测试_限时限量页:
         输入框.fill.assert_awaited_once_with("6")
         页面对象.操作后延迟.assert_awaited_once()
 
+    def test_商品行折扣输入框_主选择器带placeholder精确匹配(self):
+        from selectors.限时限量页选择器 import 限时限量页选择器
+
+        选择器 = 限时限量页选择器.商品行折扣输入框("1001")
+        assert '@placeholder="1～9.7"' in 选择器.主选择器
+        assert 'contains(text(), "1001")' in 选择器.备选选择器[0]
+
     @pytest.mark.asyncio
     async def test_等待创建成功_成功与失败路径(self, 模拟页面, monkeypatch):
         from pages.限时限量页 import 限时限量页

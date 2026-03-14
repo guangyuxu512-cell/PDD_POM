@@ -2,7 +2,9 @@
 from __future__ import annotations
 
 import asyncio
+import inspect
 import random
+import time
 
 from pages.基础页 import 基础页
 from selectors.推广页选择器 import 推广页选择器
@@ -298,16 +300,27 @@ class 推广页(基础页):
                 最后异常 = 异常
                 print(f"[推广页] 商品绑定极速起量确认失败(商品ID={商品ID}, 选择器={选择器}): {异常}")
 
-        for 选择器 in 推广页选择器.极速起量高级版关闭确认按钮.所有选择器():
+        for 选择器 in 推广页选择器.极速起量高级版关闭确认按钮_Popover.所有选择器():
             try:
                 await self.页面.wait_for_selector(选择器, timeout=2000)
                 await self.页面.click(选择器, timeout=2000)
-                print(f"[推广页] 已通过通用确认按钮关闭极速起量: 商品ID={商品ID}, 选择器={选择器}")
+                print(f"[推广页] 已通过Popover确认按钮关闭极速起量: 商品ID={商品ID}, 选择器={选择器}")
                 await self._确认弹窗后等待()
                 return True
             except Exception as 异常:
                 最后异常 = 异常
-                print(f"[推广页] 通用极速起量确认失败(商品ID={商品ID}, 选择器={选择器}): {异常}")
+                print(f"[推广页] Popover极速起量确认失败(商品ID={商品ID}, 选择器={选择器}): {异常}")
+
+        for 选择器 in 推广页选择器.极速起量高级版关闭确认按钮.所有选择器():
+            try:
+                await self.页面.wait_for_selector(选择器, timeout=2000)
+                await self.页面.click(选择器, timeout=2000)
+                print(f"[推广页] 已通过通用确认关闭按钮关闭极速起量: 商品ID={商品ID}, 选择器={选择器}")
+                await self._确认弹窗后等待()
+                return True
+            except Exception as 异常:
+                最后异常 = 异常
+                print(f"[推广页] 通用确认关闭按钮失败(商品ID={商品ID}, 选择器={选择器}): {异常}")
         try:
             await self.截图("极速起量确认弹窗未找到")
         except Exception:
@@ -379,16 +392,64 @@ class 推广页(基础页):
                     print(f"[推广页] 点击开启推广失败({选择器}): {异常}")
         return False
 
-    async def 等待推广成功(self, 超时秒: int = 3) -> bool:
-        """等待推广成功提示。"""
-        await self._随机等待()
-        超时毫秒 = max(1, 超时秒) * 1000
-        for 选择器 in 推广页选择器.推广成功弹窗.所有选择器():
+    async def _按钮是否仍可见(self) -> bool:
+        """检查开启推广按钮是否仍可见。"""
+        for 选择器 in 推广页选择器.开启推广按钮.所有选择器():
             try:
-                await self.页面.wait_for_selector(选择器, timeout=超时毫秒)
-                print(f"[推广页] 已检测到推广成功弹窗: {选择器}")
-                await self._随机等待()
-                return True
+                定位器 = self.页面.locator(选择器).first
+                可见方法 = getattr(定位器, "is_visible", None)
+                if callable(可见方法):
+                    结果 = 可见方法()
+                    if inspect.isawaitable(结果):
+                        结果 = await 结果
+                    if isinstance(结果, bool):
+                        return 结果
+
+                元素 = await self.页面.query_selector(选择器)
+                if 元素 is not None:
+                    return True
             except Exception as 异常:
-                print(f"[推广页] 等待推广成功失败({选择器}): {异常}")
+                print(f"[推广页] 检查开启推广按钮可见性失败({选择器}): {异常}")
+        return False
+
+    async def 等待推广成功(self, 超时秒数: int = 15) -> bool:
+        """轮询检测推广成功，任一成功条件命中即返回。"""
+        await self._随机等待()
+        截止时间 = time.monotonic() + max(1, 超时秒数)
+
+        while time.monotonic() < 截止时间:
+            for 选择器 in 推广页选择器.推广成功Toast提示.所有选择器():
+                try:
+                    元素 = await self.页面.query_selector(选择器)
+                    if 元素 is not None:
+                        print(f"[推广页] 已命中推广成功Toast: {选择器}")
+                        return True
+                except Exception as 异常:
+                    print(f"[推广页] 检查推广成功Toast失败({选择器}): {异常}")
+
+            当前地址 = str(getattr(self.页面, "url", "") or "")
+            if "promotion/list" in 当前地址 and "create" not in 当前地址:
+                print(f"[推广页] 已通过URL检测到推广成功: {当前地址}")
+                return True
+
+            if not await self._按钮是否仍可见():
+                print("[推广页] 已通过开启推广按钮消失检测到推广成功")
+                return True
+
+            for 选择器 in 推广页选择器.推广中状态文案.所有选择器():
+                try:
+                    元素 = await self.页面.query_selector(选择器)
+                    if 元素 is not None:
+                        print(f"[推广页] 已检测到推广中状态: {选择器}")
+                        return True
+                except Exception as 异常:
+                    print(f"[推广页] 检查推广中状态失败({选择器}): {异常}")
+
+            await asyncio.sleep(0.5)
+
+        try:
+            await self.截图("推广成功检测超时")
+        except Exception:
+            pass
+        print("[推广页] 推广成功检测超时")
         return False

@@ -1,21 +1,12 @@
-2026/03/14-16:19:59.997 6c3c Reusing MANIFEST E:\pdd_zd\data\profiles\8eec98e4-89b9-49d5-ab1f-c72be3c405f6\Default\Local Storage\leveldb/MANIFEST-000001
-2026/03/14-16:20:00.004 6c3c Recovering log #131
-2026/03/14-16:20:00.004 6c3c Level-0 table #134: started
-2026/03/14-16:20:00.035 6c3c Level-0 table #134: 15625 bytes OK
-2026/03/14-16:20:00.035 6c3c Recovering log #133
-2026/03/14-16:20:00.037 6c3c Reusing old log E:\pdd_zd\data\profiles\8eec98e4-89b9-49d5-ab1f-c72be3c405f6\Default\Local Storage\leveldb/000133.log 
-2026/03/14-16:20:00.062 6c3c Delete type=0 #131
-2026/03/14-16:20:00.063 8700 Compacting 4@0 + 1@1 files
-2026/03/14-16:20:00.105 8700 Generated table #135@0: 91 keys, 175017 bytes
-2026/03/14-16:20:00.105 8700 Compacted 4@0 + 1@1 files => 175017 bytes
-2026/03/14-16:20:00.153 8700 compacted to: files[ 0 1 0 0 0 0 0 ]
-2026/03/14-16:20:00.154 8700 Delete type=2 #126
-2026/03/14-16:20:00.154 8700 Delete type=2 #128
-2026/03/14-16:20:00.154 8700 Delete type=2 #130
-2026/03/14-16:20:00.154 8700 Delete type=2 #132
-2026/03/14-16:20:00.154 8700 Delete type=2 #134
-2026/03/14-16:21:00.070 8700 Level-0 table #137: started
-2026/03/14-16:21:00.132 8700 Level-0 table #137: 15717 bytes OK
-2026/03/14-16:21:00.155 8700 Delete type=0 #133
-2026/03/14-17:28:11.227 614c Level-0 table #139: started
-2026/03/14-17:28:11.281 614c Level-0 table #139: 15631 bytes OK
+2026/03/14-23:09:13.607 6940 Reusing MANIFEST E:\pdd_zd\data\profiles\8eec98e4-89b9-49d5-ab1f-c72be3c405f6\Default\Local Storage\leveldb/MANIFEST-000001
+2026/03/14-23:09:13.614 6940 Recovering log #145
+2026/03/14-23:09:13.615 6940 Level-0 table #148: started
+2026/03/14-23:09:13.642 6940 Level-0 table #148: 15630 bytes OK
+2026/03/14-23:09:13.642 6940 Recovering log #147
+2026/03/14-23:09:13.644 6940 Reusing old log E:\pdd_zd\data\profiles\8eec98e4-89b9-49d5-ab1f-c72be3c405f6\Default\Local Storage\leveldb/000147.log 
+2026/03/14-23:09:13.664 6940 Delete type=0 #145
+2026/03/14-23:10:13.675 50c4 Level-0 table #150: started
+2026/03/14-23:10:13.699 50c4 Level-0 table #150: 15911 bytes OK
+2026/03/14-23:10:13.715 50c4 Delete type=0 #147
+2026/03/14-23:36:43.679 6940 Level-0 table #152: started
+2026/03/14-23:36:43.828 6940 Level-0 table #152: 15632 bytes OK

@@ -1,7 +1,7 @@
 """
 推广页单元测试
 """
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -130,12 +130,17 @@ class 测试_推广页:
         monkeypatch.setattr(
             推广页选择器,
             "获取极速起量高级版关闭确认按钮",
-            staticmethod(lambda 商品ID: 选择器配置(f"assist-close-{商品ID}")),
+            staticmethod(lambda 商品ID: 选择器配置(f"assist-close-contains-{商品ID}")),
         )
         monkeypatch.setattr(
             推广页选择器,
             "极速起量高级版关闭确认按钮",
-            选择器配置("common-confirm"),
+            选择器配置("confirm-close"),
+        )
+        monkeypatch.setattr(
+            推广页选择器,
+            "极速起量高级版关闭确认按钮_Popover",
+            选择器配置("popover-confirm"),
         )
 
         页面对象 = 推广页(模拟页面)
@@ -145,8 +150,8 @@ class 测试_推广页:
         结果 = await 页面对象.确认关闭极速起量("123")
 
         assert 结果 is True
-        模拟页面.wait_for_selector.assert_awaited_once_with("assist-close-123", timeout=2000)
-        模拟页面.click.assert_awaited_once_with("assist-close-123", timeout=2000)
+        模拟页面.wait_for_selector.assert_awaited_once_with("assist-close-contains-123", timeout=2000)
+        模拟页面.click.assert_awaited_once_with("assist-close-contains-123", timeout=2000)
         页面对象._确认弹窗后等待.assert_awaited_once()
 
     def test_极速起量确认关闭选择器_不再匹配通用确定(self):
@@ -156,24 +161,82 @@ class 测试_推广页:
         assert all("确定关闭" in 选择器 for 选择器 in 选择器列表)
         assert all('span[text()="确定"]' not in 选择器 for 选择器 in 选择器列表)
 
+    def test_极速起量确认关闭_popover选择器_限定在_popover_容器内(self):
+        from selectors.推广页选择器 import 推广页选择器
+
+        选择器列表 = 推广页选择器.极速起量高级版关闭确认按钮_Popover.所有选择器()
+        assert any("anq-popover" in 选择器 for 选择器 in 选择器列表)
+        assert all("anq-popover" in 选择器 for 选择器 in 选择器列表)
+
+    def test_极速起量商品绑定选择器_使用_contains_兼容不同_testid(self):
+        from selectors.推广页选择器 import 推广页选择器
+
+        选择器列表 = 推广页选择器.获取极速起量高级版关闭确认按钮("123").所有选择器()
+        assert 选择器列表 == ['//button[contains(@data-testid, "assist_close") and contains(@data-testid, "123")]']
+
     @pytest.mark.asyncio
-    async def test_确认关闭极速起量_商品绑定失败后回退通用按钮(self, 模拟页面, monkeypatch):
+    async def test_确认关闭极速起量_商品绑定失败后回退_popover(self, 模拟页面, monkeypatch):
         from pages.推广页 import 推广页
         from selectors.推广页选择器 import 推广页选择器
 
         monkeypatch.setattr(
             推广页选择器,
             "获取极速起量高级版关闭确认按钮",
-            staticmethod(lambda 商品ID: 选择器配置(f"assist-close-{商品ID}")),
+            staticmethod(lambda 商品ID: 选择器配置(f"assist-close-contains-{商品ID}")),
         )
         monkeypatch.setattr(
             推广页选择器,
             "极速起量高级版关闭确认按钮",
             选择器配置("confirm-close"),
         )
+        monkeypatch.setattr(
+            推广页选择器,
+            "极速起量高级版关闭确认按钮_Popover",
+            选择器配置("popover-confirm"),
+        )
 
         async def 等待副作用(选择器, timeout=2000):
-            if 选择器 == "assist-close-123":
+            if 选择器 == "assist-close-contains-123":
+                raise RuntimeError("not found")
+            if 选择器 == "popover-confirm":
+                return None
+            raise RuntimeError("should not reach fallback")
+
+        模拟页面.wait_for_selector = AsyncMock(side_effect=等待副作用)
+        页面对象 = 推广页(模拟页面)
+        页面对象._随机等待 = AsyncMock()
+        页面对象._确认弹窗后等待 = AsyncMock()
+
+        结果 = await 页面对象.确认关闭极速起量("123")
+
+        assert 结果 is True
+        assert 模拟页面.wait_for_selector.await_args_list[0].args == ("assist-close-contains-123",)
+        assert 模拟页面.wait_for_selector.await_args_list[1].args == ("popover-confirm",)
+        assert 模拟页面.click.await_args.args == ("popover-confirm",)
+
+    @pytest.mark.asyncio
+    async def test_确认关闭极速起量_前两种失败后回退_确定关闭按钮(self, 模拟页面, monkeypatch):
+        from pages.推广页 import 推广页
+        from selectors.推广页选择器 import 推广页选择器
+
+        monkeypatch.setattr(
+            推广页选择器,
+            "获取极速起量高级版关闭确认按钮",
+            staticmethod(lambda 商品ID: 选择器配置(f"assist-close-contains-{商品ID}")),
+        )
+        monkeypatch.setattr(
+            推广页选择器,
+            "极速起量高级版关闭确认按钮",
+            选择器配置("confirm-close"),
+        )
+        monkeypatch.setattr(
+            推广页选择器,
+            "极速起量高级版关闭确认按钮_Popover",
+            选择器配置("popover-confirm"),
+        )
+
+        async def 等待副作用(选择器, timeout=2000):
+            if 选择器 in {"assist-close-contains-123", "popover-confirm"}:
                 raise RuntimeError("not found")
             return None
 
@@ -185,8 +248,9 @@ class 测试_推广页:
         结果 = await 页面对象.确认关闭极速起量("123")
 
         assert 结果 is True
-        assert 模拟页面.wait_for_selector.await_args_list[0].args == ("assist-close-123",)
-        assert 模拟页面.wait_for_selector.await_args_list[1].args == ("confirm-close",)
+        assert 模拟页面.wait_for_selector.await_args_list[0].args == ("assist-close-contains-123",)
+        assert 模拟页面.wait_for_selector.await_args_list[1].args == ("popover-confirm",)
+        assert 模拟页面.wait_for_selector.await_args_list[2].args == ("confirm-close",)
         assert 模拟页面.click.await_args.args == ("confirm-close",)
 
     @pytest.mark.asyncio
@@ -197,12 +261,17 @@ class 测试_推广页:
         monkeypatch.setattr(
             推广页选择器,
             "获取极速起量高级版关闭确认按钮",
-            staticmethod(lambda 商品ID: 选择器配置(f"assist-close-{商品ID}")),
+            staticmethod(lambda 商品ID: 选择器配置(f"assist-close-contains-{商品ID}")),
         )
         monkeypatch.setattr(
             推广页选择器,
             "极速起量高级版关闭确认按钮",
             选择器配置("confirm-close"),
+        )
+        monkeypatch.setattr(
+            推广页选择器,
+            "极速起量高级版关闭确认按钮_Popover",
+            选择器配置("popover-confirm"),
         )
         模拟页面.wait_for_selector = AsyncMock(side_effect=RuntimeError("timeout"))
 
@@ -237,3 +306,69 @@ class 测试_推广页:
         assert 结果 is True
         模拟页面.mouse.wheel.assert_awaited_once()
         模拟页面.evaluate.assert_awaited()
+
+    @pytest.mark.asyncio
+    async def test_等待推广成功_toast命中即返回成功(self, 模拟页面, monkeypatch):
+        from pages.推广页 import 推广页
+        from selectors.推广页选择器 import 推广页选择器
+
+        模拟页面.url = "https://yingxiao.pinduoduo.com/goods/promotion/create"
+        monkeypatch.setattr(推广页选择器, "推广成功Toast提示", 选择器配置("toast-success", ["toast-opened"]))
+        monkeypatch.setattr(推广页选择器, "推广中状态文案", 选择器配置("status-running"))
+        monkeypatch.setattr(推广页选择器, "开启推广按钮", 选择器配置("begin-button"))
+
+        async def 查询副作用(选择器):
+            if 选择器 == "toast-success":
+                return object()
+            return None
+
+        模拟页面.query_selector = AsyncMock(side_effect=查询副作用)
+        页面对象 = 推广页(模拟页面)
+        页面对象._随机等待 = AsyncMock()
+        页面对象._按钮是否仍可见 = AsyncMock(return_value=True)
+
+        结果 = await 页面对象.等待推广成功()
+
+        assert 结果 is True
+        页面对象._按钮是否仍可见.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_等待推广成功_开启推广按钮消失即返回成功(self, 模拟页面, monkeypatch):
+        from pages.推广页 import 推广页
+        from selectors.推广页选择器 import 推广页选择器
+
+        模拟页面.url = "https://yingxiao.pinduoduo.com/goods/promotion/create"
+        monkeypatch.setattr(推广页选择器, "推广成功Toast提示", 选择器配置("toast-success"))
+        monkeypatch.setattr(推广页选择器, "推广中状态文案", 选择器配置("status-running"))
+
+        模拟页面.query_selector = AsyncMock(return_value=None)
+        页面对象 = 推广页(模拟页面)
+        页面对象._随机等待 = AsyncMock()
+        页面对象._按钮是否仍可见 = AsyncMock(return_value=False)
+
+        结果 = await 页面对象.等待推广成功()
+
+        assert 结果 is True
+        页面对象._按钮是否仍可见.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_等待推广成功_超时后截图返回False(self, 模拟页面, monkeypatch):
+        from pages.推广页 import 推广页
+        from selectors.推广页选择器 import 推广页选择器
+
+        模拟页面.url = "https://yingxiao.pinduoduo.com/goods/promotion/create"
+        monkeypatch.setattr(推广页选择器, "推广成功Toast提示", 选择器配置("toast-success"))
+        monkeypatch.setattr(推广页选择器, "推广中状态文案", 选择器配置("status-running"))
+        模拟页面.query_selector = AsyncMock(return_value=None)
+
+        页面对象 = 推广页(模拟页面)
+        页面对象._随机等待 = AsyncMock()
+        页面对象._按钮是否仍可见 = AsyncMock(return_value=True)
+        页面对象.截图 = AsyncMock(return_value="timeout.png")
+
+        with patch("pages.推广页.time.monotonic", side_effect=[0.0, 0.2, 1.2]), \
+                patch("pages.推广页.asyncio.sleep", new=AsyncMock()):
+            结果 = await 页面对象.等待推广成功(超时秒数=1)
+
+        assert 结果 is False
+        页面对象.截图.assert_awaited_once_with("推广成功检测超时")

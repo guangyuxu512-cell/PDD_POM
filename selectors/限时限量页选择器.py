@@ -92,7 +92,7 @@ class 限时限量页选择器:
         return 选择器配置(
             主选择器=(
                 f'//tr[.//div[text()="ID: {标准商品ID}"]]'
-                '//input[@data-testid="beast-core-inputNumber-htmlInput"]'
+                '//input[@data-testid="beast-core-inputNumber-htmlInput" and @placeholder="1～9.7"]'
             ),
             备选选择器=[
                 (

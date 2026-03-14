@@ -91,11 +91,28 @@ class 推广页选择器:
         ],
     )
 
-    极速起量高级版关闭确认按钮 = 选择器配置(
-        主选择器='//button[span[text()="确定关闭"]]',
+    推广成功Toast提示 = 选择器配置(
+        主选择器='//div[contains(@class, "anq-message")]//span[contains(text(), "成功")]',
         备选选择器=[
-            '//button[.//span[text()="确定关闭"]]',
+            '//div[contains(@class, "anq-message")]//span[contains(text(), "已开启")]',
         ],
+    )
+
+    推广中状态文案 = 选择器配置(
+        主选择器='//*[contains(text(), "推广中")]',
+        备选选择器=[],
+    )
+
+    极速起量高级版关闭确认按钮_Popover = 选择器配置(
+        主选择器='//div[contains(@class, "anq-popover")]//button[contains(@class, "anq-btn-primary") and .//span[text()="确定"]]',
+        备选选择器=[
+            '//div[contains(@class, "anq-popover-inner")]//div[contains(@class, "anq-popover-footer")]//button[contains(@class, "anq-btn-primary")]',
+        ],
+    )
+
+    极速起量高级版关闭确认按钮 = 选择器配置(
+        主选择器='//button[.//span[text()="确定关闭"]]',
+        备选选择器=[],
     )
 
     @staticmethod
@@ -149,10 +166,8 @@ class 推广页选择器:
     def 获取极速起量高级版关闭确认按钮(商品ID: str) -> 选择器配置:
         """根据商品ID生成极速起量关闭确认按钮选择器。"""
         return 选择器配置(
-            主选择器=f'//button[@data-testid="assist_close_{商品ID}"]',
-            备选选择器=[
-                f'//button[@data-testid="assist_close_{商品ID}"]//span[text()="确定关闭"]/parent::button',
-            ],
+            主选择器=f'//button[contains(@data-testid, "assist_close") and contains(@data-testid, "{商品ID}")]',
+            备选选择器=[],
         )
 
     @staticmethod

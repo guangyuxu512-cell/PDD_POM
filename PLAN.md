@@ -1886,3 +1886,43 @@
 - [x] 针对性验证结果：`21 passed`
 - [x] 验证通过：`python -m pytest -c tests/pytest.ini -q`
 - [x] 全量验证结果：`269 passed, 16 warnings`（10 条为第三方 `openpyxl` 警告，6 条为现有 Celery 警告）
+
+## Prompt 84：Task 38.3 极速起量第三种形态 popover 气泡弹窗适配 ✅
+
+- [x] 更新 `selectors/推广页选择器.py`，新增 `极速起量高级版关闭确认按钮_Popover`
+- [x] 更新 `pages/推广页.py`，`确认关闭极速起量(商品ID)` 增加第三种 `popover` 形态回退
+- [x] 复核 `popover` 选择器限定在 `anq-popover-footer` 容器内，避免误匹配投产比弹窗
+- [x] 保持三种形态尝试顺序：形态2 `assist_close_{商品ID}` → 形态1 `确定关闭` → 形态3 `popover`
+- [x] 更新 `tests/单元测试/测试_推广页.py`
+- [x] 针对性验证通过：`python -m pytest -c tests/pytest.ini -q tests/单元测试/测试_推广页.py tests/单元测试/测试_推广任务.py tests/单元测试/测试_推广任务服务.py`
+- [x] 针对性验证结果：`23 passed`
+- [x] 验证通过：`python -m pytest -c tests/pytest.ini -q`
+- [x] 全量验证结果：`271 passed, 16 warnings`（10 条为第三方 `openpyxl` 警告，6 条为现有 Celery 警告）
+
+## Prompt 85：Task 38.4 极速起量三形态确认弹窗优先级更新 ✅
+
+- [x] 更新 `selectors/推广页选择器.py`，将商品绑定确认按钮改为 `contains(@data-testid, "assist_close") and contains(@data-testid, "{商品ID}")`
+- [x] 更新 `selectors/推广页选择器.py`，将 `popover` 形态选择器限定为 `anq-popover` 容器内的主按钮
+- [x] 更新 `selectors/推广页选择器.py`，将兜底形态保留为任意 `确定关闭` 按钮
+- [x] 更新 `pages/推广页.py`，调整 `确认关闭极速起量(商品ID)` 尝试顺序为：商品绑定 → popover → 确定关闭
+- [x] 更新 `tests/单元测试/测试_推广页.py`
+- [x] 针对性验证通过：`python -m pytest -c tests/pytest.ini -q tests/单元测试/测试_推广页.py tests/单元测试/测试_推广任务.py tests/单元测试/测试_推广任务服务.py`
+- [x] 针对性验证结果：`24 passed`
+- [x] 验证通过：`python -m pytest -c tests/pytest.ini -q`
+- [x] 全量验证结果：`272 passed, 16 warnings`（10 条为第三方 `openpyxl` 警告，6 条为现有 Celery 警告）
+
+## Prompt 86：Task 38.5 限时限量折扣输入框选择器修正 + 推广成功多条件检测 ✅
+
+- [x] 更新 `selectors/限时限量页选择器.py`，为主用折扣输入框增加 `@placeholder="1～9.7"` 精确匹配
+- [x] 更新 `selectors/推广页选择器.py`，新增 `推广成功Toast提示` 和 `推广中状态文案`
+- [x] 更新 `pages/推广页.py`，将 `等待推广成功()` 改为 15 秒轮询的多条件任一命中判断
+- [x] 轮询成功条件包含：Toast 成功提示、列表页 URL、开启推广按钮消失、页面出现“推广中”
+- [x] 超时后截图 `推广成功检测超时`
+- [x] 更新 `tests/单元测试/测试_限时限量页.py`
+- [x] 更新 `tests/单元测试/测试_推广页.py`
+- [x] 针对性验证通过：`python -m pytest -c tests/pytest.ini -q tests/单元测试/测试_限时限量页.py tests/单元测试/测试_推广页.py`
+- [x] 针对性验证结果：`22 passed`
+- [x] 邻近回归验证通过：`python -m pytest -c tests/pytest.ini -q tests/单元测试/测试_推广任务.py tests/单元测试/测试_推广任务服务.py`
+- [x] 邻近回归验证结果：`11 passed`
+- [x] 验证通过：`python -m pytest -c tests/pytest.ini -q`
+- [x] 全量验证结果：`276 passed, 16 warnings`（10 条为第三方 `openpyxl` 警告，6 条为现有 Celery 警告）
