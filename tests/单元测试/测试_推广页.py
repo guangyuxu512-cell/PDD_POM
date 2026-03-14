@@ -130,17 +130,7 @@ class 测试_推广页:
         monkeypatch.setattr(
             推广页选择器,
             "获取极速起量高级版关闭确认按钮",
-            staticmethod(lambda 商品ID: 选择器配置(f"assist-close-contains-{商品ID}")),
-        )
-        monkeypatch.setattr(
-            推广页选择器,
-            "极速起量高级版关闭确认按钮",
-            选择器配置("confirm-close"),
-        )
-        monkeypatch.setattr(
-            推广页选择器,
-            "极速起量高级版关闭确认按钮_Popover",
-            选择器配置("popover-confirm"),
+            staticmethod(lambda 商品ID: 选择器配置(f"popover-main-{商品ID}", [f"assist-close-{商品ID}", "confirm-close"])),
         )
 
         页面对象 = 推广页(模拟页面)
@@ -150,29 +140,25 @@ class 测试_推广页:
         结果 = await 页面对象.确认关闭极速起量("123")
 
         assert 结果 is True
-        模拟页面.wait_for_selector.assert_awaited_once_with("assist-close-contains-123", timeout=2000)
-        模拟页面.click.assert_awaited_once_with("assist-close-contains-123", timeout=2000)
+        模拟页面.wait_for_selector.assert_awaited_once_with("popover-main-123", timeout=3000)
+        模拟页面.click.assert_awaited_once_with("popover-main-123", timeout=3000)
         页面对象._确认弹窗后等待.assert_awaited_once()
 
-    def test_极速起量确认关闭选择器_不再匹配通用确定(self):
+    def test_极速起量确认关闭选择器_主选择器使用极速起量标题锚点(self):
         from selectors.推广页选择器 import 推广页选择器
 
-        选择器列表 = 推广页选择器.极速起量高级版关闭确认按钮.所有选择器()
-        assert all("确定关闭" in 选择器 for 选择器 in 选择器列表)
-        assert all('span[text()="确定"]' not in 选择器 for 选择器 in 选择器列表)
+        选择器 = 推广页选择器.获取极速起量高级版关闭确认按钮("123")
+        assert 'contains(text(), "极速起量")' in 选择器.主选择器
+        assert 'contains(@class, "anq-popover")' in 选择器.主选择器
+        assert 'contains(@class, "anq-btn-primary")' in 选择器.主选择器
+        assert './/span[text()="确定关闭"]' in 选择器.主选择器
 
-    def test_极速起量确认关闭_popover选择器_限定在_popover_容器内(self):
-        from selectors.推广页选择器 import 推广页选择器
-
-        选择器列表 = 推广页选择器.极速起量高级版关闭确认按钮_Popover.所有选择器()
-        assert any("anq-popover" in 选择器 for 选择器 in 选择器列表)
-        assert all("anq-popover" in 选择器 for 选择器 in 选择器列表)
-
-    def test_极速起量商品绑定选择器_使用_contains_兼容不同_testid(self):
+    def test_极速起量确认关闭选择器_商品绑定与兜底顺序正确(self):
         from selectors.推广页选择器 import 推广页选择器
 
         选择器列表 = 推广页选择器.获取极速起量高级版关闭确认按钮("123").所有选择器()
-        assert 选择器列表 == ['//button[contains(@data-testid, "assist_close") and contains(@data-testid, "123")]']
+        assert 'contains(@data-testid, "assist_close") and contains(@data-testid, "123")' in 选择器列表[1]
+        assert 选择器列表[2] == '//button[.//span[text()="确定关闭"]]'
 
     @pytest.mark.asyncio
     async def test_确认关闭极速起量_商品绑定失败后回退_popover(self, 模拟页面, monkeypatch):
@@ -182,23 +168,13 @@ class 测试_推广页:
         monkeypatch.setattr(
             推广页选择器,
             "获取极速起量高级版关闭确认按钮",
-            staticmethod(lambda 商品ID: 选择器配置(f"assist-close-contains-{商品ID}")),
-        )
-        monkeypatch.setattr(
-            推广页选择器,
-            "极速起量高级版关闭确认按钮",
-            选择器配置("confirm-close"),
-        )
-        monkeypatch.setattr(
-            推广页选择器,
-            "极速起量高级版关闭确认按钮_Popover",
-            选择器配置("popover-confirm"),
+            staticmethod(lambda 商品ID: 选择器配置(f"popover-main-{商品ID}", [f"assist-close-{商品ID}", "confirm-close"])),
         )
 
         async def 等待副作用(选择器, timeout=2000):
-            if 选择器 == "assist-close-contains-123":
+            if 选择器 == "popover-main-123":
                 raise RuntimeError("not found")
-            if 选择器 == "popover-confirm":
+            if 选择器 == "assist-close-123":
                 return None
             raise RuntimeError("should not reach fallback")
 
@@ -210,9 +186,9 @@ class 测试_推广页:
         结果 = await 页面对象.确认关闭极速起量("123")
 
         assert 结果 is True
-        assert 模拟页面.wait_for_selector.await_args_list[0].args == ("assist-close-contains-123",)
-        assert 模拟页面.wait_for_selector.await_args_list[1].args == ("popover-confirm",)
-        assert 模拟页面.click.await_args.args == ("popover-confirm",)
+        assert 模拟页面.wait_for_selector.await_args_list[0].args == ("popover-main-123",)
+        assert 模拟页面.wait_for_selector.await_args_list[1].args == ("assist-close-123",)
+        assert 模拟页面.click.await_args.args == ("assist-close-123",)
 
     @pytest.mark.asyncio
     async def test_确认关闭极速起量_前两种失败后回退_确定关闭按钮(self, 模拟页面, monkeypatch):
@@ -222,21 +198,11 @@ class 测试_推广页:
         monkeypatch.setattr(
             推广页选择器,
             "获取极速起量高级版关闭确认按钮",
-            staticmethod(lambda 商品ID: 选择器配置(f"assist-close-contains-{商品ID}")),
-        )
-        monkeypatch.setattr(
-            推广页选择器,
-            "极速起量高级版关闭确认按钮",
-            选择器配置("confirm-close"),
-        )
-        monkeypatch.setattr(
-            推广页选择器,
-            "极速起量高级版关闭确认按钮_Popover",
-            选择器配置("popover-confirm"),
+            staticmethod(lambda 商品ID: 选择器配置(f"popover-main-{商品ID}", [f"assist-close-{商品ID}", "confirm-close"])),
         )
 
         async def 等待副作用(选择器, timeout=2000):
-            if 选择器 in {"assist-close-contains-123", "popover-confirm"}:
+            if 选择器 in {"popover-main-123", "assist-close-123"}:
                 raise RuntimeError("not found")
             return None
 
@@ -248,8 +214,8 @@ class 测试_推广页:
         结果 = await 页面对象.确认关闭极速起量("123")
 
         assert 结果 is True
-        assert 模拟页面.wait_for_selector.await_args_list[0].args == ("assist-close-contains-123",)
-        assert 模拟页面.wait_for_selector.await_args_list[1].args == ("popover-confirm",)
+        assert 模拟页面.wait_for_selector.await_args_list[0].args == ("popover-main-123",)
+        assert 模拟页面.wait_for_selector.await_args_list[1].args == ("assist-close-123",)
         assert 模拟页面.wait_for_selector.await_args_list[2].args == ("confirm-close",)
         assert 模拟页面.click.await_args.args == ("confirm-close",)
 
@@ -261,17 +227,7 @@ class 测试_推广页:
         monkeypatch.setattr(
             推广页选择器,
             "获取极速起量高级版关闭确认按钮",
-            staticmethod(lambda 商品ID: 选择器配置(f"assist-close-contains-{商品ID}")),
-        )
-        monkeypatch.setattr(
-            推广页选择器,
-            "极速起量高级版关闭确认按钮",
-            选择器配置("confirm-close"),
-        )
-        monkeypatch.setattr(
-            推广页选择器,
-            "极速起量高级版关闭确认按钮_Popover",
-            选择器配置("popover-confirm"),
+            staticmethod(lambda 商品ID: 选择器配置(f"popover-main-{商品ID}", [f"assist-close-{商品ID}", "confirm-close"])),
         )
         模拟页面.wait_for_selector = AsyncMock(side_effect=RuntimeError("timeout"))
 

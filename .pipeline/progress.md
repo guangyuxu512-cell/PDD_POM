@@ -1791,3 +1791,47 @@
 - 已执行全量测试：`python -m pytest -c tests/pytest.ini -q`，结果 `276 passed, 16 warnings`
 - 16 条 warning 仍为既有存量：10 条来自第三方 `openpyxl`，6 条来自 Celery `datetime.utcnow()` 弃用提示
 - 工作区仍存在 `.pipeline/task.md`、`data/ecom.db`、`__pycache__/` 等本地运行副产物，非本轮交付代码
+
+---
+
+## 任务摘要
+
+完成 Task 38.7：用“极速起量”标题作为弹窗锚点统一匹配确认按钮，收敛极速起量确认弹窗的多段回退逻辑。
+
+## 改动文件列表
+
+- `selectors/推广页选择器.py`
+- `pages/推广页.py`
+- `tests/单元测试/测试_推广页.py`
+- `PLAN.md`
+- `改造进度.md`
+- `.pipeline/progress.md`
+
+## 改动说明
+
+- `selectors/推广页选择器.py`
+  - 删除原来分散的极速起量确认弹窗静态选择器定义
+  - 将 `获取极速起量高级版关闭确认按钮(商品ID)` 改为统一返回一组候选选择器
+  - 主用选择器先锚定 `anq-popover` 容器里包含“极速起量”的标题，再在容器内匹配主按钮或“确定关闭”按钮
+  - 备用选择器保留 `assist_close + 商品ID` 和全局 `确定关闭`
+- `pages/推广页.py`
+  - `确认关闭极速起量(商品ID)` 简化为一个循环遍历 `获取极速起量高级版关闭确认按钮(商品ID).所有选择器()`
+  - 每个候选选择器等待和点击超时统一为 `3000ms`
+  - 成功后仍会执行确认后的 `1~2` 秒等待，失败时仍截图 `极速起量确认弹窗未找到`
+- `tests/单元测试/测试_推广页.py`
+  - 新增主用选择器包含“极速起量”标题锚点的断言
+  - 新增统一选择器组顺序断言
+  - 更新确认关闭极速起量的命中、回退和失败路径测试，适配单循环实现和 3 秒超时
+
+## 影响范围
+
+- 极速起量确认弹窗现在优先在“极速起量”标题所在的 popover 容器内找确认按钮，误匹配其他弹窗的概率更低
+- POM 侧不再维护三段分支逻辑，后续维护只需更新统一选择器方法
+
+## 注意事项
+
+- 本轮未修改推广任务编排逻辑
+- 已执行针对性回归：`python -m pytest -c tests/pytest.ini -q tests/单元测试/测试_推广页.py tests/单元测试/测试_推广任务.py tests/单元测试/测试_推广任务服务.py`，结果 `26 passed`
+- 已执行全量测试：`python -m pytest -c tests/pytest.ini -q`，结果 `275 passed, 16 warnings`
+- 16 条 warning 仍为既有存量：10 条来自第三方 `openpyxl`，6 条来自 Celery `datetime.utcnow()` 弃用提示
+- 工作区仍存在 `.pipeline/task.md`、`data/ecom.db`、`__pycache__/` 等本地运行副产物，非本轮交付代码

@@ -1,45 +1,63 @@
-Task 38.5：限时限量折扣输入框选择器修正 + 推广成功多条件检测
+
+Task 38.7：极速起量确认弹窗 — 用标题锚点统一匹配所有形态
 一、做什么
-限时限量逐商品折扣输入框选择器修正（加 placeholder 匹配）
-推广成功检测改为多条件组合判断，任一命中即成功
+用弹窗标题文字"极速起量"做锚点，统一匹配所有形态的确认按钮，彻底解决误匹配投产比弹窗"确定"按钮的问题。
 二、涉及文件
-selectors/限时限量选择器.py — 折扣输入框选择器修正
-selectors/推广页选择器.py — 新增多种成功检测选择器
-pages/推广页.py — 等待推广成功() 方法改为多条件竞争检测
-pages/限时限量页.py — 确认折扣输入框选择器已更新
+selectors/推广页选择器.py — 替换所有极速起量确认弹窗选择器
+pages/推广页.py — 简化 确认关闭极速起量 方法
 测试同步更新
-三、限时限量折扣输入框选择器修正
-selectors/限时限量选择器.py 修改：
-商品行折扣输入框（动态选择器，绑定商品ID）：
-主用：//tr[.//div[text()="ID: {商品ID}"]]//input[@data-testid="beast-core-inputNumber-htmlInput" and @placeholder="1～9.7"]
-备用：//tr[.//div[contains(text(), "{商品ID}")]]//input[@data-testid="beast-core-inputNumber-htmlInput"]
-四、推广成功多条件检测
-selectors/推广页选择器.py 新增以下成功检测选择器：
-条件1 — Toast 成功提示：
-//div[contains(@class, "anq-message")]//span[contains(text(), "成功")]
-//div[contains(@class, "anq-message")]//span[contains(text(), "已开启")]
-条件2 — "开启推广"按钮消失：
-//button[@data-testid="beginPromotionButton"]（等待此元素消失/不可见）
-条件3 — 页面出现"推广中"状态：
-//*[contains(text(), "推广中")]
-五、POM 修改
-pages/推广页.py 修改 等待推广成功() 方法：
-async def 等待推广成功(超时秒数: int = 15) -> bool:
-    在超时时间内，每 0.5 秒轮询检查以下条件，任一命中即返回 True：
-    
-    1. Toast 检测：页面存在包含"成功"或"已开启"的 anq-message 元素
-    2. URL 检测：当前 URL 包含 "promotion/list" 且不包含 "create"（跳转到列表页）
-    3. 按钮消失：beginPromotionButton 不再可见或不存在于 DOM
-    4. 状态文字：页面出现"推广中"文字
-    
-    任一条件满足 → return True
-    超时 → 截图("推广成功检测超时") → return False
+三、选择器修改
+selectors/推广页选择器.py 修改：
+删除以下三个选择器定义：
+极速起量高级版关闭确认按钮_Popover
+极速起量高级版关闭确认按钮（静态）
+获取极速起量高级版关闭确认按钮(商品ID)（动态方法）
+替换为一个统一方法：
+@staticmethod
+def 获取极速起量高级版关闭确认按钮(商品ID: str) -> 选择器配置:
+    return 选择器配置(
+        主选择器=(
+            '//div[contains(@class, "anq-popover") and '
+            './/div[contains(text(), "极速起量")]]'
+            '//button[contains(@class, "anq-btn-primary") or '
+            './/span[text()="确定关闭"]]'
+        ),
+        备选选择器=[
+            f'//button[contains(@data-testid, "assist_close") and contains(@data-testid, "{商品ID}")]',
+            '//button[.//span[text()="确定关闭"]]',
+        ],
+    )
 ​
-实现方式：用循环轮询而非单一 wait_for_selector，每轮依次检查4个条件。
-六、约束
-折扣输入框主用选择器必须带 @placeholder="1～9.7" 精确匹配
-推广成功检测超时设 15 秒，覆盖网络慢的情况
-多条件检测用轮询方式，不要用 Promise.all（那是等全部，我们要任一）
-Toast 检测要兼容"操作成功"/"推广已开启"/"开启成功"等文字变体，用 contains
-URL 检测注意：如果是在推广列表页点的添加推广，成功后可能回到列表页，URL 从 create 变回 list
+选择器逻辑：
+主用：找到包含"极速起量"文字的 popover 容器 → 在里面找 primary 按钮或"确定关闭"文字按钮。覆盖所有形态，不会误匹配
+备用1：带商品ID的 data-testid 按钮（兼容 assist_close 拼接）
+备用2：全局匹配"确定关闭"文字按钮（最后兜底）
+四、POM 修改
+pages/推广页.py 简化 确认关闭极速起量(商品ID) 方法：
+async def 确认关闭极速起量(self, 商品ID: str) -> bool:
+    await self._随机等待()
+    最后异常 = None
+    for 选择器 in 推广页选择器.获取极速起量高级版关闭确认按钮(商品ID).所有选择器():
+        try:
+            await self.页面.wait_for_selector(选择器, timeout=3000)
+            await self.页面.click(选择器, timeout=3000)
+            print(f"[推广页] 已确认关闭极速起量: 商品ID={商品ID}, 选择器={选择器}")
+            await self._确认弹窗后等待()
+            return True
+        except Exception as 异常:
+            最后异常 = 异常
+            print(f"[推广页] 极速起量确认失败(商品ID={商品ID}, 选择器={选择器}): {异常}")
+    try:
+        await self.截图("极速起量确认弹窗未找到")
+    except Exception:
+        pass
+    print(f"[推广页] 极速起量确认弹窗处理失败: 商品ID={商品ID}, error={最后异常}")
+    return False
+​
+不再分三段尝试不同的选择器组，一个循环搞定。
+五、约束
+主用选择器必须用 contains(text(), "极速起量") 限定 popover 范围
+主用选择器同时匹配 anq-btn-primary（"确定"按钮）和 span[text()="确定关闭"]（"确定关闭"按钮），用 or 连接
+每个选择器超时设 3 秒（比之前的 2 秒稍长，给 popover 更多渲染时间）
+删除旧的三个选择器定义，只保留统一的 获取极速起量高级版关闭确认按钮 方法
 测试同步更新，确保 pytest 通过

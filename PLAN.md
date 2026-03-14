@@ -1926,3 +1926,19 @@
 - [x] 邻近回归验证结果：`11 passed`
 - [x] 验证通过：`python -m pytest -c tests/pytest.ini -q`
 - [x] 全量验证结果：`276 passed, 16 warnings`（10 条为第三方 `openpyxl` 警告，6 条为现有 Celery 警告）
+
+## Prompt 87：Task 38.7 极速起量确认弹窗统一标题锚点匹配 ✅
+
+- [x] 更新 `selectors/推广页选择器.py`，删除分散的极速起量确认弹窗静态选择器定义
+- [x] 更新 `selectors/推广页选择器.py`，将 `获取极速起量高级版关闭确认按钮(商品ID)` 改为统一返回主用 + 两个备选
+- [x] 主用选择器使用 `contains(text(), "极速起量")` 作为 popover 标题锚点
+- [x] 主用选择器同时兼容 `anq-btn-primary` 和 `span[text()="确定关闭"]`
+- [x] 备用1 使用 `contains(@data-testid, "assist_close")` + 商品ID
+- [x] 备用2 使用全局 `确定关闭` 文字按钮作为最后兜底
+- [x] 更新 `pages/推广页.py`，将 `确认关闭极速起量(商品ID)` 简化为单循环遍历统一选择器组
+- [x] 每个候选选择器等待/点击超时统一为 `3000ms`
+- [x] 更新 `tests/单元测试/测试_推广页.py`
+- [x] 针对性验证通过：`python -m pytest -c tests/pytest.ini -q tests/单元测试/测试_推广页.py tests/单元测试/测试_推广任务.py tests/单元测试/测试_推广任务服务.py`
+- [x] 针对性验证结果：`26 passed`
+- [x] 验证通过：`python -m pytest -c tests/pytest.ini -q`
+- [x] 全量验证结果：`275 passed, 16 warnings`（10 条为第三方 `openpyxl` 警告，6 条为现有 Celery 警告）

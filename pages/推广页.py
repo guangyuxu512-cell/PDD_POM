@@ -291,36 +291,14 @@ class 推广页(基础页):
         最后异常 = None
         for 选择器 in 推广页选择器.获取极速起量高级版关闭确认按钮(商品ID).所有选择器():
             try:
-                await self.页面.wait_for_selector(选择器, timeout=2000)
-                await self.页面.click(选择器, timeout=2000)
-                print(f"[推广页] 已通过商品绑定确认按钮关闭极速起量: 商品ID={商品ID}, 选择器={选择器}")
+                await self.页面.wait_for_selector(选择器, timeout=3000)
+                await self.页面.click(选择器, timeout=3000)
+                print(f"[推广页] 已确认关闭极速起量: 商品ID={商品ID}, 选择器={选择器}")
                 await self._确认弹窗后等待()
                 return True
             except Exception as 异常:
                 最后异常 = 异常
-                print(f"[推广页] 商品绑定极速起量确认失败(商品ID={商品ID}, 选择器={选择器}): {异常}")
-
-        for 选择器 in 推广页选择器.极速起量高级版关闭确认按钮_Popover.所有选择器():
-            try:
-                await self.页面.wait_for_selector(选择器, timeout=2000)
-                await self.页面.click(选择器, timeout=2000)
-                print(f"[推广页] 已通过Popover确认按钮关闭极速起量: 商品ID={商品ID}, 选择器={选择器}")
-                await self._确认弹窗后等待()
-                return True
-            except Exception as 异常:
-                最后异常 = 异常
-                print(f"[推广页] Popover极速起量确认失败(商品ID={商品ID}, 选择器={选择器}): {异常}")
-
-        for 选择器 in 推广页选择器.极速起量高级版关闭确认按钮.所有选择器():
-            try:
-                await self.页面.wait_for_selector(选择器, timeout=2000)
-                await self.页面.click(选择器, timeout=2000)
-                print(f"[推广页] 已通过通用确认关闭按钮关闭极速起量: 商品ID={商品ID}, 选择器={选择器}")
-                await self._确认弹窗后等待()
-                return True
-            except Exception as 异常:
-                最后异常 = 异常
-                print(f"[推广页] 通用确认关闭按钮失败(商品ID={商品ID}, 选择器={选择器}): {异常}")
+                print(f"[推广页] 极速起量确认失败(商品ID={商品ID}, 选择器={选择器}): {异常}")
         try:
             await self.截图("极速起量确认弹窗未找到")
         except Exception:
