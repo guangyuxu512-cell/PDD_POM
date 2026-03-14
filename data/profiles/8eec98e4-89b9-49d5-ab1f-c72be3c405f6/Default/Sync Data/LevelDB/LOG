@@ -1,3 +1,3 @@
-2026/03/14-15:16:03.400 134c Reusing MANIFEST E:\pdd_zd\data\profiles\8eec98e4-89b9-49d5-ab1f-c72be3c405f6\Default\Sync Data\LevelDB/MANIFEST-000001
-2026/03/14-15:16:03.410 134c Recovering log #3
-2026/03/14-15:16:03.411 134c Reusing old log E:\pdd_zd\data\profiles\8eec98e4-89b9-49d5-ab1f-c72be3c405f6\Default\Sync Data\LevelDB/000003.log 
+2026/03/14-17:28:48.247 34bc Reusing MANIFEST E:\pdd_zd\data\profiles\8eec98e4-89b9-49d5-ab1f-c72be3c405f6\Default\Sync Data\LevelDB/MANIFEST-000001
+2026/03/14-17:28:48.259 34bc Recovering log #3
+2026/03/14-17:28:48.259 34bc Reusing old log E:\pdd_zd\data\profiles\8eec98e4-89b9-49d5-ab1f-c72be3c405f6\Default\Sync Data\LevelDB/000003.log 

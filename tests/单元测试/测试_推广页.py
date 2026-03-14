@@ -17,6 +17,7 @@ class 测试_推广页:
         页面.goto = AsyncMock()
         页面.go_back = AsyncMock()
         页面.click = AsyncMock()
+        页面.screenshot = AsyncMock()
         页面.wait_for_selector = AsyncMock()
         页面.query_selector = AsyncMock(return_value=None)
         页面.evaluate = AsyncMock()
@@ -98,6 +99,123 @@ class 测试_推广页:
         assert 结果 is True
         assert 模拟页面.click.await_args_list[0].args[0] == "bad-selector"
         assert 模拟页面.click.await_args_list[1].args[0] == "good-selector"
+
+    @pytest.mark.asyncio
+    async def test_确认关闭全局起量_等待确认按钮后点击(self, 模拟页面, monkeypatch):
+        from pages.推广页 import 推广页
+        from selectors.推广页选择器 import 推广页选择器
+
+        monkeypatch.setattr(
+            推广页选择器,
+            "全局起量关闭确认按钮",
+            选择器配置("confirm-close"),
+        )
+
+        页面对象 = 推广页(模拟页面)
+        页面对象._随机等待 = AsyncMock()
+        页面对象._确认弹窗后等待 = AsyncMock()
+
+        结果 = await 页面对象.确认关闭全局起量()
+
+        assert 结果 is True
+        模拟页面.wait_for_selector.assert_awaited_once_with("confirm-close", timeout=5000)
+        模拟页面.click.assert_awaited_once_with("confirm-close", timeout=5000)
+        页面对象._确认弹窗后等待.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_确认关闭极速起量_优先命中商品绑定按钮(self, 模拟页面, monkeypatch):
+        from pages.推广页 import 推广页
+        from selectors.推广页选择器 import 推广页选择器
+
+        monkeypatch.setattr(
+            推广页选择器,
+            "获取极速起量高级版关闭确认按钮",
+            staticmethod(lambda 商品ID: 选择器配置(f"assist-close-{商品ID}")),
+        )
+        monkeypatch.setattr(
+            推广页选择器,
+            "极速起量高级版关闭确认按钮",
+            选择器配置("common-confirm"),
+        )
+
+        页面对象 = 推广页(模拟页面)
+        页面对象._随机等待 = AsyncMock()
+        页面对象._确认弹窗后等待 = AsyncMock()
+
+        结果 = await 页面对象.确认关闭极速起量("123")
+
+        assert 结果 is True
+        模拟页面.wait_for_selector.assert_awaited_once_with("assist-close-123", timeout=2000)
+        模拟页面.click.assert_awaited_once_with("assist-close-123", timeout=2000)
+        页面对象._确认弹窗后等待.assert_awaited_once()
+
+    def test_极速起量确认关闭选择器_不再匹配通用确定(self):
+        from selectors.推广页选择器 import 推广页选择器
+
+        选择器列表 = 推广页选择器.极速起量高级版关闭确认按钮.所有选择器()
+        assert all("确定关闭" in 选择器 for 选择器 in 选择器列表)
+        assert all('span[text()="确定"]' not in 选择器 for 选择器 in 选择器列表)
+
+    @pytest.mark.asyncio
+    async def test_确认关闭极速起量_商品绑定失败后回退通用按钮(self, 模拟页面, monkeypatch):
+        from pages.推广页 import 推广页
+        from selectors.推广页选择器 import 推广页选择器
+
+        monkeypatch.setattr(
+            推广页选择器,
+            "获取极速起量高级版关闭确认按钮",
+            staticmethod(lambda 商品ID: 选择器配置(f"assist-close-{商品ID}")),
+        )
+        monkeypatch.setattr(
+            推广页选择器,
+            "极速起量高级版关闭确认按钮",
+            选择器配置("confirm-close"),
+        )
+
+        async def 等待副作用(选择器, timeout=2000):
+            if 选择器 == "assist-close-123":
+                raise RuntimeError("not found")
+            return None
+
+        模拟页面.wait_for_selector = AsyncMock(side_effect=等待副作用)
+        页面对象 = 推广页(模拟页面)
+        页面对象._随机等待 = AsyncMock()
+        页面对象._确认弹窗后等待 = AsyncMock()
+
+        结果 = await 页面对象.确认关闭极速起量("123")
+
+        assert 结果 is True
+        assert 模拟页面.wait_for_selector.await_args_list[0].args == ("assist-close-123",)
+        assert 模拟页面.wait_for_selector.await_args_list[1].args == ("confirm-close",)
+        assert 模拟页面.click.await_args.args == ("confirm-close",)
+
+    @pytest.mark.asyncio
+    async def test_确认关闭极速起量_双形态都失败时截图并返回False(self, 模拟页面, monkeypatch):
+        from pages.推广页 import 推广页
+        from selectors.推广页选择器 import 推广页选择器
+
+        monkeypatch.setattr(
+            推广页选择器,
+            "获取极速起量高级版关闭确认按钮",
+            staticmethod(lambda 商品ID: 选择器配置(f"assist-close-{商品ID}")),
+        )
+        monkeypatch.setattr(
+            推广页选择器,
+            "极速起量高级版关闭确认按钮",
+            选择器配置("confirm-close"),
+        )
+        模拟页面.wait_for_selector = AsyncMock(side_effect=RuntimeError("timeout"))
+
+        页面对象 = 推广页(模拟页面)
+        页面对象._随机等待 = AsyncMock()
+        页面对象._确认弹窗后等待 = AsyncMock()
+        页面对象.截图 = AsyncMock(return_value="fail.png")
+
+        结果 = await 页面对象.确认关闭极速起量("123")
+
+        assert 结果 is False
+        页面对象.截图.assert_awaited_once_with("极速起量确认弹窗未找到")
+        页面对象._确认弹窗后等待.assert_not_awaited()
 
     @pytest.mark.asyncio
     async def test_点击开启推广_点击失败时使用JS兜底(self, 模拟页面, monkeypatch):

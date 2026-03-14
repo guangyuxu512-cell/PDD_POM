@@ -77,7 +77,7 @@ class 推广任务(基础任务):
         商品参数映射 = self._读取商品参数映射(任务参数)
         默认投产比 = self._读取浮点参数(任务参数, 5.0, "投产比", "phase1_roi", "一阶段投产比")
         默认日限额 = self._读取浮点参数(任务参数, 0.0, "日限额")
-        关闭极速起量 = self._读取布尔参数(任务参数, True, "关闭极速起量")
+        关闭极速起量 = self._读取布尔参数(任务参数, True, "关闭极速起量", "close_fast_boost")
         店铺ID = 店铺配置.get("shop_id") or 店铺配置.get("username") or "临时店铺"
 
         if not 商品ID列表:
@@ -116,6 +116,8 @@ class 推广任务(基础任务):
                 await 上报("关闭全局优先起量", 店铺ID)
                 if not await 页面对象.点击全局优先起量开关():
                     raise RuntimeError("点击全局优先起量开关失败")
+                if not await 页面对象.确认关闭全局起量():
+                    raise RuntimeError("确认关闭全局起量失败")
 
             for 商品ID in 商品ID列表:
                 try:
@@ -146,14 +148,21 @@ class 推广任务(基础任务):
                     if not await 页面对象.等待投产弹窗():
                         raise RuntimeError("等待投产弹窗失败")
 
-                    if 关闭极速起量 and await 页面对象.获取极速起量高级版状态(商品ID) == "true":
+                    极速起量状态 = await 页面对象.获取极速起量高级版状态(商品ID)
+                    if 极速起量状态 == "true" and 关闭极速起量:
                         await 上报(f"关闭极速起量高级版: {商品ID}", 店铺ID)
+                        if not await 页面对象.点击极速起量高级版开关(商品ID):
+                            raise RuntimeError("点击极速起量高级版开关失败")
+                        if not await 页面对象.确认关闭极速起量(商品ID):
+                            raise RuntimeError("确认关闭极速起量失败")
+                    elif 极速起量状态 == "false" and not 关闭极速起量:
+                        await 上报(f"开启极速起量高级版: {商品ID}", 店铺ID)
                         if not await 页面对象.点击极速起量高级版开关(商品ID):
                             raise RuntimeError("点击极速起量高级版开关失败")
 
                     if not await 页面对象.输入投产比(商品投产比):
                         raise RuntimeError("输入投产比失败")
-                    if not await 页面对象.确认投产比设置():
+                    if not await 页面对象.确认投产比设置(商品ID):
                         raise RuntimeError("确认投产比设置失败")
 
                     成功列表.append(商品ID)

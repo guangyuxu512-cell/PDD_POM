@@ -28,6 +28,13 @@ class 推广页选择器:
         ],
     )
 
+    全局起量关闭确认按钮 = 选择器配置(
+        主选择器='//button[span[text()="确定关闭"]]',
+        备选选择器=[
+            '//button[contains(@class, "anq-cancel")]',
+        ],
+    )
+
     商品ID输入框 = 选择器配置(
         主选择器="input[placeholder*='商品ID']",
         备选选择器=[
@@ -84,6 +91,13 @@ class 推广页选择器:
         ],
     )
 
+    极速起量高级版关闭确认按钮 = 选择器配置(
+        主选择器='//button[span[text()="确定关闭"]]',
+        备选选择器=[
+            '//button[.//span[text()="确定关闭"]]',
+        ],
+    )
+
     @staticmethod
     def 获取商品行容器(商品ID: str) -> 选择器配置:
         """根据商品ID生成商品行容器选择器。"""
@@ -128,6 +142,16 @@ class 推广页选择器:
             主选择器=f'//button[@data-testid="bidPop-{商品ID}-assist-switch"]',
             备选选择器=[
                 f'//button[@data-testid="bidPop-{商品ID}-assist-switch" and @role="switch"]',
+            ],
+        )
+
+    @staticmethod
+    def 获取极速起量高级版关闭确认按钮(商品ID: str) -> 选择器配置:
+        """根据商品ID生成极速起量关闭确认按钮选择器。"""
+        return 选择器配置(
+            主选择器=f'//button[@data-testid="assist_close_{商品ID}"]',
+            备选选择器=[
+                f'//button[@data-testid="assist_close_{商品ID}"]//span[text()="确定关闭"]/parent::button',
             ],
         )
 

@@ -27,6 +27,7 @@ class 测试_推广任务:
         页面对象.商品行是否存在 = AsyncMock(return_value=True)
         页面对象.获取全局优先起量状态 = AsyncMock(return_value="true")
         页面对象.点击全局优先起量开关 = AsyncMock(return_value=True)
+        页面对象.确认关闭全局起量 = AsyncMock(return_value=True)
         页面对象.点击更多设置 = AsyncMock(return_value=True)
         页面对象.点击预算日限额 = AsyncMock(return_value=True)
         页面对象.输入日限额 = AsyncMock(return_value=True)
@@ -35,6 +36,7 @@ class 测试_推广任务:
         页面对象.等待投产弹窗 = AsyncMock(return_value=True)
         页面对象.获取极速起量高级版状态 = AsyncMock(return_value="true")
         页面对象.点击极速起量高级版开关 = AsyncMock(return_value=True)
+        页面对象.确认关闭极速起量 = AsyncMock(return_value=True)
         页面对象.输入投产比 = AsyncMock(return_value=True)
         页面对象.确认投产比设置 = AsyncMock(return_value=True)
         页面对象.点击开启推广 = AsyncMock(return_value=True)
@@ -101,9 +103,14 @@ class 测试_推广任务:
         模拟推广页.输入商品ID.assert_awaited_once_with("123456789012,987654321098")
         assert 模拟推广页.商品行是否存在.await_count == 2
         模拟推广页.点击全局优先起量开关.assert_awaited_once()
+        模拟推广页.确认关闭全局起量.assert_awaited_once()
         assert 模拟推广页.点击更多设置.await_count == 2
         assert 模拟推广页.点击修改投产铅笔按钮.await_count == 2
         assert 模拟推广页.点击极速起量高级版开关.await_count == 2
+        模拟推广页.确认关闭极速起量.assert_any_await("123456789012")
+        模拟推广页.确认关闭极速起量.assert_any_await("987654321098")
+        模拟推广页.确认投产比设置.assert_any_await("123456789012")
+        模拟推广页.确认投产比设置.assert_any_await("987654321098")
         模拟推广页.点击开启推广.assert_awaited_once()
         模拟推广页.等待推广成功.assert_awaited_once()
         模拟推广页.返回商品列表页.assert_awaited_once()
@@ -151,6 +158,7 @@ class 测试_推广任务:
         模拟推广页.点击更多设置.assert_not_awaited()
         模拟推广页.点击预算日限额.assert_not_awaited()
         模拟推广页.点击极速起量高级版开关.assert_not_awaited()
+        模拟推广页.确认关闭极速起量.assert_not_awaited()
 
     @pytest.mark.asyncio
     @patch("browser.任务回调._回调", new_callable=AsyncMock)
@@ -181,3 +189,98 @@ class 测试_推广任务:
         assert 模拟推广页.输入日限额.await_args_list[1].args == (80.0,)
         assert 模拟推广页.输入投产比.await_args_list[0].args == (6.2,)
         assert 模拟推广页.输入投产比.await_args_list[1].args == (4.5,)
+
+    @pytest.mark.asyncio
+    @patch("browser.任务回调._回调", new_callable=AsyncMock)
+    async def test_关闭全局起量确认失败时返回失败(self, 模拟回调, 模拟页面, 模拟推广页):
+        from tasks.推广任务 import 推广任务
+
+        模拟推广页.确认关闭全局起量 = AsyncMock(return_value=False)
+
+        with patch("tasks.推广任务.上报", new_callable=AsyncMock), \
+                patch("tasks.推广任务.推广页", return_value=模拟推广页):
+            任务 = 推广任务()
+            结果 = await 任务.执行(
+                模拟页面,
+                {
+                    "shop_id": "shop-1",
+                    "task_param": {
+                        "商品ID列表": ["123456789012"],
+                    },
+                },
+            )
+
+        assert 结果 == "失败"
+        模拟推广页.截图.assert_awaited_once_with("推广任务异常")
+
+    @pytest.mark.asyncio
+    @patch("browser.任务回调._回调", new_callable=AsyncMock)
+    async def test_close_fast_boost参数为false时会开启极速起量(self, 模拟回调, 模拟页面, 模拟推广页):
+        from tasks.推广任务 import 推广任务
+
+        模拟推广页.获取全局优先起量状态 = AsyncMock(return_value="false")
+        模拟推广页.获取极速起量高级版状态 = AsyncMock(return_value="false")
+
+        with patch("tasks.推广任务.上报", new_callable=AsyncMock), \
+                patch("tasks.推广任务.推广页", return_value=模拟推广页):
+            任务 = 推广任务()
+            结果 = await 任务.执行(
+                模拟页面,
+                {
+                    "shop_id": "shop-1",
+                    "task_param": {
+                        "商品ID列表": ["123456789012"],
+                        "close_fast_boost": False,
+                    },
+                },
+            )
+
+        assert 结果 == "成功"
+        模拟推广页.点击全局优先起量开关.assert_not_awaited()
+        模拟推广页.点击极速起量高级版开关.assert_awaited_once_with("123456789012")
+        模拟推广页.确认关闭极速起量.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    @patch("browser.任务回调._回调", new_callable=AsyncMock)
+    async def test_关闭极速起量发生在填写投产比之前(self, 模拟回调, 模拟页面, 模拟推广页):
+        from tasks.推广任务 import 推广任务
+
+        调用顺序: list[str] = []
+
+        async def 记录点击铅笔(_商品ID):
+            调用顺序.append("铅笔")
+            return True
+
+        async def 记录点击开关(_商品ID):
+            调用顺序.append("点击极速")
+            return True
+
+        async def 记录确认关闭(_商品ID):
+            调用顺序.append("确认关闭极速")
+            return True
+
+        async def 记录输入投产比(_投产比):
+            调用顺序.append("输入投产比")
+            return True
+
+        模拟推广页.点击修改投产铅笔按钮.side_effect = 记录点击铅笔
+        模拟推广页.点击极速起量高级版开关.side_effect = 记录点击开关
+        模拟推广页.确认关闭极速起量.side_effect = 记录确认关闭
+        模拟推广页.输入投产比.side_effect = 记录输入投产比
+
+        with patch("tasks.推广任务.上报", new_callable=AsyncMock), \
+                patch("tasks.推广任务.推广页", return_value=模拟推广页):
+            任务 = 推广任务()
+            结果 = await 任务.执行(
+                模拟页面,
+                {
+                    "shop_id": "shop-1",
+                    "task_param": {
+                        "商品ID列表": ["123456789012"],
+                        "关闭极速起量": True,
+                    },
+                },
+            )
+
+        assert 结果 == "成功"
+        assert 调用顺序 == ["铅笔", "点击极速", "确认关闭极速", "输入投产比"]

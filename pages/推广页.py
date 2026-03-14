@@ -19,6 +19,9 @@ class 推广页(基础页):
     async def _随机等待(self) -> None:
         await asyncio.sleep(random.uniform(1.0, 3.0))
 
+    async def _确认弹窗后等待(self) -> None:
+        await asyncio.sleep(random.uniform(1.0, 2.0))
+
     async def 导航到全站推广页(self) -> None:
         """打开全站推广页。"""
         await self.页面.goto(self.全站推广URL, wait_until="domcontentloaded")
@@ -151,6 +154,27 @@ class 推广页(基础页):
                 print(f"[推广页] 点击全局优先起量开关失败({选择器}): {异常}")
         return False
 
+    async def 确认关闭全局起量(self) -> bool:
+        """点击全局起量关闭确认按钮。"""
+        await self._随机等待()
+        最后异常 = None
+        for 选择器 in 推广页选择器.全局起量关闭确认按钮.所有选择器():
+            try:
+                await self.页面.wait_for_selector(选择器, timeout=5000)
+                await self.页面.click(选择器, timeout=5000)
+                print(f"[推广页] 已确认关闭全局起量: {选择器}")
+                await self._确认弹窗后等待()
+                return True
+            except Exception as 异常:
+                最后异常 = 异常
+                print(f"[推广页] 确认关闭全局起量失败({选择器}): {异常}")
+        try:
+            await self.截图("全局起量确认弹窗失败")
+        except Exception:
+            pass
+        print(f"[推广页] 全局起量确认弹窗处理失败: {最后异常}")
+        return False
+
     async def 点击更多设置(self, 商品ID: str) -> bool:
         """点击指定商品的更多设置按钮。"""
         await self._随机等待()
@@ -257,6 +281,38 @@ class 推广页(基础页):
                 return True
             except Exception as 异常:
                 print(f"[推广页] 点击极速起量高级版开关失败({选择器}): {异常}")
+        return False
+
+    async def 确认关闭极速起量(self, 商品ID: str) -> bool:
+        """点击极速起量高级版关闭确认按钮。"""
+        await self._随机等待()
+        最后异常 = None
+        for 选择器 in 推广页选择器.获取极速起量高级版关闭确认按钮(商品ID).所有选择器():
+            try:
+                await self.页面.wait_for_selector(选择器, timeout=2000)
+                await self.页面.click(选择器, timeout=2000)
+                print(f"[推广页] 已通过商品绑定确认按钮关闭极速起量: 商品ID={商品ID}, 选择器={选择器}")
+                await self._确认弹窗后等待()
+                return True
+            except Exception as 异常:
+                最后异常 = 异常
+                print(f"[推广页] 商品绑定极速起量确认失败(商品ID={商品ID}, 选择器={选择器}): {异常}")
+
+        for 选择器 in 推广页选择器.极速起量高级版关闭确认按钮.所有选择器():
+            try:
+                await self.页面.wait_for_selector(选择器, timeout=2000)
+                await self.页面.click(选择器, timeout=2000)
+                print(f"[推广页] 已通过通用确认按钮关闭极速起量: 商品ID={商品ID}, 选择器={选择器}")
+                await self._确认弹窗后等待()
+                return True
+            except Exception as 异常:
+                最后异常 = 异常
+                print(f"[推广页] 通用极速起量确认失败(商品ID={商品ID}, 选择器={选择器}): {异常}")
+        try:
+            await self.截图("极速起量确认弹窗未找到")
+        except Exception:
+            pass
+        print(f"[推广页] 极速起量确认弹窗处理失败: 商品ID={商品ID}, error={最后异常}")
         return False
 
     async def 输入投产比(self, 投产比: float) -> bool:

@@ -1839,3 +1839,50 @@
 - [x] 邻近回归验证结果：`26 passed`
 - [x] 验证通过：`python -m pytest -c tests/pytest.ini -q`
 - [x] 全量验证结果：`261 passed, 16 warnings`（10 条为第三方 `openpyxl` 警告，6 条为现有 Celery 警告）
+
+## Prompt 81：Task 38 推广页选择器修复 — 全局起量确认弹窗 + 极速起量确认弹窗 + 参数控制 ✅
+
+- [x] 更新 `selectors/推广页选择器.py`，新增全局起量关闭确认按钮与极速起量高级版关闭确认按钮选择器
+- [x] 更新 `pages/推广页.py`，新增 `确认关闭全局起量()` 和 `确认关闭极速起量()`
+- [x] 更新 `pages/推广页.py`，两个确认方法都使用 5 秒等待超时，并在失败时截图
+- [x] 更新 `pages/推广页.py`，确认点击后增加 `1~2` 秒随机等待
+- [x] 更新 `tasks/推广任务.py`，关闭全局起量改为“点击开关 → 确认关闭”
+- [x] 更新 `tasks/推广任务.py`，极速起量根据 `关闭极速起量` / `close_fast_boost` 控制关闭或开启
+- [x] 更新 `tests/单元测试/测试_推广页.py`
+- [x] 更新 `tests/单元测试/测试_推广任务.py`
+- [x] 针对性验证通过：`python -m pytest -c tests/pytest.ini -q tests/单元测试/测试_推广页.py tests/单元测试/测试_推广任务.py tests/单元测试/测试_推广任务服务.py`
+- [x] 针对性验证结果：`17 passed`
+- [x] 验证通过：`python -m pytest -c tests/pytest.ini -q`
+- [x] 全量验证结果：`265 passed, 16 warnings`（10 条为第三方 `openpyxl` 警告，6 条为现有 Celery 警告）
+
+## Prompt 82：Task 39 推广页补丁修复 — 极速起量双形态确认 + 顺序修正 ✅
+
+- [x] 更新 `selectors/推广页选择器.py`，新增按商品ID生成的极速起量关闭确认按钮选择器
+- [x] 保留 `极速起量高级版关闭确认按钮` 作为通用确认按钮形态
+- [x] 更新 `pages/推广页.py`，将 `确认关闭极速起量()` 改为 `确认关闭极速起量(商品ID)`
+- [x] 更新 `pages/推广页.py`，按“商品绑定按钮优先、通用按钮回退”实现双形态尝试
+- [x] 更新 `pages/推广页.py`，两个形态的等待超时统一改为 `2` 秒
+- [x] 更新 `tasks/推广任务.py`，关闭极速起量时改为传入 `商品ID`
+- [x] 复核 `tasks/推广任务.py`，保持“点击铅笔 → 关极速 → 填投产 → 确定”顺序
+- [x] 更新 `tests/单元测试/测试_推广页.py`
+- [x] 更新 `tests/单元测试/测试_推广任务.py`
+- [x] 针对性验证通过：`python -m pytest -c tests/pytest.ini -q tests/单元测试/测试_推广页.py tests/单元测试/测试_推广任务.py tests/单元测试/测试_推广任务服务.py`
+- [x] 针对性验证结果：`20 passed`
+- [x] 验证通过：`python -m pytest -c tests/pytest.ini -q`
+- [x] 全量验证结果：`268 passed, 16 warnings`（10 条为第三方 `openpyxl` 警告，6 条为现有 Celery 警告）
+
+## Prompt 83：Task 38.2 极速起量确认弹窗选择器精确匹配修复 ✅
+
+- [x] 更新 `selectors/推广页选择器.py`，移除极速起量关闭确认中误匹配投产比弹窗的通用“确定”选择器
+- [x] 更新 `selectors/推广页选择器.py`，将极速起量固定形态选择器改为仅匹配“确定关闭”
+- [x] 保留 `获取极速起量高级版关闭确认按钮(商品ID)` 作为商品绑定的精确形态
+- [x] 更新 `pages/推广页.py`，`确认关闭极速起量(商品ID)` 继续按“商品绑定优先、固定确定关闭回退”执行
+- [x] 更新 `pages/推广页.py`，双形态都失败时截图名改为 `极速起量确认弹窗未找到`
+- [x] 更新 `tasks/推广任务.py`，确认投产比设置时补传 `商品ID`
+- [x] 复核 `tasks/推广任务.py`，保持“关极速起量后再填投产比”
+- [x] 更新 `tests/单元测试/测试_推广页.py`
+- [x] 更新 `tests/单元测试/测试_推广任务.py`
+- [x] 针对性验证通过：`python -m pytest -c tests/pytest.ini -q tests/单元测试/测试_推广页.py tests/单元测试/测试_推广任务.py tests/单元测试/测试_推广任务服务.py`
+- [x] 针对性验证结果：`21 passed`
+- [x] 验证通过：`python -m pytest -c tests/pytest.ini -q`
+- [x] 全量验证结果：`269 passed, 16 warnings`（10 条为第三方 `openpyxl` 警告，6 条为现有 Celery 警告）
