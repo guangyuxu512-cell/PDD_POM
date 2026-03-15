@@ -28,6 +28,7 @@ import {
   disableTaskParam,
   enableTaskParam,
   importTaskParamsCsv,
+  listTaskParamResults,
   listTaskParamBatchOptions,
   listTaskParams,
   resetTaskParam,
@@ -674,7 +675,7 @@ async function loadResultTaskParams(page = resultPage.value) {
 
   loading.value = true
   try {
-    const result = await listTaskParams(buildResultFilters(page))
+    const result = await listTaskParamResults(buildResultFilters(page))
     resultPage.value = page
     resultTaskParams.value = result.list
     resultTotal.value = result.total
@@ -1121,6 +1122,8 @@ onBeforeUnmount(() => {
         <option value="">全部执行状态</option>
         <option value="success">成功</option>
         <option value="failed">失败</option>
+        <option value="running">执行中</option>
+        <option value="cancelled">已取消</option>
       </select>
 
       <select v-model="resultFilters.shop_id" class="filter-select" @change="handleResultSearch">
@@ -1349,7 +1352,7 @@ onBeforeUnmount(() => {
             <td colspan="10" class="empty-state">暂无执行结果记录</td>
           </tr>
           <template v-else>
-            <tr v-for="taskParam in resultTaskParams" :key="taskParam.id">
+            <tr v-for="taskParam in resultTaskParams" :key="`${taskParam.task_name}-${taskParam.id}-${taskParam.batch_id || ''}`">
               <td>{{ taskParam.id }}</td>
               <td class="cell-wrap">{{ formatShopLabel(taskParam) }}</td>
               <td>{{ taskParam.task_name }}</td>

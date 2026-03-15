@@ -22,6 +22,7 @@ class 测试_任务参数管理页:
         assert "postForm" in API入口
         for 导出名称 in [
             "listTaskParams",
+            "listTaskParamResults",
             "listTaskParamBatchOptions",
             "createTaskParam",
             "updateTaskParam",
@@ -61,6 +62,7 @@ class 测试_任务参数管理页:
             "店铺ID”列支持填写店铺ID或店铺名称",
             "StatusBadge",
             "listTaskParams",
+            "listTaskParamResults",
             "listTaskParamBatchOptions",
             "importTaskParamsCsv",
             "clearTaskParams",

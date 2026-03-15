@@ -1933,3 +1933,72 @@
 - 已执行全量测试：`python -m pytest -c tests/pytest.ini -q`，结果 `279 passed, 16 warnings`
 - 16 条 warning 仍为既有存量：10 条来自第三方 `openpyxl`，6 条来自 Celery `datetime.utcnow()` 弃用提示
 - 工作区仍存在 `.pipeline/task.md`、`data/ecom.db`、`__pycache__/` 等本地运行副产物，非本轮交付代码
+
+---
+
+## 任务摘要
+
+完成 ask 40：前端系统设置页新增机器码配置，并修复执行结果 Tab 对 flow 执行结果的展示。
+
+## 改动文件列表
+
+- `backend/services/系统服务.py`
+- `backend/api/任务参数接口.py`
+- `frontend/src/api/taskParams.ts`
+- `frontend/src/api/mock.ts`
+- `frontend/src/views/Settings.vue`
+- `frontend/src/views/TaskParamsManage.vue`
+- `tests/单元测试/测试_系统设置机器码.py`
+- `tests/单元测试/测试_任务参数执行结果接口.py`
+- `tests/单元测试/测试_任务参数管理页.py`
+- `PLAN.md`
+- `改造进度.md`
+- `.pipeline/progress.md`
+
+## 改动说明
+
+- `backend/services/系统服务.py`
+  - 配置白名单新增 `agent_machine_id`
+  - `获取配置()` 返回中新增 `agent_machine_id`
+- `frontend/src/views/Settings.vue`
+  - 设置页新增“机器码”输入框
+  - 保存提示补充“修改后需重启 Worker 生效”
+  - 基础配置数据模型和加载逻辑同步接入 `agent_machine_id`
+- `backend/api/任务参数接口.py`
+  - 新增 `/api/task-params/results`
+  - 接口会合并查询 `task_params` 与 `flow_params`
+  - flow 结果会从 `step_results` 中提取业务字段，并映射成前端当前结果表结构
+  - 支持按店铺、任务类型、状态、批次、更新时间范围筛选，并支持分页
+- `frontend/src/api/taskParams.ts`
+  - 新增 `listTaskParamResults(...)`
+- `frontend/src/views/TaskParamsManage.vue`
+  - 执行结果 Tab 改为调用 `listTaskParamResults(...)`
+  - 执行状态筛选新增 `running` / `cancelled`
+  - 结果列表 key 改为组合键，避免合并 `task_params` 与 `flow_params` 后的重复 key
+- `frontend/src/api/mock.ts`
+  - 补充 `agent_machine_id` mock 字段
+- `tests/单元测试/测试_系统设置机器码.py`
+  - 覆盖机器码静态页面内容
+  - 覆盖系统服务对 `agent_machine_id` 的读写与未知字段异常路径
+- `tests/单元测试/测试_任务参数执行结果接口.py`
+  - 覆盖执行结果接口合并返回 `task_params` 与 `flow_params`
+  - 覆盖按任务类型筛选 flow 结果
+- `tests/单元测试/测试_任务参数管理页.py`
+  - 补充结果 Tab 依赖 `listTaskParamResults` 的静态断言
+
+## 影响范围
+
+- 设置页现在可以直接配置机器码，并写回 `.env` 与运行时配置
+- 执行结果 Tab 不再只显示旧的 `task_params` 结果，流程模式写入的 `flow_params` 结果现在也能展示
+- flow 执行结果支持按店铺、状态、任务类型、批次和日期筛选
+
+## 注意事项
+
+- 机器码为空时，运行时仍会沿用现有默认值 `default`
+- 机器码修改后需要重启 Worker 才会影响队列名称
+- 本轮没有删除旧的 `task_params` 列表接口，任务列表和旧数据仍保持兼容
+- 已执行针对性回归：`python -m pytest -c tests/pytest.ini -q tests/单元测试/测试_系统设置机器码.py tests/单元测试/测试_任务参数执行结果接口.py tests/单元测试/测试_任务参数管理页.py tests/单元测试/测试_流程参数管理页静态.py`，结果 `11 passed`
+- 已执行前端类型检查：`cd frontend && npx vue-tsc -b`
+- 已执行全量测试：`python -m pytest -c tests/pytest.ini -q`，结果 `285 passed, 16 warnings`
+- 16 条 warning 仍为既有存量：10 条来自第三方 `openpyxl`，6 条来自 Celery `datetime.utcnow()` 弃用提示
+- 工作区仍存在 `.pipeline/task.md`、`data/ecom.db`、`__pycache__/` 等本地运行副产物，非本轮交付代码

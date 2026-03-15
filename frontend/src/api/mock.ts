@@ -138,6 +138,7 @@ const mockSystemConfig = {
   task_timeout: 300,
   captcha_provider: 'yescaptcha',
   redis_url: 'redis://192.168.1.100:6379',
+  agent_machine_id: 'office-pc-001',
   agent_callback_url: 'http://192.168.1.100:5000/callback'
 }
 

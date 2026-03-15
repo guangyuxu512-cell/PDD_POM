@@ -18,6 +18,7 @@ class 系统服务:
     # 允许更新的配置白名单
     _配置白名单 = {
         "redis_url": "REDIS_URL",
+        "agent_machine_id": "AGENT_MACHINE_ID",
         "captcha_provider": "CAPTCHA_PROVIDER",
         "captcha_api_key": "CAPTCHA_API_KEY",
         "default_proxy": "DEFAULT_PROXY",
@@ -69,6 +70,7 @@ class 系统服务:
         """
         配置 = {
             "redis_url": self._脱敏redis_url(配置实例.REDIS_URL),
+            "agent_machine_id": 配置实例.AGENT_MACHINE_ID or "",
             "captcha_provider": 配置实例.CAPTCHA_PROVIDER,
             "captcha_api_key": self._脱敏api_key(配置实例.CAPTCHA_API_KEY) if 配置实例.CAPTCHA_API_KEY else None,
             "default_proxy": 配置实例.DEFAULT_PROXY,

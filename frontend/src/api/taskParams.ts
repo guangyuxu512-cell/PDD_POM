@@ -31,6 +31,10 @@ export function listTaskParams(filters: TaskParamFilters = {}) {
   return api.get<PaginatedList<TaskParam>>(`/api/task-params${buildQuery(filters)}`)
 }
 
+export function listTaskParamResults(filters: TaskParamFilters = {}) {
+  return api.get<PaginatedList<TaskParam>>(`/api/task-params/results${buildQuery(filters)}`)
+}
+
 export function listTaskParamBatchOptions(filters: TaskParamFilters = {}) {
   return api.get<TaskParamBatchOption[]>(`/api/task-params/batch-options${buildQuery(filters)}`)
 }

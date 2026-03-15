@@ -1973,3 +1973,24 @@
 - [x] 邻近回归验证结果：`24 passed`
 - [x] 验证通过：`python -m pytest -c tests/pytest.ini -q`
 - [x] 全量验证结果：`279 passed, 16 warnings`（10 条为第三方 `openpyxl` 警告，6 条为现有 Celery 警告）
+
+## Prompt 90：ask 40 前端系统设置增加机器码 + 流程执行结果显示修复 ✅
+
+- [x] 更新 `backend/services/系统服务.py`，在配置白名单和获取配置返回中增加 `agent_machine_id`
+- [x] 确认 `backend/配置.py` 已存在 `AGENT_MACHINE_ID`
+- [x] 更新 `frontend/src/views/Settings.vue`，增加机器码输入框、提示文案和保存提示
+- [x] 更新 `frontend/src/api/mock.ts`，补充 `agent_machine_id` mock 数据
+- [x] 更新 `backend/api/任务参数接口.py`，新增 `/api/task-params/results` 结果接口
+- [x] 结果接口支持合并 `task_params` 与 `flow_params`，并支持分页、店铺、任务类型、状态、批次、日期筛选
+- [x] 更新 `frontend/src/api/taskParams.ts`，新增 `listTaskParamResults`
+- [x] 更新 `frontend/src/views/TaskParamsManage.vue`，执行结果 Tab 改为调用新结果接口
+- [x] 更新 `frontend/src/views/TaskParamsManage.vue`，结果状态筛选补充 `running` / `cancelled`
+- [x] 更新 `frontend/src/views/TaskParamsManage.vue`，结果行 key 改为组合键，避免 task/flow 合并后冲突
+- [x] 新增 `tests/单元测试/测试_系统设置机器码.py`
+- [x] 新增 `tests/单元测试/测试_任务参数执行结果接口.py`
+- [x] 更新 `tests/单元测试/测试_任务参数管理页.py`
+- [x] 针对性验证通过：`python -m pytest -c tests/pytest.ini -q tests/单元测试/测试_系统设置机器码.py tests/单元测试/测试_任务参数执行结果接口.py tests/单元测试/测试_任务参数管理页.py tests/单元测试/测试_流程参数管理页静态.py`
+- [x] 针对性验证结果：`11 passed`
+- [x] 验证通过：在 `frontend/` 目录执行 `npx vue-tsc -b`
+- [x] 验证通过：`python -m pytest -c tests/pytest.ini -q`
+- [x] 全量验证结果：`285 passed, 16 warnings`（10 条为第三方 `openpyxl` 警告，6 条为现有 Celery 警告）

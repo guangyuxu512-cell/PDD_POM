@@ -5,6 +5,7 @@ import { toast } from '../utils/toast'
 
 interface SystemConfig {
   redis_url: string
+  agent_machine_id?: string
   captcha_provider: string
   captcha_api_key?: string
   default_proxy?: string
@@ -14,6 +15,7 @@ interface SystemConfig {
 
 const config = ref<SystemConfig>({
   redis_url: '',
+  agent_machine_id: '',
   captcha_provider: 'yescaptcha',
   captcha_api_key: '',
   default_proxy: '',
@@ -31,6 +33,7 @@ const loadConfig = async () => {
   const data = await get<any>('/api/system/config')
   config.value = {
     redis_url: data.redis_url || '',
+    agent_machine_id: data.agent_machine_id || '',
     captcha_provider: data.captcha_provider || 'yescaptcha',
     captcha_api_key: data.captcha_api_key || '',
     default_proxy: data.default_proxy || '',
@@ -41,7 +44,7 @@ const loadConfig = async () => {
 
 const handleSave = async () => {
   await put('/api/system/config', config.value)
-  alert('配置保存成功')
+  alert('配置保存成功\n机器码修改后需重启 Worker 生效')
 }
 
 const testRedis = async () => {
@@ -89,6 +92,12 @@ onMounted(loadConfig)
             <button type="button" class="btn-test" :disabled="testingRedis" @click="testRedis">
               {{ testingRedis ? '测试中...' : '测试连接' }}
             </button>
+          </div>
+
+          <div class="form-group">
+            <label>机器码</label>
+            <input v-model="config.agent_machine_id" type="text" placeholder="例如: office-pc-001" />
+            <span class="hint">用于标识当前机器的 Celery Worker 队列名称，修改后需重启 Worker 生效</span>
           </div>
 
           <div class="form-group">
@@ -188,6 +197,12 @@ h3 {
   font-size: 14px;
   color: #6b7280;
   font-weight: 500;
+}
+
+.hint {
+  font-size: 12px;
+  color: #6b7280;
+  line-height: 1.5;
 }
 
 .form-group input,
