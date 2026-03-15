@@ -12,5 +12,6 @@ aiosqlite
 cryptography
 nest_asyncio
 openpyxl
+uiautomation
 pytest
 pytest-asyncio

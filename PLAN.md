@@ -2018,3 +2018,17 @@
 - [x] 验证通过：在 `frontend/` 目录执行 `npx vue-tsc -b`
 - [x] 验证通过：`python -m pytest -c tests/pytest.ini -q`
 - [x] 全量验证结果：`285 passed, 16 warnings`（10 条为第三方 `openpyxl` 警告，6 条为现有 Celery 警告）
+
+## Prompt 92：Task 42 桌面基础页 + 微信 POM + 桌面选择器配置 ✅
+
+- [x] 新建 `selectors/桌面选择器配置.py`
+- [x] 新建 `pages/桌面基础页.py`
+- [x] 新建 `selectors/微信选择器.py`
+- [x] 新建 `pages/微信页.py`
+- [x] 更新 `requirements.txt`，新增 `uiautomation`
+- [x] 新建 `tests/test_桌面基础页.py`
+- [x] 新建 `tests/test_微信页.py`
+- [x] 针对性验证通过：`python -m pytest -c tests/pytest.ini -q tests/test_桌面基础页.py tests/test_微信页.py`
+- [x] 针对性验证结果：`9 passed`
+- [x] 验证通过：`python -m pytest -c tests/pytest.ini -q`
+- [x] 全量验证结果：首次全量回归命中过一条已知计时精度波动用例，单独复跑后再次执行全量，结果 `294 passed, 16 warnings`

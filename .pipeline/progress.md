@@ -2081,3 +2081,61 @@
 - 已执行全量测试：`python -m pytest -c tests/pytest.ini -q`，结果 `285 passed, 16 warnings`
 - 16 条 warning 仍为既有存量：10 条来自第三方 `openpyxl`，6 条来自 Celery `datetime.utcnow()` 弃用提示
 - 工作区仍存在 `.pipeline/task.md`、`data/ecom.db`、`__pycache__/` 等本地运行副产物，非本轮交付代码
+
+---
+
+## 任务摘要
+
+完成 Task 42：新增桌面自动化基础设施，包括桌面选择器配置、桌面基础页、微信桌面版选择器和微信页 POM。
+
+## 改动文件列表
+
+- `selectors/桌面选择器配置.py`
+- `pages/桌面基础页.py`
+- `selectors/微信选择器.py`
+- `pages/微信页.py`
+- `requirements.txt`
+- `tests/test_桌面基础页.py`
+- `tests/test_微信页.py`
+- `PLAN.md`
+- `改造进度.md`
+- `.pipeline/progress.md`
+
+## 改动说明
+
+- `selectors/桌面选择器配置.py`
+  - 新增桌面应用选择器配置数据类
+  - 以 UIAutomation 控件属性组合定位，支持主配置和备选配置链
+- `pages/桌面基础页.py`
+  - 新增桌面 POM 基类
+  - 支持桌面控件查找、点击、输入文本、读取文本、存在性检查和窗口截图
+  - 所有方法保持同步，以便后续 Task 层通过 `asyncio.to_thread()` 调用
+  - 对 `uiautomation` 缺失场景做了测试友好的兜底处理
+- `selectors/微信选择器.py`
+  - 新增微信主窗口、搜索按钮、搜索输入框、聊天输入框、发送按钮和联系人项选择器
+- `pages/微信页.py`
+  - 新增微信桌面版 POM
+  - 支持激活窗口、搜索联系人、向指定联系人发送消息、向当前聊天发送消息
+  - 发送按钮失败时会回退使用 `Enter` 键发送
+- `requirements.txt`
+  - 新增 `uiautomation` 依赖
+- `tests/test_桌面基础页.py`
+  - 覆盖桌面选择器配置的备选链
+  - 覆盖桌面基础页查找回退、逐字输入、点击与截图
+- `tests/test_微信页.py`
+  - 覆盖微信窗口激活失败、搜索联系人、发送消息回退 Enter 和窗口初始化参数
+
+## 影响范围
+
+- 项目现在具备桌面应用自动化的基础设施，可在后续任务中与浏览器自动化并行使用
+- 微信桌面版 POM 已可作为未来售后通知、客服消息等能力的底座
+
+## 注意事项
+
+- 本轮未修改现有浏览器 `基础页.py`、`选择器配置.py`
+- `uiautomation` 是同步库，本轮保持同步 API，后续 Task 层接入时需用 `asyncio.to_thread()`
+- 微信选择器基于微信 PC 版 3.9.x 命名，版本升级后可能需要重新校准
+- 已执行针对性回归：`python -m pytest -c tests/pytest.ini -q tests/test_桌面基础页.py tests/test_微信页.py`，结果 `9 passed`
+- 已执行全量测试：首次全量回归命中过一条已知计时精度波动用例，单独复跑后再次执行全量 `python -m pytest -c tests/pytest.ini -q`，结果 `294 passed, 16 warnings`
+- 16 条 warning 仍为既有存量：10 条来自第三方 `openpyxl`，6 条来自 Celery `datetime.utcnow()` 弃用提示
+- 工作区仍存在 `.pipeline/task.md`、`data/ecom.db`、`__pycache__/` 等本地运行副产物，非本轮交付代码
