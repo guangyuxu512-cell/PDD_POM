@@ -2256,3 +2256,42 @@
 - 已执行全量测试：`python -m pytest -c tests/pytest.ini -q`，结果 `304 passed, 16 warnings`
 - 16 条 warning 仍为既有存量：10 条来自第三方 `openpyxl`，6 条来自 Celery `datetime.utcnow()` 弃用提示
 - 工作区仍存在 `.pipeline/task.md`、`data/ecom.db`、`__pycache__/` 等本地运行副产物，非本轮交付代码
+
+---
+
+## 任务摘要
+
+完成 Task 44A：新增售后页选择器、售后页 POM 与单元测试，覆盖售后列表浏览、详情读取、退款操作、确认弹窗和翻页处理。
+
+## 改动文件列表
+
+- `selectors/售后页选择器.py`
+- `pages/售后页.py`
+- `tests/test_售后页.py`
+- `.pipeline/progress.md`
+
+## 改动说明
+
+- `selectors/售后页选择器.py`
+  - 新增售后页选择器类，集中定义售后列表、详情字段、操作按钮、确认弹窗、物流信息和翻页按钮选择器
+  - 补充第 N 行详情链接和操作按钮的动态选择器生成方法，供 POM 层按行访问列表项
+- `pages/售后页.py`
+  - 新增 `售后页` POM，覆盖导航、Tab 切换、搜索、列表计数、第 N 行摘要读取、详情读取、退款/退货/拒绝按钮点击、确认弹窗处理、物流信息填写和翻页判断
+  - 列表摘要和详情读取使用 `page.evaluate(...)` 提取 DOM 文本，避免在页面类中硬编码列索引
+  - 点击和填写操作统一走 `基础页` 的安全方法，并在操作前后补充延迟与中文日志
+- `tests/test_售后页.py`
+  - 新增售后页单测，覆盖导航、搜索、第 N 行信息读取、同意退款点击、确认弹窗处理和翻页 `disabled` 分支
+  - 通过 `AsyncMock` 模拟 Playwright 页面对象，验证选择器调用和关键分支行为
+
+## 影响范围
+
+- 项目现在具备独立的售后管理页 POM，可供后续 Task 层编排售后处理流程时直接复用
+- 售后页相关选择器与页面操作已解耦，后续页面改版时可以优先只调整 `selectors/售后页选择器.py`
+- 售后页的基础交互已有单元测试覆盖，可降低后续扩展退款流程时的回归风险
+
+## 注意事项
+
+- 本轮按任务单约束，仅新增 `selectors/售后页选择器.py`、`pages/售后页.py`、`tests/test_售后页.py` 三个业务文件，未改动现有页面与任务逻辑
+- 已执行全量测试：`python -m pytest -c tests/pytest.ini -q`，结果 `310 passed, 16 warnings`
+- 16 条 warning 为既有存量：10 条来自第三方 `openpyxl`，6 条来自 Celery `datetime.utcnow()` 弃用提示，非本轮引入
+- 工作区仍存在 `.pipeline/task.md`、`data/ecom.db`、`__pycache__/` 等本地变更或运行副产物，非本轮源码交付
