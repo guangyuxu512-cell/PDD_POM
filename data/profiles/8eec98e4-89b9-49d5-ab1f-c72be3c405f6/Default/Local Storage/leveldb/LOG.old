@@ -1,9 +1,25 @@
-2026/03/15-08:03:34.929 5a5c Reusing MANIFEST E:\pdd_zd\data\profiles\8eec98e4-89b9-49d5-ab1f-c72be3c405f6\Default\Local Storage\leveldb/MANIFEST-000001
-2026/03/15-08:03:34.935 5a5c Recovering log #164
-2026/03/15-08:03:34.936 5a5c Reusing old log E:\pdd_zd\data\profiles\8eec98e4-89b9-49d5-ab1f-c72be3c405f6\Default\Local Storage\leveldb/000164.log 
-2026/03/15-08:04:34.947 8260 Level-0 table #168: started
-2026/03/15-08:04:34.974 8260 Level-0 table #168: 17879 bytes OK
-2026/03/15-08:04:34.992 8260 Delete type=0 #164
-2026/03/15-08:06:45.926 8260 Level-0 table #170: started
-2026/03/15-08:06:45.954 8260 Level-0 table #170: 15623 bytes OK
-2026/03/15-08:06:45.978 8260 Delete type=0 #167
+2026/03/16-03:05:36.560 9460 Reusing MANIFEST E:\pdd_zd\data\profiles\8eec98e4-89b9-49d5-ab1f-c72be3c405f6\Default\Local Storage\leveldb/MANIFEST-000001
+2026/03/16-03:05:36.576 9460 Recovering log #176
+2026/03/16-03:05:36.576 9460 Level-0 table #179: started
+2026/03/16-03:05:36.614 9460 Level-0 table #179: 15487 bytes OK
+2026/03/16-03:05:36.615 9460 Recovering log #178
+2026/03/16-03:05:36.616 9460 Reusing old log E:\pdd_zd\data\profiles\8eec98e4-89b9-49d5-ab1f-c72be3c405f6\Default\Local Storage\leveldb/000178.log 
+2026/03/16-03:05:36.636 9460 Delete type=0 #176
+2026/03/16-03:06:36.640 9824 Level-0 table #181: started
+2026/03/16-03:06:36.671 9824 Level-0 table #181: 15809 bytes OK
+2026/03/16-03:06:36.692 9824 Delete type=0 #178
+2026/03/16-03:06:36.692 9460 Compacting 4@0 + 1@1 files
+2026/03/16-03:06:36.737 9460 Generated table #182@0: 92 keys, 175055 bytes
+2026/03/16-03:06:36.737 9460 Compacted 4@0 + 1@1 files => 175055 bytes
+2026/03/16-03:06:36.758 9460 compacted to: files[ 0 1 0 0 0 0 0 ]
+2026/03/16-03:06:36.759 9460 Delete type=2 #173
+2026/03/16-03:06:36.759 9460 Delete type=2 #175
+2026/03/16-03:06:36.759 9460 Delete type=2 #177
+2026/03/16-03:06:36.759 9460 Delete type=2 #179
+2026/03/16-03:06:36.759 9460 Delete type=2 #181
+2026/03/16-03:07:26.387 9824 Level-0 table #184: started
+2026/03/16-03:07:26.428 9824 Level-0 table #184: 15624 bytes OK
+2026/03/16-03:07:26.446 9824 Delete type=0 #180
+2026/03/16-03:09:44.843 9110 Level-0 table #186: started
+2026/03/16-03:09:44.865 9824 Current memtable full; waiting...
+2026/03/16-03:09:44.965 9110 Level-0 table #186: 16545 bytes OK
