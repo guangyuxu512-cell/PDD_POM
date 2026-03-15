@@ -1,12 +1,18 @@
-2026/03/14-23:09:13.607 6940 Reusing MANIFEST E:\pdd_zd\data\profiles\8eec98e4-89b9-49d5-ab1f-c72be3c405f6\Default\Local Storage\leveldb/MANIFEST-000001
-2026/03/14-23:09:13.614 6940 Recovering log #145
-2026/03/14-23:09:13.615 6940 Level-0 table #148: started
-2026/03/14-23:09:13.642 6940 Level-0 table #148: 15630 bytes OK
-2026/03/14-23:09:13.642 6940 Recovering log #147
-2026/03/14-23:09:13.644 6940 Reusing old log E:\pdd_zd\data\profiles\8eec98e4-89b9-49d5-ab1f-c72be3c405f6\Default\Local Storage\leveldb/000147.log 
-2026/03/14-23:09:13.664 6940 Delete type=0 #145
-2026/03/14-23:10:13.675 50c4 Level-0 table #150: started
-2026/03/14-23:10:13.699 50c4 Level-0 table #150: 15911 bytes OK
-2026/03/14-23:10:13.715 50c4 Delete type=0 #147
-2026/03/14-23:36:43.679 6940 Level-0 table #152: started
-2026/03/14-23:36:43.828 6940 Level-0 table #152: 15632 bytes OK
+2026/03/15-07:41:22.151 81ec Reusing MANIFEST E:\pdd_zd\data\profiles\8eec98e4-89b9-49d5-ab1f-c72be3c405f6\Default\Local Storage\leveldb/MANIFEST-000001
+2026/03/15-07:41:22.158 81ec Recovering log #158
+2026/03/15-07:41:22.159 81ec Reusing old log E:\pdd_zd\data\profiles\8eec98e4-89b9-49d5-ab1f-c72be3c405f6\Default\Local Storage\leveldb/000158.log 
+2026/03/15-07:42:22.169 67f0 Level-0 table #162: started
+2026/03/15-07:42:22.201 67f0 Level-0 table #162: 16883 bytes OK
+2026/03/15-07:42:22.222 67f0 Delete type=0 #158
+2026/03/15-07:42:22.223 67f0 Compacting 4@0 + 1@1 files
+2026/03/15-07:42:22.255 67f0 Generated table #163@0: 92 keys, 175059 bytes
+2026/03/15-07:42:22.256 67f0 Compacted 4@0 + 1@1 files => 175059 bytes
+2026/03/15-07:42:22.272 67f0 compacted to: files[ 0 1 0 0 0 0 0 ]
+2026/03/15-07:42:22.273 67f0 Delete type=2 #153
+2026/03/15-07:42:22.273 67f0 Delete type=2 #155
+2026/03/15-07:42:22.273 67f0 Delete type=2 #157
+2026/03/15-07:42:22.273 67f0 Delete type=2 #159
+2026/03/15-07:42:22.273 67f0 Delete type=2 #162
+2026/03/15-07:43:16.360 67f0 Level-0 table #165: started
+2026/03/15-07:43:16.385 67f0 Level-0 table #165: 15623 bytes OK
+2026/03/15-07:43:16.403 67f0 Delete type=0 #161

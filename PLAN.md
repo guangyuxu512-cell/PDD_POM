@@ -1942,3 +1942,15 @@
 - [x] 针对性验证结果：`26 passed`
 - [x] 验证通过：`python -m pytest -c tests/pytest.ini -q`
 - [x] 全量验证结果：`275 passed, 16 warnings`（10 条为第三方 `openpyxl` 警告，6 条为现有 Celery 警告）
+
+## Prompt 88：Task 38.8 极速起量“确定”按钮选择器替换 ✅
+
+- [x] 更新 `selectors/推广页选择器.py`，将 `获取极速起量高级版关闭确认按钮(商品ID)` 替换为新的三候选顺序
+- [x] 主用改为 `assist_close + 商品ID`
+- [x] 备用1 保留 `确定关闭` 文字按钮
+- [x] 备用2 改为 `//div[contains(@class, "anq-flex")]/button[normalize-space(.)="确定"]`
+- [x] 更新 `tests/单元测试/测试_推广页.py`
+- [x] 针对性验证通过：`python -m pytest -c tests/pytest.ini -q tests/单元测试/测试_推广页.py tests/单元测试/测试_推广任务.py tests/单元测试/测试_推广任务服务.py`
+- [x] 针对性验证结果：`26 passed`
+- [x] 验证通过：`python -m pytest -c tests/pytest.ini -q`
+- [x] 全量验证结果：`275 passed, 16 warnings`（10 条为第三方 `openpyxl` 警告，6 条为现有 Celery 警告）

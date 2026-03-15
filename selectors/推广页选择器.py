@@ -154,15 +154,10 @@ class 推广页选择器:
     def 获取极速起量高级版关闭确认按钮(商品ID: str) -> 选择器配置:
         """根据商品ID生成极速起量关闭确认按钮选择器。"""
         return 选择器配置(
-            主选择器=(
-                '//div[contains(@class, "anq-popover") and '
-                './/div[contains(text(), "极速起量")]]'
-                '//button[contains(@class, "anq-btn-primary") or '
-                './/span[text()="确定关闭"]]'
-            ),
+            主选择器=f'//button[contains(@data-testid, "assist_close") and contains(@data-testid, "{商品ID}")]',
             备选选择器=[
-                f'//button[contains(@data-testid, "assist_close") and contains(@data-testid, "{商品ID}")]',
                 '//button[.//span[text()="确定关闭"]]',
+                '//div[contains(@class, "anq-flex")]/button[normalize-space(.)="确定"]',
             ],
         )
 

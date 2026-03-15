@@ -1835,3 +1835,44 @@
 - 已执行全量测试：`python -m pytest -c tests/pytest.ini -q`，结果 `275 passed, 16 warnings`
 - 16 条 warning 仍为既有存量：10 条来自第三方 `openpyxl`，6 条来自 Celery `datetime.utcnow()` 弃用提示
 - 工作区仍存在 `.pipeline/task.md`、`data/ecom.db`、`__pycache__/` 等本地运行副产物，非本轮交付代码
+
+---
+
+## 任务摘要
+
+完成 Task 38.8：将极速起量确认按钮选择器替换为 `assist_close → 确定关闭 → anq-flex 内确定` 的三候选顺序。
+
+## 改动文件列表
+
+- `selectors/推广页选择器.py`
+- `tests/单元测试/测试_推广页.py`
+- `PLAN.md`
+- `改造进度.md`
+- `.pipeline/progress.md`
+
+## 改动说明
+
+- `selectors/推广页选择器.py`
+  - `获取极速起量高级版关闭确认按钮(商品ID)` 改为：
+    - 主用：`//button[contains(@data-testid, "assist_close") and contains(@data-testid, "{商品ID}")]`
+    - 备用1：`//button[.//span[text()="确定关闭"]]`
+    - 备用2：`//div[contains(@class, "anq-flex")]/button[normalize-space(.)="确定"]`
+  - 保留“确定关闭”的两个选择器
+  - 新增的“确定”选择器限定在 `anq-flex` 容器内
+- `tests/单元测试/测试_推广页.py`
+  - 更新主用选择器断言，改为校验 `assist_close + 商品ID`
+  - 更新候选顺序断言，改为 `assist_close -> 确定关闭 -> anq-flex 内确定`
+  - 更新回退路径测试，验证前两种失败后才进入 `anq-flex` 容器内的 `确定`
+
+## 影响范围
+
+- 极速起量确认按钮现在按任务单要求切回更直接的三候选顺序
+- `anq-flex` 容器限定仍能避免将最后一个“确定”回退到无关区域
+
+## 注意事项
+
+- 本轮未修改 `pages/推广页.py` 和任务编排逻辑；现有单循环遍历 `所有选择器()` 的实现可直接复用新顺序
+- 已执行针对性回归：`python -m pytest -c tests/pytest.ini -q tests/单元测试/测试_推广页.py tests/单元测试/测试_推广任务.py tests/单元测试/测试_推广任务服务.py`，结果 `26 passed`
+- 已执行全量测试：首次全量回归命中过一条已知计时精度波动用例，单独复跑通过后再次执行全量 `python -m pytest -c tests/pytest.ini -q`，结果 `275 passed, 16 warnings`
+- 16 条 warning 仍为既有存量：10 条来自第三方 `openpyxl`，6 条来自 Celery `datetime.utcnow()` 弃用提示
+- 工作区仍存在 `.pipeline/task.md`、`data/ecom.db`、`__pycache__/` 等本地运行副产物，非本轮交付代码
