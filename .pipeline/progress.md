@@ -2295,3 +2295,61 @@
 - 已执行全量测试：`python -m pytest -c tests/pytest.ini -q`，结果 `310 passed, 16 warnings`
 - 16 条 warning 为既有存量：10 条来自第三方 `openpyxl`，6 条来自 Celery `datetime.utcnow()` 弃用提示，非本轮引入
 - 工作区仍存在 `.pipeline/task.md`、`data/ecom.db`、`__pycache__/` 等本地变更或运行副产物，非本轮源码交付
+
+---
+
+## 任务摘要
+
+完成 Task 44B：新增通用规则引擎、规则 REST API 和状态机驱动的售后处理任务，并接入现有数据库初始化与任务注册体系。
+
+## 改动文件列表
+
+- `backend/models/规则模型.py`
+- `backend/services/规则服务.py`
+- `backend/api/规则接口.py`
+- `backend/api/路由注册.py`
+- `backend/models/数据库.py`
+- `tasks/售后任务.py`
+- `tests/test_规则服务.py`
+- `tests/test_售后任务.py`
+- `.pipeline/progress.md`
+
+## 改动说明
+
+- `backend/models/规则模型.py`
+  - 新增 `rules` 表模型、字段映射、建表 SQL 和 `初始化规则表()` 方法
+  - 统一承载平台、业务、店铺、优先级、条件组、动作列表和启用状态
+- `backend/services/规则服务.py`
+  - 新增规则 CRUD、启用切换、条件递归匹配和默认动作回退逻辑
+  - 实现 `==`、`!=`、`>`、`<`、`>=`、`<=`、`in`、`not_in`、`contains` 等操作符
+  - 新增默认售后规则种子，仅在空表时插入 5 条基础规则
+- `backend/api/规则接口.py`
+  - 新增 `/api/rules` 相关 REST 接口和 `/api/rules/match` 调试匹配接口
+  - 接口统一返回 `{code, data, msg}` 结构
+- `backend/api/路由注册.py`
+  - 将规则接口路由加入现有 FastAPI 路由注册列表
+- `backend/models/数据库.py`
+  - 在现有数据库初始化链路中调用 `初始化规则表()`
+  - 初始化完成后补充调用默认售后规则种子，保证新库启动即具备可用规则
+- `tasks/售后任务.py`
+  - 新增 `售后处理` 任务，并通过 `@register_task("售后处理", ...)` 注册
+  - 用状态机串联售后页读取、规则匹配、页面操作、弹窗处理、微信通知、飞书通知和结果记录
+  - 微信通知通过 `asyncio.to_thread()` 调用同步 `微信页`，飞书/微信通知异常仅记日志不打断主流程
+- `tests/test_规则服务.py`
+  - 覆盖规则操作符、条件递归、店铺精确匹配优先级、默认动作回退、CRUD、默认种子插入和规则接口基础调用
+- `tests/test_售后任务.py`
+  - 覆盖售后状态机正常流转、0 单直接完成、人工审核分支、微信通知分支、飞书通知分支、模板渲染和最大迭代保护
+
+## 影响范围
+
+- 后端现在具备可复用的通用规则引擎，后续推广、限时限量等业务也可以复用同一套条件-动作匹配逻辑
+- 售后处理任务已可被流程编排系统直接引用，且具备页面操作、通知和人工审核分流能力
+- 应用初始化时会自动确保 `rules` 表存在并预置基础售后规则，新环境可直接使用
+
+## 注意事项
+
+- 为满足“应用启动即建表并写入默认规则”的要求，本轮额外修改了 `backend/models/数据库.py` 和 `backend/api/路由注册.py` 两个集成文件
+- 已执行针对性回归：`python -m pytest -c tests/pytest.ini -q tests/test_规则服务.py tests/test_售后任务.py`，结果 `17 passed`
+- 已执行全量测试：`python -m pytest -c tests/pytest.ini -q`，结果 `327 passed, 16 warnings`
+- 16 条 warning 仍为既有存量：10 条来自第三方 `openpyxl`，6 条来自 Celery `datetime.utcnow()` 弃用提示，非本轮引入
+- 工作区仍存在 `.pipeline/task.md`、`data/ecom.db`、`data/screenshots/`、`__pycache__/` 等本地变更或运行副产物，非本轮源码交付

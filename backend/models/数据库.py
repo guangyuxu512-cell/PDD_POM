@@ -177,8 +177,18 @@ async def 初始化数据库() -> None:
         for 建表SQL in 获取建表语句列表():
             await 连接.execute(建表SQL)
 
+        from backend.models.规则模型 import 初始化规则表
+
+        await 初始化规则表(连接)
         await _补齐旧版表结构(连接)
         await 连接.commit()
+
+    try:
+        from backend.services.规则服务 import 规则服务实例
+
+        await 规则服务实例.初始化默认售后规则()
+    except Exception as 异常:
+        print(f"[数据库初始化] 默认规则初始化失败（忽略）: {异常}")
 
 
 async def 关闭数据库() -> None:
