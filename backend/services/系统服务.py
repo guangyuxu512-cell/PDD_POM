@@ -19,6 +19,11 @@ class 系统服务:
     _配置白名单 = {
         "redis_url": "REDIS_URL",
         "agent_machine_id": "AGENT_MACHINE_ID",
+        "feishu_webhook_url": "FEISHU_WEBHOOK_URL",
+        "feishu_app_id": "FEISHU_APP_ID",
+        "feishu_app_secret": "FEISHU_APP_SECRET",
+        "feishu_bitable_app_token": "FEISHU_BITABLE_APP_TOKEN",
+        "feishu_bitable_table_id": "FEISHU_BITABLE_TABLE_ID",
         "captcha_provider": "CAPTCHA_PROVIDER",
         "captcha_api_key": "CAPTCHA_API_KEY",
         "default_proxy": "DEFAULT_PROXY",

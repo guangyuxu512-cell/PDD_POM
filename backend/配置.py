@@ -49,6 +49,13 @@ class 配置(BaseSettings):
     AGENT_HEARTBEAT_URL: Optional[str] = None
     X_RPA_KEY: Optional[str] = None
 
+    # 飞书配置
+    FEISHU_WEBHOOK_URL: Optional[str] = None
+    FEISHU_APP_ID: Optional[str] = None
+    FEISHU_APP_SECRET: Optional[str] = None
+    FEISHU_BITABLE_APP_TOKEN: Optional[str] = None
+    FEISHU_BITABLE_TABLE_ID: Optional[str] = None
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",

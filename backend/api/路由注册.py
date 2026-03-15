@@ -16,6 +16,7 @@ from backend.api.任务参数接口 import 路由 as 任务参数路由
 from backend.api.流程参数接口 import 路由 as 流程参数路由
 from backend.api.日志接口 import 路由 as 日志路由
 from backend.api.系统接口 import 路由 as 系统路由
+from backend.api.飞书接口 import 路由 as 飞书路由
 
 
 # 所有路由列表
@@ -31,6 +32,7 @@ from backend.api.系统接口 import 路由 as 系统路由
     流程参数路由,
     日志路由,
     系统路由,
+    飞书路由,
 ]
 
 

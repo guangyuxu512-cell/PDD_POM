@@ -2032,3 +2032,34 @@
 - [x] 针对性验证结果：`9 passed`
 - [x] 验证通过：`python -m pytest -c tests/pytest.ini -q`
 - [x] 全量验证结果：首次全量回归命中过一条已知计时精度波动用例，单独复跑后再次执行全量，结果 `294 passed, 16 warnings`
+
+## Prompt 93：Task 43 飞书服务 — Webhook 通知 + 文档回写 ✅
+
+- [x] 新建 `backend/services/飞书服务.py`
+- [x] 新建 `backend/api/飞书接口.py`
+- [x] 更新 `backend/services/系统服务.py`，新增飞书相关配置白名单
+- [x] 更新 `backend/api/路由注册.py`，注册飞书接口
+- [x] 更新 `backend/配置.py`，补充飞书配置字段
+- [x] 确认 `requirements.txt` 已有 `httpx`，无需新增
+- [x] 新建 `tests/test_飞书服务.py`
+- [x] 针对性验证通过：`python -m pytest -c tests/pytest.ini -q tests/test_飞书服务.py`
+- [x] 针对性验证结果：`9 passed`
+- [x] 验证通过：`python -m pytest -c tests/pytest.ini -q`
+- [x] 全量验证结果：`303 passed, 16 warnings`（10 条为第三方 `openpyxl` 警告，6 条为现有 Celery 警告）
+
+## Prompt 94：Task 43.1 设置页新增飞书配置区块 ✅
+
+- [x] 更新 `frontend/src/views/Settings.vue`
+- [x] `SystemConfig` 增加 5 个飞书字段
+- [x] `config` 默认值增加 5 个飞书字段
+- [x] `loadConfig()` 增加 5 个飞书字段映射
+- [x] 新增 `testingFeishu` 与 `testFeishuWebhook()`
+- [x] 在“验证码服务”和“系统监控”之间新增“飞书配置”区块
+- [x] 保持统一保存逻辑不变
+- [x] App Secret 使用 `type="password"`
+- [x] 更新 `tests/单元测试/测试_系统设置机器码.py`
+- [x] 针对性验证通过：`python -m pytest -c tests/pytest.ini -q tests/单元测试/测试_系统设置机器码.py`
+- [x] 针对性验证结果：`5 passed`
+- [x] 验证通过：在 `frontend/` 目录执行 `npx vue-tsc -b`
+- [x] 验证通过：`python -m pytest -c tests/pytest.ini -q`
+- [x] 全量验证结果：`304 passed, 16 warnings`（10 条为第三方 `openpyxl` 警告，6 条为现有 Celery 警告）

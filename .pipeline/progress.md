@@ -2139,3 +2139,120 @@
 - 已执行全量测试：首次全量回归命中过一条已知计时精度波动用例，单独复跑后再次执行全量 `python -m pytest -c tests/pytest.ini -q`，结果 `294 passed, 16 warnings`
 - 16 条 warning 仍为既有存量：10 条来自第三方 `openpyxl`，6 条来自 Celery `datetime.utcnow()` 弃用提示
 - 工作区仍存在 `.pipeline/task.md`、`data/ecom.db`、`__pycache__/` 等本地运行副产物，非本轮交付代码
+
+---
+
+## 任务摘要
+
+完成 Task 43：新增飞书服务，支持机器人 Webhook 通知、多维表格回写和 Webhook 连通性测试接口。
+
+## 改动文件列表
+
+- `backend/services/飞书服务.py`
+- `backend/api/飞书接口.py`
+- `backend/api/路由注册.py`
+- `backend/services/系统服务.py`
+- `backend/配置.py`
+- `tests/test_飞书服务.py`
+- `PLAN.md`
+- `改造进度.md`
+- `.pipeline/progress.md`
+
+## 改动说明
+
+- `backend/services/飞书服务.py`
+  - 新建飞书服务类，封装：
+    - 文本通知
+    - 卡片通知
+    - 售后结果通知
+    - `tenant_access_token` 获取与缓存
+    - 单条/批量多维表格写入
+    - Webhook 连通性测试
+  - 所有 HTTP 调用统一使用 `httpx.AsyncClient(timeout=10.0)`
+  - 服务层失败不抛异常，统一返回 `{success: False, error: ...}`
+- `backend/api/飞书接口.py`
+  - 新增 `/api/feishu/test-webhook`
+  - 返回统一响应，供前端测试 Webhook 连通性
+- `backend/api/路由注册.py`
+  - 将飞书接口加入统一路由注册
+- `backend/services/系统服务.py`
+  - 配置白名单新增：
+    - `feishu_webhook_url`
+    - `feishu_app_id`
+    - `feishu_app_secret`
+    - `feishu_bitable_app_token`
+    - `feishu_bitable_table_id`
+- `backend/配置.py`
+  - 补充飞书配置字段，确保 `.env` 与运行时配置有一致入口
+- `tests/test_飞书服务.py`
+  - 覆盖文本通知请求体
+  - 覆盖卡片通知 JSON 结构
+  - 覆盖售后通知卡片组装
+  - 覆盖 `tenant_access_token` 获取与缓存
+  - 覆盖单条多维表格写入的路径和 headers
+  - 覆盖 `测试webhook()` True/False
+  - 覆盖飞书接口统一响应
+  - 覆盖系统服务对白名单飞书字段的写入
+
+## 影响范围
+
+- 项目现在具备纯 HTTP 的飞书通知与多维表格回写基础能力
+- 后续售后处理、人工审核和运营同步可直接复用飞书服务，而不需要新增 UI 自动化
+
+## 注意事项
+
+- 本轮未改动任何现有业务 Task 代码
+- `httpx` 依赖仓库中已存在，因此 `requirements.txt` 无需新增
+- 已执行针对性回归：`python -m pytest -c tests/pytest.ini -q tests/test_飞书服务.py`，结果 `9 passed`
+- 已执行全量测试：`python -m pytest -c tests/pytest.ini -q`，结果 `303 passed, 16 warnings`
+- 16 条 warning 仍为既有存量：10 条来自第三方 `openpyxl`，6 条来自 Celery `datetime.utcnow()` 弃用提示
+- 工作区仍存在 `.pipeline/task.md`、`data/ecom.db`、`__pycache__/` 等本地运行副产物，非本轮交付代码
+
+---
+
+## 任务摘要
+
+完成 Task 43.1：在系统设置页新增飞书配置区块，补齐 5 个飞书字段和 Webhook 测试按钮。
+
+## 改动文件列表
+
+- `frontend/src/views/Settings.vue`
+- `tests/单元测试/测试_系统设置机器码.py`
+- `PLAN.md`
+- `改造进度.md`
+- `.pipeline/progress.md`
+
+## 改动说明
+
+- `frontend/src/views/Settings.vue`
+  - `SystemConfig` 增加：
+    - `feishu_webhook_url`
+    - `feishu_app_id`
+    - `feishu_app_secret`
+    - `feishu_bitable_app_token`
+    - `feishu_bitable_table_id`
+  - `config` 默认值增加以上 5 个字段
+  - `loadConfig()` 增加以上 5 个字段映射
+  - 新增 `testingFeishu` 与 `testFeishuWebhook()`
+  - 在“验证码服务”和“系统监控”之间新增“飞书配置”区块
+  - 增加 5 个飞书输入框和 1 个“测试 Webhook”按钮
+  - `App Secret` 使用 `type="password"`
+- `tests/单元测试/测试_系统设置机器码.py`
+  - 新增飞书配置区块静态断言
+  - 覆盖字段默认值、配置映射、测试按钮和提示文案
+
+## 影响范围
+
+- 设置页现在可以直接配置飞书 Webhook、应用凭证和多维表格目标
+- 前端可直接调用 `/api/feishu/test-webhook` 做连通性测试
+- 保存逻辑仍然沿用现有统一配置保存，不会影响现有系统设置项
+
+## 注意事项
+
+- 本轮仅修改 `Settings.vue` 和对应静态测试
+- 飞书 5 个字段全部是可选项，没有新增必填校验
+- 已执行针对性回归：`python -m pytest -c tests/pytest.ini -q tests/单元测试/测试_系统设置机器码.py`，结果 `5 passed`
+- 已执行前端类型检查：`cd frontend && npx vue-tsc -b`
+- 已执行全量测试：`python -m pytest -c tests/pytest.ini -q`，结果 `304 passed, 16 warnings`
+- 16 条 warning 仍为既有存量：10 条来自第三方 `openpyxl`，6 条来自 Celery `datetime.utcnow()` 弃用提示
+- 工作区仍存在 `.pipeline/task.md`、`data/ecom.db`、`__pycache__/` 等本地运行副产物，非本轮交付代码

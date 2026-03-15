@@ -6,6 +6,11 @@ import { toast } from '../utils/toast'
 interface SystemConfig {
   redis_url: string
   agent_machine_id?: string
+  feishu_webhook_url?: string
+  feishu_app_id?: string
+  feishu_app_secret?: string
+  feishu_bitable_app_token?: string
+  feishu_bitable_table_id?: string
   captcha_provider: string
   captcha_api_key?: string
   default_proxy?: string
@@ -16,6 +21,11 @@ interface SystemConfig {
 const config = ref<SystemConfig>({
   redis_url: '',
   agent_machine_id: '',
+  feishu_webhook_url: '',
+  feishu_app_id: '',
+  feishu_app_secret: '',
+  feishu_bitable_app_token: '',
+  feishu_bitable_table_id: '',
   captcha_provider: 'yescaptcha',
   captcha_api_key: '',
   default_proxy: '',
@@ -24,6 +34,7 @@ const config = ref<SystemConfig>({
 })
 
 const testingRedis = ref(false)
+const testingFeishu = ref(false)
 
 interface RedisTestResult {
   latency_ms: number
@@ -34,6 +45,11 @@ const loadConfig = async () => {
   config.value = {
     redis_url: data.redis_url || '',
     agent_machine_id: data.agent_machine_id || '',
+    feishu_webhook_url: data.feishu_webhook_url || '',
+    feishu_app_id: data.feishu_app_id || '',
+    feishu_app_secret: data.feishu_app_secret || '',
+    feishu_bitable_app_token: data.feishu_bitable_app_token || '',
+    feishu_bitable_table_id: data.feishu_bitable_table_id || '',
     captcha_provider: data.captcha_provider || 'yescaptcha',
     captcha_api_key: data.captcha_api_key || '',
     default_proxy: data.default_proxy || '',
@@ -67,6 +83,20 @@ const testCaptcha = async () => {
     api_key: config.value.captcha_api_key
   })
   alert('验证码服务测试成功')
+}
+
+const testFeishuWebhook = async () => {
+  testingFeishu.value = true
+  try {
+    await post('/api/feishu/test-webhook', {
+      webhook_url: config.value.feishu_webhook_url
+    })
+    toast.success('飞书 Webhook 测试成功')
+  } catch (error: any) {
+    toast.error(error?.message || '飞书 Webhook 测试失败')
+  } finally {
+    testingFeishu.value = false
+  }
 }
 
 const healthCheck = async () => {
@@ -131,6 +161,58 @@ onMounted(loadConfig)
             <label>API 密钥</label>
             <input v-model="config.captcha_api_key" type="password" placeholder="验证码服务 API Key" />
             <button type="button" class="btn-test" @click="testCaptcha">测试验证码</button>
+          </div>
+        </div>
+
+        <div class="form-section">
+          <h3>飞书配置</h3>
+          <div class="form-group">
+            <label>Webhook 地址</label>
+            <input
+              v-model="config.feishu_webhook_url"
+              type="text"
+              placeholder="https://open.feishu.cn/open-apis/bot/v2/hook/xxx"
+            />
+            <button type="button" class="btn-test" :disabled="testingFeishu" @click="testFeishuWebhook">
+              {{ testingFeishu ? '测试中...' : '测试 Webhook' }}
+            </button>
+            <span class="hint">飞书群机器人的 Webhook 地址，用于发送通知</span>
+          </div>
+
+          <div class="form-group">
+            <label>App ID</label>
+            <input
+              v-model="config.feishu_app_id"
+              type="text"
+              placeholder="cli_xxxxxxxxx（多维表格回写用，不需要可留空）"
+            />
+          </div>
+
+          <div class="form-group">
+            <label>App Secret</label>
+            <input
+              v-model="config.feishu_app_secret"
+              type="password"
+              placeholder="飞书应用密钥（不需要可留空）"
+            />
+          </div>
+
+          <div class="form-group">
+            <label>多维表格 App Token</label>
+            <input
+              v-model="config.feishu_bitable_app_token"
+              type="text"
+              placeholder="bascnxxxxxxxxx（不需要可留空）"
+            />
+          </div>
+
+          <div class="form-group">
+            <label>多维表格 Table ID</label>
+            <input
+              v-model="config.feishu_bitable_table_id"
+              type="text"
+              placeholder="tblxxxxxxxxx（不需要可留空）"
+            />
           </div>
         </div>
 

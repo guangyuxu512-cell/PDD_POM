@@ -19,7 +19,7 @@ def 读取文件(相对路径: str) -> str:
 
 
 class 测试_系统设置机器码静态:
-    """校验系统设置页和系统服务已接入机器码。"""
+    """校验系统设置页和系统服务已接入机器码与飞书配置。"""
 
     def test_设置页_包含机器码输入与提示(self):
         页面文件 = 读取文件("frontend/src/views/Settings.vue")
@@ -32,6 +32,39 @@ class 测试_系统设置机器码静态:
             'v-model="config.agent_machine_id"',
             "office-pc-001",
             "修改后需重启 Worker 生效",
+        ]:
+            assert 关键字 in 页面文件
+
+    def test_设置页_包含飞书配置区块与测试按钮(self):
+        页面文件 = 读取文件("frontend/src/views/Settings.vue")
+
+        for 关键字 in [
+            "feishu_webhook_url?: string",
+            "feishu_app_id?: string",
+            "feishu_app_secret?: string",
+            "feishu_bitable_app_token?: string",
+            "feishu_bitable_table_id?: string",
+            "feishu_webhook_url: ''",
+            "feishu_app_id: ''",
+            "feishu_app_secret: ''",
+            "feishu_bitable_app_token: ''",
+            "feishu_bitable_table_id: ''",
+            "feishu_webhook_url: data.feishu_webhook_url || ''",
+            "feishu_app_id: data.feishu_app_id || ''",
+            "feishu_app_secret: data.feishu_app_secret || ''",
+            "feishu_bitable_app_token: data.feishu_bitable_app_token || ''",
+            "feishu_bitable_table_id: data.feishu_bitable_table_id || ''",
+            "const testingFeishu = ref(false)",
+            "const testFeishuWebhook = async () => {",
+            "/api/feishu/test-webhook",
+            "飞书配置",
+            "Webhook 地址",
+            "测试 Webhook",
+            "App ID",
+            "App Secret",
+            "多维表格 App Token",
+            "多维表格 Table ID",
+            "飞书群机器人的 Webhook 地址，用于发送通知",
         ]:
             assert 关键字 in 页面文件
 
