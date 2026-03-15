@@ -32,15 +32,15 @@ class 测试_任务参数管理页:
         ]:
             assert 导出名称 in API文件
 
-    def test_路由和侧边栏_注册任务参数管理页(self):
-        """router 和 App 导航都应包含 /task-params 入口。"""
+    def test_路由保留_task_params_重定向_且侧边栏迁移到_data(self):
+        """router 应保留 /task-params 重定向，App 导航切换到 /data。"""
         路由文件 = 读取文件("frontend/src/router/index.ts")
         入口文件 = 读取文件("frontend/src/App.vue")
 
         assert "path: '/task-params'" in 路由文件
-        assert "TaskParamsManage.vue" in 路由文件
-        assert 'to="/task-params"' in 入口文件
-        assert "任务参数" in 入口文件
+        assert "redirect: '/data?tab=params'" in 路由文件
+        assert 'to="/data"' in 入口文件
+        assert "数据管理" in 入口文件
 
     def test_页面骨架_包含筛选导入清空和模板说明(self):
         """任务参数页应包含本轮要求的关键交互。"""

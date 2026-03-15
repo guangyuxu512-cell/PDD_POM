@@ -2002,3 +2002,82 @@
 - 已执行全量测试：`python -m pytest -c tests/pytest.ini -q`，结果 `285 passed, 16 warnings`
 - 16 条 warning 仍为既有存量：10 条来自第三方 `openpyxl`，6 条来自 Celery `datetime.utcnow()` 弃用提示
 - 工作区仍存在 `.pipeline/task.md`、`data/ecom.db`、`__pycache__/` 等本地运行副产物，非本轮交付代码
+
+---
+
+## 任务摘要
+
+完成 Task 41：前端侧边栏从 10 个菜单项重组为 5 个主菜单，并通过 3 个 Tab 容器页复用现有业务页面。
+
+## 改动文件列表
+
+- `frontend/src/App.vue`
+- `frontend/src/router/index.ts`
+- `frontend/src/views/BusinessManage.vue`
+- `frontend/src/views/DataManage.vue`
+- `frontend/src/views/MonitorManage.vue`
+- `frontend/src/views/FlowManage.vue`
+- `frontend/src/views/BatchExecute.vue`
+- `frontend/src/views/ScheduleManage.vue`
+- `frontend/src/views/TaskParamsManage.vue`
+- `frontend/src/views/LogViewer.vue`
+- `frontend/src/views/TaskMonitor.vue`
+- `tests/单元测试/测试_前端管理页.py`
+- `tests/单元测试/测试_任务参数管理页.py`
+- `PLAN.md`
+- `改造进度.md`
+- `.pipeline/progress.md`
+
+## 改动说明
+
+- `frontend/src/App.vue`
+  - 侧边栏从 10 个入口精简为 5 个：
+    - `/shops`
+    - `/business`
+    - `/data`
+    - `/monitor`
+    - `/settings`
+- `frontend/src/router/index.ts`
+  - 根路径 `/` 改为重定向 `/shops`
+  - 新增 3 个容器页路由：`/business`、`/data`、`/monitor`
+  - 保留 `/browser`、`/dashboard` 隐藏路由
+  - 旧页面路径改为重定向到新容器页对应 Tab：
+    - `/flows -> /business?tab=flow`
+    - `/execute -> /business?tab=execute`
+    - `/schedules -> /business?tab=schedule`
+    - `/task-params -> /data?tab=params`
+    - `/logs -> /monitor?tab=logs`
+    - `/tasks -> /monitor?tab=monitor`
+- `frontend/src/views/BusinessManage.vue`
+  - 新建业务管理容器页，整合 `FlowManage`、`BatchExecute`、`ScheduleManage`
+  - 通过 query 参数同步当前 Tab
+- `frontend/src/views/DataManage.vue`
+  - 新建数据管理容器页，整合 `TaskParamsManage`
+  - `规则配置` 先用占位内容承接
+- `frontend/src/views/MonitorManage.vue`
+  - 新建运行监控容器页，整合 `LogViewer`、`TaskMonitor`
+- `frontend/src/views/FlowManage.vue` / `frontend/src/views/BatchExecute.vue` / `frontend/src/views/ScheduleManage.vue` / `frontend/src/views/TaskParamsManage.vue` / `frontend/src/views/LogViewer.vue` / `frontend/src/views/TaskMonitor.vue`
+  - 全部增加 `showTitle?: boolean`
+  - 容器页嵌入时传 `false`，隐藏子页面自身标题区，避免双标题
+- `tests/单元测试/测试_前端管理页.py`
+  - 更新为校验 5 个主菜单、3 个容器页和旧路径重定向
+- `tests/单元测试/测试_任务参数管理页.py`
+  - 更新为校验 `/task-params` 已改为重定向 `/data?tab=params`
+
+## 影响范围
+
+- 侧边栏从 10 个入口收敛为 5 个主菜单，导航层级更浅
+- 流程管理、批量执行、定时任务合并到“业务管理”
+- CSV 导入 / 执行结果 / 流程参数入口合并到“数据管理”
+- 日志与任务监控合并到“运行监控”
+- 旧地址仍可访问，但会自动跳转到新容器页对应 Tab
+
+## 注意事项
+
+- 本轮未删除任何现有 Vue 文件，只通过容器页复用
+- `规则配置` Tab 当前为占位内容，后续再承接真实功能
+- 已执行针对性回归：`python -m pytest -c tests/pytest.ini -q tests/单元测试/测试_前端管理页.py tests/单元测试/测试_前端显示细节.py tests/单元测试/测试_任务参数管理页.py tests/单元测试/测试_流程参数管理页静态.py`，结果 `10 passed`
+- 已执行前端类型检查：`cd frontend && npx vue-tsc -b`
+- 已执行全量测试：`python -m pytest -c tests/pytest.ini -q`，结果 `285 passed, 16 warnings`
+- 16 条 warning 仍为既有存量：10 条来自第三方 `openpyxl`，6 条来自 Celery `datetime.utcnow()` 弃用提示
+- 工作区仍存在 `.pipeline/task.md`、`data/ecom.db`、`__pycache__/` 等本地运行副产物，非本轮交付代码

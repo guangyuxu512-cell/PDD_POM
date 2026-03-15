@@ -5,8 +5,7 @@ const router = createRouter({
   routes: [
     {
       path: '/',
-      name: 'Dashboard',
-      component: () => import('../views/Dashboard.vue')
+      redirect: '/shops'
     },
     {
       path: '/shops',
@@ -14,19 +13,48 @@ const router = createRouter({
       component: () => import('../views/ShopManage.vue')
     },
     {
+      path: '/business',
+      name: 'BusinessManage',
+      component: () => import('../views/BusinessManage.vue')
+    },
+    {
+      path: '/data',
+      name: 'DataManage',
+      component: () => import('../views/DataManage.vue')
+    },
+    {
+      path: '/monitor',
+      name: 'MonitorManage',
+      component: () => import('../views/MonitorManage.vue')
+    },
+    {
+      path: '/settings',
+      name: 'Settings',
+      component: () => import('../views/Settings.vue')
+    },
+    {
       path: '/flows',
-      name: 'FlowManage',
-      component: () => import('../views/FlowManage.vue')
+      redirect: '/business?tab=flow'
     },
     {
       path: '/execute',
-      name: 'BatchExecute',
-      component: () => import('../views/BatchExecute.vue')
+      redirect: '/business?tab=execute'
     },
     {
       path: '/schedules',
-      name: 'ScheduleManage',
-      component: () => import('../views/ScheduleManage.vue')
+      redirect: '/business?tab=schedule'
+    },
+    {
+      path: '/task-params',
+      redirect: '/data?tab=params'
+    },
+    {
+      path: '/logs',
+      redirect: '/monitor?tab=logs'
+    },
+    {
+      path: '/tasks',
+      redirect: '/monitor?tab=monitor'
     },
     {
       path: '/browser',
@@ -34,24 +62,9 @@ const router = createRouter({
       component: () => import('../views/BrowserManager.vue')
     },
     {
-      path: '/tasks',
-      name: 'TaskMonitor',
-      component: () => import('../views/TaskMonitor.vue')
-    },
-    {
-      path: '/task-params',
-      name: 'TaskParamsManage',
-      component: () => import('../views/TaskParamsManage.vue')
-    },
-    {
-      path: '/logs',
-      name: 'LogViewer',
-      component: () => import('../views/LogViewer.vue')
-    },
-    {
-      path: '/settings',
-      name: 'Settings',
-      component: () => import('../views/Settings.vue')
+      path: '/dashboard',
+      name: 'Dashboard',
+      component: () => import('../views/Dashboard.vue')
     }
   ]
 })

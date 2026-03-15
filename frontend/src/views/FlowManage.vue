@@ -43,6 +43,10 @@ const failurePolicyOptions: Array<{ value: FailurePolicy; label: string }> = [
   { value: 'abort', label: '终止全部' },
 ]
 
+const props = withDefaults(defineProps<{ showTitle?: boolean }>(), {
+  showTitle: true,
+})
+
 const form = ref<FlowFormModel>({
   name: '',
   description: '',
@@ -312,7 +316,7 @@ onMounted(() => {
 <template>
   <div class="page">
     <header class="page-header">
-      <div>
+      <div v-if="props.showTitle">
         <p class="eyebrow">Flow Builder</p>
         <h1>流程模板</h1>
         <p class="page-description">按任务注册表动态编排步骤，支持拖拽排序、复制和失败策略配置。</p>

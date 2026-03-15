@@ -36,43 +36,74 @@ class 测试_前端管理页:
             for 导出名称 in 导出名称列表:
                 assert 导出名称 in 文件内容, f"{相对路径} 缺少 {导出名称}"
 
-    def test_路由和侧边栏_注册四个管理页(self):
-        """router 和 App 导航都应包含 shops/flows/execute/schedules。"""
+    def test_路由和侧边栏_重组为五个主菜单(self):
+        """router 和 App 导航应切换到 shops/business/data/monitor/settings 五个主菜单。"""
         路由文件 = 读取文件("frontend/src/router/index.ts")
         入口文件 = 读取文件("frontend/src/App.vue")
 
-        for 路径 in ["/shops", "/flows", "/execute", "/schedules"]:
+        for 路径 in ["/shops", "/business", "/data", "/monitor", "/settings"]:
             assert f"path: '{路径}'" in 路由文件
             assert f'to="{路径}"' in 入口文件
 
         for 视图文件 in [
             "ShopManage.vue",
-            "FlowManage.vue",
-            "BatchExecute.vue",
-            "ScheduleManage.vue",
+            "BusinessManage.vue",
+            "DataManage.vue",
+            "MonitorManage.vue",
+            "Settings.vue",
         ]:
             assert 视图文件 in 路由文件
 
-    def test_新页面_包含关键交互骨架(self):
-        """关键视图应包含本轮要求的核心交互入口。"""
+        for 旧路径, 新路径 in {
+            "/flows": "/business?tab=flow",
+            "/execute": "/business?tab=execute",
+            "/schedules": "/business?tab=schedule",
+            "/task-params": "/data?tab=params",
+            "/logs": "/monitor?tab=logs",
+            "/tasks": "/monitor?tab=monitor",
+        }.items():
+            assert f"path: '{旧路径}'" in 路由文件
+            assert f"redirect: '{新路径}'" in 路由文件
+
+        assert "path: '/dashboard'" in 路由文件
+        assert "path: '/browser'" in 路由文件
+
+    def test_容器页_包含关键交互骨架(self):
+        """新的容器页应包含 Tab 容器并嵌入现有页面。"""
         店铺页 = 读取文件("frontend/src/views/ShopManage.vue")
-        流程页 = 读取文件("frontend/src/views/FlowManage.vue")
-        批量页 = 读取文件("frontend/src/views/BatchExecute.vue")
-        定时页 = 读取文件("frontend/src/views/ScheduleManage.vue")
+        业务页 = 读取文件("frontend/src/views/BusinessManage.vue")
+        数据页 = 读取文件("frontend/src/views/DataManage.vue")
+        监控页 = 读取文件("frontend/src/views/MonitorManage.vue")
 
         assert "新增店铺" in 店铺页
         assert "删除店铺" in 店铺页
 
-        assert 'draggable="true"' in 流程页
-        assert "listAvailableTasks" in 流程页
-        assert "retry:N" in 流程页
-        assert "同步屏障" in 流程页
-        assert "合并执行" in 流程页
+        for 关键字 in [
+            "业务管理",
+            "FlowManage",
+            "BatchExecute",
+            "ScheduleManage",
+            ":show-title=\"false\"",
+            "流程管理",
+            "批量执行",
+            "定时任务",
+        ]:
+            assert 关键字 in 业务页
 
-        assert "createBatchStatusEventSource" in 批量页
-        assert "全部停止" in 批量页
-        assert "实时进度" in 批量页
+        for 关键字 in [
+            "数据管理",
+            "TaskParamsManage",
+            "CSV导入 / 执行结果",
+            "规则配置",
+            "规则配置功能开发中",
+        ]:
+            assert 关键字 in 数据页
 
-        assert "pauseSchedule" in 定时页
-        assert "resumeSchedule" in 定时页
-        assert "Cron 表达式" in 定时页
+        for 关键字 in [
+            "运行监控",
+            "LogViewer",
+            "TaskMonitor",
+            "运行日志",
+            "任务监控",
+        ]:
+            assert 关键字 in 监控页

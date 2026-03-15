@@ -38,6 +38,10 @@ const batchSnapshot = ref<BatchSnapshot | null>(null)
 const currentBatchId = ref('')
 const shopTimeline = ref<Record<string, ShopTimeline>>({})
 
+const props = withDefaults(defineProps<{ showTitle?: boolean }>(), {
+  showTitle: true,
+})
+
 let statusSource: EventSource | null = null
 
 const totalShops = computed(() => shops.value.length)
@@ -337,7 +341,7 @@ onUnmounted(() => {
 <template>
   <div class="page">
     <header class="page-header">
-      <div>
+      <div v-if="props.showTitle">
         <p class="eyebrow">Execution Console</p>
         <h1>批量执行</h1>
         <p class="page-description">在流程模板和单任务模式之间切换，并通过 SSE 实时查看批次进度。</p>

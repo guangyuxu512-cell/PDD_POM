@@ -29,6 +29,10 @@ const triggerForm = ref({
   task_name: '登录'
 })
 
+const props = withDefaults(defineProps<{ showTitle?: boolean }>(), {
+  showTitle: true,
+})
+
 let refreshTimer: number | null = null
 
 const loadTasks = async () => {
@@ -144,7 +148,7 @@ onUnmounted(() => {
 <template>
   <div class="task-monitor">
     <div class="header">
-      <h1>任务监控</h1>
+      <h1 v-if="props.showTitle">任务监控</h1>
       <div class="header-actions">
         <button class="btn btn-secondary" @click="handleClearHistory">清空历史</button>
         <button class="btn btn-primary" @click="openTriggerModal">手动触发</button>

@@ -105,6 +105,10 @@ const jsonTooltip = ref<JsonTooltipState>({
 const expandedStepResultKey = ref<string | null>(null)
 let tooltipHideTimer: ReturnType<typeof setTimeout> | null = null
 
+const props = withDefaults(defineProps<{ showTitle?: boolean }>(), {
+  showTitle: true,
+})
+
 const taskListFilters = ref({
   task_name: '',
   status: '',
@@ -1048,7 +1052,7 @@ onBeforeUnmount(() => {
 <template>
   <div class="task-params-manage">
     <div class="header">
-      <div>
+      <div v-if="props.showTitle">
         <h1>任务参数管理</h1>
         <p class="header-tip">导入后的记录会长期保留，可按需禁用、重置或查看执行结果。</p>
       </div>

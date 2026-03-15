@@ -40,6 +40,10 @@ const showDeleteConfirm = ref(false)
 const editingSchedule = ref<Schedule | null>(null)
 const deletingSchedule = ref<Schedule | null>(null)
 
+const props = withDefaults(defineProps<{ showTitle?: boolean }>(), {
+  showTitle: true,
+})
+
 const form = ref<ScheduleFormModel>({
   name: '',
   flowId: '',
@@ -338,7 +342,7 @@ onMounted(() => {
 <template>
   <div class="page">
     <header class="page-header">
-      <div>
+      <div v-if="props.showTitle">
         <p class="eyebrow">Schedule Control</p>
         <h1>定时任务</h1>
         <p class="page-description">

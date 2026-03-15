@@ -1994,3 +1994,27 @@
 - [x] 验证通过：在 `frontend/` 目录执行 `npx vue-tsc -b`
 - [x] 验证通过：`python -m pytest -c tests/pytest.ini -q`
 - [x] 全量验证结果：`285 passed, 16 warnings`（10 条为第三方 `openpyxl` 警告，6 条为现有 Celery 警告）
+
+## Prompt 91：Task 41 前端菜单重构 — 10 合 5 ✅
+
+- [x] 更新 `frontend/src/App.vue`，侧边栏从 10 项精简为 5 项
+- [x] 更新 `frontend/src/router/index.ts`，新增 `/business`、`/data`、`/monitor`
+- [x] 更新 `frontend/src/router/index.ts`，根路径改为重定向 `/shops`
+- [x] 更新 `frontend/src/router/index.ts`，保留 `/browser`、`/dashboard` 隐藏路由
+- [x] 更新 `frontend/src/router/index.ts`，旧的 `/flows`、`/execute`、`/schedules`、`/task-params`、`/logs`、`/tasks` 改为重定向到新容器页对应 Tab
+- [x] 新建 `frontend/src/views/BusinessManage.vue`
+- [x] 新建 `frontend/src/views/DataManage.vue`
+- [x] 新建 `frontend/src/views/MonitorManage.vue`
+- [x] 更新 `frontend/src/views/FlowManage.vue`，增加 `showTitle` 适配
+- [x] 更新 `frontend/src/views/BatchExecute.vue`，增加 `showTitle` 适配
+- [x] 更新 `frontend/src/views/ScheduleManage.vue`，增加 `showTitle` 适配
+- [x] 更新 `frontend/src/views/TaskParamsManage.vue`，增加 `showTitle` 适配
+- [x] 更新 `frontend/src/views/LogViewer.vue`，增加 `showTitle` 适配
+- [x] 更新 `frontend/src/views/TaskMonitor.vue`，增加 `showTitle` 适配
+- [x] 更新 `tests/单元测试/测试_前端管理页.py`
+- [x] 更新 `tests/单元测试/测试_任务参数管理页.py`
+- [x] 针对性验证通过：`python -m pytest -c tests/pytest.ini -q tests/单元测试/测试_前端管理页.py tests/单元测试/测试_前端显示细节.py tests/单元测试/测试_任务参数管理页.py tests/单元测试/测试_流程参数管理页静态.py`
+- [x] 针对性验证结果：`10 passed`
+- [x] 验证通过：在 `frontend/` 目录执行 `npx vue-tsc -b`
+- [x] 验证通过：`python -m pytest -c tests/pytest.ini -q`
+- [x] 全量验证结果：`285 passed, 16 warnings`（10 条为第三方 `openpyxl` 警告，6 条为现有 Celery 警告）

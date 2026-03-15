@@ -29,6 +29,10 @@ const loading = ref(false)
 const showClearConfirm = ref(false)
 let realtimeInterval: number | null = null
 
+const props = withDefaults(defineProps<{ showTitle?: boolean }>(), {
+  showTitle: true,
+})
+
 // 获取所有店铺列表（用于筛选）
 const shopList = computed(() => {
   const shops = new Set<string>()
@@ -138,7 +142,7 @@ onUnmounted(() => {
 <template>
   <div class="log-viewer">
     <div class="header">
-      <h1>日志查看</h1>
+      <h1 v-if="props.showTitle">日志查看</h1>
       <div class="header-actions">
         <button class="btn btn-secondary" @click="handleExport">📥 导出CSV</button>
         <button class="btn btn-danger" @click="showClearConfirm = true">🗑️ 清空日志</button>

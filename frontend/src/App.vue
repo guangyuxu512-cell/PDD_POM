@@ -7,41 +7,21 @@ import Toast from './components/Toast.vue'
     <aside class="sidebar">
       <div class="logo">自动化工作台</div>
       <nav class="nav">
-        <router-link to="/" class="nav-item" exact>
-          <span class="icon">📊</span>
-          <span>仪表盘</span>
-        </router-link>
         <router-link to="/shops" class="nav-item">
           <span class="icon">🏪</span>
           <span>店铺管理</span>
         </router-link>
-        <router-link to="/flows" class="nav-item">
-          <span class="icon">🧩</span>
-          <span>流程模板</span>
-        </router-link>
-        <router-link to="/execute" class="nav-item">
-          <span class="icon">⚡</span>
-          <span>批量执行</span>
-        </router-link>
-        <router-link to="/schedules" class="nav-item">
-          <span class="icon">⏰</span>
-          <span>定时任务</span>
-        </router-link>
-        <router-link to="/browser" class="nav-item">
-          <span class="icon">🌐</span>
-          <span>浏览器</span>
-        </router-link>
-        <router-link to="/tasks" class="nav-item">
+        <router-link to="/business" class="nav-item">
           <span class="icon">📋</span>
-          <span>任务监控</span>
+          <span>业务管理</span>
         </router-link>
-        <router-link to="/task-params" class="nav-item">
-          <span class="icon">🗂️</span>
-          <span>任务参数</span>
+        <router-link to="/data" class="nav-item">
+          <span class="icon">📁</span>
+          <span>数据管理</span>
         </router-link>
-        <router-link to="/logs" class="nav-item">
-          <span class="icon">📝</span>
-          <span>日志</span>
+        <router-link to="/monitor" class="nav-item">
+          <span class="icon">📊</span>
+          <span>运行监控</span>
         </router-link>
         <router-link to="/settings" class="nav-item">
           <span class="icon">⚙️</span>
