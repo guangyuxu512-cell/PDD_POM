@@ -202,6 +202,7 @@ class 测试_执行服务:
 
         with patch.object(服务, "获取最新批次状态", new=AsyncMock(return_value=原始批次.copy())), \
                 patch.object(服务, "_写入批次状态", new=AsyncMock(side_effect=假写入批次状态)), \
+                patch("backend.services.执行服务.设置取消标记", new=AsyncMock(return_value=True)) as 模拟设置取消标记, \
                 patch("backend.services.执行服务.celery应用.control.revoke") as 模拟撤销:
             结果 = await 服务.停止批次()
 
@@ -210,6 +211,7 @@ class 测试_执行服务:
         assert 已写入批次["shops"]["shop-1"]["status"] == "stopped"
         assert 已写入批次["shops"]["shop-2"]["status"] == "stopped"
         assert 已写入批次["shops"]["shop-3"]["status"] == "completed"
+        模拟设置取消标记.assert_awaited_once_with("batch-1")
         模拟撤销.assert_has_calls(
             [
                 call("task-1", terminate=False),

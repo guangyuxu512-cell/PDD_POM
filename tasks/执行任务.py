@@ -13,7 +13,7 @@ import httpx
 
 from backend.配置 import 配置实例
 from tasks.celery应用 import celery应用, 初始化Worker环境
-from backend.services.执行服务 import 同步更新批次店铺状态
+from backend.services.执行服务 import 同步更新批次店铺状态, 同步检查取消标记
 from tasks.注册表 import 获取任务类
 
 
@@ -146,6 +146,25 @@ def 执行任务(
         执行结果 = 响应数据.get("data") or {}
     if shop_name is not None:
         执行结果.setdefault("shop_name", 展示店铺名)
+
+    if batch_id and (同步检查取消标记(batch_id) or 执行结果.get("status") == "cancelled"):
+        同步更新批次店铺状态(
+            batch_id,
+            shop_id,
+            step_index=step_index,
+            task_name=task_name,
+            shop_status="stopped",
+            error="用户手动停止",
+        )
+        返回结果 = {
+            "status": "cancelled",
+            "shop_id": shop_id,
+            "task_name": task_name,
+            "error": "用户手动停止",
+        }
+        if shop_name is not None:
+            返回结果["shop_name"] = 展示店铺名
+        return 返回结果
 
     if 执行结果["status"] == "completed":
         if batch_id:

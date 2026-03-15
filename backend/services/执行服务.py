@@ -29,11 +29,13 @@ from tasks.celery应用 import celery应用
 当前批次键 = "execute:current"
 批次键前缀 = "execute:batch"
 批次回调键前缀 = "execute:callback"
+批次取消键前缀 = "execute:cancel"
 执行状态心跳标记 = "__keepalive__"
 执行状态心跳间隔秒 = 15.0
 默认Agent回调地址 = "http://localhost:8001"
 批次回调超时秒 = 10.0
 批次回调标记过期秒 = 86400
+批次取消标记过期秒 = 3600
 
 
 def 批次状态键(batch_id: str) -> str:
@@ -44,6 +46,11 @@ def 批次状态键(batch_id: str) -> str:
 def 批次回调标记键(batch_id: str) -> str:
     """生成批次回调去重键。"""
     return f"{批次回调键前缀}:{batch_id}"
+
+
+def 批次取消键(batch_id: str) -> str:
+    """生成批次取消标记键。"""
+    return f"{批次取消键前缀}:{batch_id}"
 
 
 def 获取默认机器编号() -> str:
@@ -361,6 +368,102 @@ def 同步更新批次店铺状态(
     return 同步写入批次状态(更新后数据)
 
 
+def 同步设置取消标记(batch_id: str) -> bool:
+    """为批次写入取消标记，供 Worker 与主进程跨进程读取。"""
+    if not str(batch_id or "").strip():
+        return False
+
+    客户端 = 同步获取Redis客户端()
+    try:
+        return bool(
+            客户端.set(
+                批次取消键(batch_id),
+                "1",
+                ex=批次取消标记过期秒,
+            )
+        )
+    finally:
+        客户端.close()
+
+
+def 同步检查取消标记(batch_id: str) -> bool:
+    """同步检查批次是否已被标记为取消。"""
+    if not str(batch_id or "").strip():
+        return False
+
+    客户端 = 同步获取Redis客户端()
+    try:
+        return 客户端.get(批次取消键(batch_id)) == "1"
+    finally:
+        客户端.close()
+
+
+def 同步清除取消标记(batch_id: str) -> bool:
+    """同步清理批次取消标记。"""
+    if not str(batch_id or "").strip():
+        return False
+
+    客户端 = 同步获取Redis客户端()
+    try:
+        return bool(客户端.delete(批次取消键(batch_id)))
+    finally:
+        客户端.close()
+
+
+async def 设置取消标记(batch_id: str) -> bool:
+    """异步设置批次取消标记。"""
+    if not str(batch_id or "").strip():
+        return False
+
+    客户端 = aioredis.from_url(配置实例.REDIS_URL, decode_responses=True)
+    try:
+        return bool(
+            await 客户端.set(
+                批次取消键(batch_id),
+                "1",
+                ex=批次取消标记过期秒,
+            )
+        )
+    finally:
+        关闭方法 = getattr(客户端, "aclose", None)
+        if callable(关闭方法):
+            await 关闭方法()
+        else:
+            await 客户端.close()
+
+
+async def 检查取消标记(batch_id: str) -> bool:
+    """异步检查批次是否已被标记为取消。"""
+    if not str(batch_id or "").strip():
+        return False
+
+    客户端 = aioredis.from_url(配置实例.REDIS_URL, decode_responses=True)
+    try:
+        return await 客户端.get(批次取消键(batch_id)) == "1"
+    finally:
+        关闭方法 = getattr(客户端, "aclose", None)
+        if callable(关闭方法):
+            await 关闭方法()
+        else:
+            await 客户端.close()
+
+
+async def 清除取消标记(batch_id: str) -> bool:
+    """异步清理批次取消标记。"""
+    if not str(batch_id or "").strip():
+        return False
+
+    客户端 = aioredis.from_url(配置实例.REDIS_URL, decode_responses=True)
+    try:
+        return bool(await 客户端.delete(批次取消键(batch_id)))
+    finally:
+        关闭方法 = getattr(客户端, "aclose", None)
+        if callable(关闭方法):
+            await 关闭方法()
+        else:
+            await 客户端.close()
+
+
 class 执行服务:
     """批量执行与执行状态服务。"""
 
@@ -672,6 +775,8 @@ class 执行服务:
         if not 批次数据:
             raise ValueError("没有可停止的批次")
 
+        await 设置取消标记(str(批次数据["batch_id"]))
+
         for 任务ID in 批次数据.get("task_ids", []):
             if 任务ID:
                 celery应用.control.revoke(任务ID, terminate=False)
@@ -744,7 +849,14 @@ __all__ = [
     "发送批次完成回调",
     "尝试发送批次完成回调",
     "获取队列名称",
+    "批次取消键",
     "同步读取批次状态",
+    "同步设置取消标记",
+    "同步检查取消标记",
+    "同步清除取消标记",
     "同步写入批次状态",
     "同步更新批次店铺状态",
+    "设置取消标记",
+    "检查取消标记",
+    "清除取消标记",
 ]

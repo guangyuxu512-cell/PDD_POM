@@ -1,9 +1,15 @@
-2026/03/15-07:41:22.389 81ec Reusing MANIFEST E:\pdd_zd\data\profiles\8eec98e4-89b9-49d5-ab1f-c72be3c405f6\Default\Session Storage/MANIFEST-000001
-2026/03/15-07:41:22.390 81ec Recovering log #74
-2026/03/15-07:41:22.391 81ec Reusing old log E:\pdd_zd\data\profiles\8eec98e4-89b9-49d5-ab1f-c72be3c405f6\Default\Session Storage/000074.log 
-2026/03/15-07:41:40.862 67f0 Level-0 table #78: started
-2026/03/15-07:41:40.891 67f0 Level-0 table #78: 12287 bytes OK
-2026/03/15-07:41:40.910 67f0 Delete type=0 #74
-2026/03/15-07:45:25.679 67f0 Level-0 table #80: started
-2026/03/15-07:45:25.711 67f0 Level-0 table #80: 13712 bytes OK
-2026/03/15-07:45:25.732 67f0 Delete type=0 #77
+2026/03/15-08:03:35.175 5a5c Reusing MANIFEST E:\pdd_zd\data\profiles\8eec98e4-89b9-49d5-ab1f-c72be3c405f6\Default\Session Storage/MANIFEST-000001
+2026/03/15-08:03:35.176 5a5c Recovering log #79
+2026/03/15-08:03:35.177 5a5c Reusing old log E:\pdd_zd\data\profiles\8eec98e4-89b9-49d5-ab1f-c72be3c405f6\Default\Session Storage/000079.log 
+2026/03/15-08:04:38.440 8260 Level-0 table #83: started
+2026/03/15-08:04:38.482 8260 Level-0 table #83: 14501 bytes OK
+2026/03/15-08:04:38.508 8260 Delete type=0 #79
+2026/03/15-08:04:38.508 8260 Compacting 4@0 + 1@1 files
+2026/03/15-08:04:38.533 8260 Generated table #84@0: 83 keys, 7181 bytes
+2026/03/15-08:04:38.533 8260 Compacted 4@0 + 1@1 files => 7181 bytes
+2026/03/15-08:04:38.557 8260 compacted to: files[ 0 1 0 0 0 0 0 ]
+2026/03/15-08:04:38.558 8260 Delete type=2 #72
+2026/03/15-08:04:38.558 8260 Delete type=2 #75
+2026/03/15-08:04:38.558 8260 Delete type=2 #78
+2026/03/15-08:04:38.558 8260 Delete type=2 #80
+2026/03/15-08:04:38.558 8260 Delete type=2 #83

@@ -1954,3 +1954,22 @@
 - [x] 针对性验证结果：`26 passed`
 - [x] 验证通过：`python -m pytest -c tests/pytest.ini -q`
 - [x] 全量验证结果：`275 passed, 16 warnings`（10 条为第三方 `openpyxl` 警告，6 条为现有 Celery 警告）
+
+## Prompt 89：Task 39 前端停止任务真正生效 ✅
+
+- [x] 更新 `backend/services/执行服务.py`，新增批次取消标记 Redis 键与同步/异步读写函数
+- [x] 更新 `backend/services/执行服务.py`，`停止批次()` 在 `revoke` 之前先写入取消标记
+- [x] 更新 `backend/services/任务服务.py`，新增异步取消检查辅助方法
+- [x] 更新 `backend/services/任务服务.py`，单任务执行前检测取消信号并返回 `cancelled`
+- [x] 更新 `backend/services/任务服务.py`，barrier 循环在每条记录前和记录结束后检测取消信号
+- [x] 更新 `backend/services/任务服务.py`，flow 步骤完成后若批次已取消则不再推进下一步
+- [x] 更新 `tasks/执行任务.py`，HTTP 委托返回后检查取消标记并将批次店铺状态写为 `stopped`
+- [x] 更新 `tests/单元测试/测试_执行服务.py`
+- [x] 更新 `tests/单元测试/测试_执行任务.py`
+- [x] 更新 `tests/单元测试/测试_任务服务.py`
+- [x] 针对性验证通过：`python -m pytest -c tests/pytest.ini -q tests/单元测试/测试_执行服务.py tests/单元测试/测试_执行任务.py tests/单元测试/测试_任务服务.py tests/单元测试/测试_任务服务浏览器复用与后续任务.py`
+- [x] 针对性验证结果：`27 passed`
+- [x] 邻近回归验证通过：`python -m pytest -c tests/pytest.ini -q tests/单元测试/测试_批量执行回调.py tests/单元测试/测试_批量执行店铺名.py tests/单元测试/测试_执行任务.py tests/单元测试/测试_流程参数服务.py tests/单元测试/测试_任务接口内部执行.py`
+- [x] 邻近回归验证结果：`24 passed`
+- [x] 验证通过：`python -m pytest -c tests/pytest.ini -q`
+- [x] 全量验证结果：`279 passed, 16 warnings`（10 条为第三方 `openpyxl` 警告，6 条为现有 Celery 警告）

@@ -1876,3 +1876,60 @@
 - 已执行全量测试：首次全量回归命中过一条已知计时精度波动用例，单独复跑通过后再次执行全量 `python -m pytest -c tests/pytest.ini -q`，结果 `275 passed, 16 warnings`
 - 16 条 warning 仍为既有存量：10 条来自第三方 `openpyxl`，6 条来自 Celery `datetime.utcnow()` 弃用提示
 - 工作区仍存在 `.pipeline/task.md`、`data/ecom.db`、`__pycache__/` 等本地运行副产物，非本轮交付代码
+
+---
+
+## 任务摘要
+
+完成 Task 39：让前端点击“停止”后通过 Redis 取消标记在操作边界真正停止，不再继续下一条任务或下一步投递。
+
+## 改动文件列表
+
+- `backend/services/执行服务.py`
+- `backend/services/任务服务.py`
+- `tasks/执行任务.py`
+- `tests/单元测试/测试_执行服务.py`
+- `tests/单元测试/测试_执行任务.py`
+- `tests/单元测试/测试_任务服务.py`
+- `PLAN.md`
+- `改造进度.md`
+- `.pipeline/progress.md`
+
+## 改动说明
+
+- `backend/services/执行服务.py`
+  - 新增批次取消标记 Redis 键前缀 `execute:cancel:{batch_id}`
+  - 新增同步/异步版本的取消标记读写函数
+  - `停止批次()` 会在 `revoke` 前先写入取消标记，TTL 为 `3600` 秒
+- `backend/services/任务服务.py`
+  - 新增 `_已收到批次取消(...)` 和统一的取消返回结构
+  - 单任务执行前检查取消标记，命中后直接返回 `cancelled`
+  - barrier 循环模式在每条记录前和记录完成后检查取消标记
+  - flow 步骤完成后若批次已取消，则不再推进下一步
+  - `统一执行任务()` 在真正执行任务前检测取消并将任务日志写为 `cancelled`
+- `tasks/执行任务.py`
+  - HTTP 委托返回后新增同步取消标记检查
+  - 批次已取消时，将店铺状态写为 `stopped`，并返回 `cancelled`
+- `tests/单元测试/测试_执行服务.py`
+  - 新增断言验证 `停止批次()` 会写入取消标记
+- `tests/单元测试/测试_执行任务.py`
+  - 新增 Worker 在 HTTP 返回后检测到取消时返回 `cancelled` 的测试
+- `tests/单元测试/测试_任务服务.py`
+  - 新增单任务执行前取消测试
+  - 新增 barrier 循环执行中第一条完成后取消、不再继续下一条的测试
+  - 新增 `统一执行任务()` 执行前取消时写为 `cancelled` 的测试
+
+## 影响范围
+
+- 前端点击“停止”后，不再只依赖 `revoke`，主进程和 Worker 都能看到同一份取消标记
+- 当前页面操作允许完成，但后续不会再继续下一条记录或下一步流程
+- 批量执行页的店铺状态会在取消后写成 `stopped`
+
+## 注意事项
+
+- 本轮未使用 `revoke(terminate=True)`，避免强杀进程导致浏览器残留
+- 已执行针对性回归：`python -m pytest -c tests/pytest.ini -q tests/单元测试/测试_执行服务.py tests/单元测试/测试_执行任务.py tests/单元测试/测试_任务服务.py tests/单元测试/测试_任务服务浏览器复用与后续任务.py`，结果 `27 passed`
+- 已执行邻近回归：`python -m pytest -c tests/pytest.ini -q tests/单元测试/测试_批量执行回调.py tests/单元测试/测试_批量执行店铺名.py tests/单元测试/测试_执行任务.py tests/单元测试/测试_流程参数服务.py tests/单元测试/测试_任务接口内部执行.py`，结果 `24 passed`
+- 已执行全量测试：`python -m pytest -c tests/pytest.ini -q`，结果 `279 passed, 16 warnings`
+- 16 条 warning 仍为既有存量：10 条来自第三方 `openpyxl`，6 条来自 Celery `datetime.utcnow()` 弃用提示
+- 工作区仍存在 `.pipeline/task.md`、`data/ecom.db`、`__pycache__/` 等本地运行副产物，非本轮交付代码

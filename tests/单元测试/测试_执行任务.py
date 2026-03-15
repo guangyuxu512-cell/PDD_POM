@@ -266,3 +266,42 @@ class 测试_执行任务:
                     step_index=1,
                     total_steps=1,
                 )
+
+    def test_HTTP返回后检测到取消标记则返回cancelled(self):
+        假任务对象 = SimpleNamespace(
+            request=SimpleNamespace(id="celery-5", retries=0),
+            retry=MagicMock(),
+        )
+        _, 客户端上下文 = 构造HTTP客户端上下文(
+            {
+                "code": 0,
+                "data": {
+                    "task_id": "task-log-6",
+                    "status": "completed",
+                    "result": "成功",
+                },
+            }
+        )
+
+        with patch("tasks.执行任务.初始化Worker环境"), \
+                patch("tasks.执行任务.获取任务类"), \
+                patch("tasks.执行任务.httpx.Client", return_value=客户端上下文), \
+                patch("tasks.执行任务.同步检查取消标记", return_value=True), \
+                patch("tasks.执行任务.同步更新批次店铺状态") as 模拟更新批次状态:
+            结果 = 执行任务函数(
+                假任务对象,
+                batch_id="batch-1",
+                shop_id="shop-1",
+                task_name="登录",
+                on_fail="abort",
+                step_index=1,
+                total_steps=1,
+            )
+
+        assert 结果 == {
+            "status": "cancelled",
+            "shop_id": "shop-1",
+            "task_name": "登录",
+            "error": "用户手动停止",
+        }
+        assert 模拟更新批次状态.call_args.kwargs["shop_status"] == "stopped"

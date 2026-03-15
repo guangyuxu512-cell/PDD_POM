@@ -188,6 +188,32 @@ class 任务服务:
         店铺配置["task_param"] = dict(flow_context)
         return 店铺配置
 
+    async def _已收到批次取消(self, batch_id: Optional[str]) -> bool:
+        """检查当前批次是否已收到取消信号。"""
+        if not str(batch_id or "").strip():
+            return False
+
+        from backend.services.执行服务 import 检查取消标记
+
+        return await 检查取消标记(str(batch_id))
+
+    @staticmethod
+    def _构建取消结果(
+        task_name: str,
+        shop_id: str,
+        *,
+        错误信息: str = "用户手动停止",
+    ) -> Dict[str, Any]:
+        """构造统一的取消返回结果。"""
+        return {
+            "task_name": task_name,
+            "shop_id": shop_id,
+            "status": "cancelled",
+            "result": "取消",
+            "result_data": {},
+            "error": 错误信息,
+        }
+
     async def _执行流程批量任务(
         self,
         shop_id: str,
@@ -212,6 +238,10 @@ class 任务服务:
                 "result": "跳过",
                 "result_data": {},
             }
+
+        if await self._已收到批次取消(batch_id):
+            print("[任务服务] 收到取消信号，停止执行")
+            return self._构建取消结果(task_name, shop_id)
 
         if merge:
             记录列表 = []
@@ -256,6 +286,10 @@ class 任务服务:
             for flow_param_id in flow_param_ids[1:]:
                 await self._标记合并跳过(flow_param_id, task_name, step_index, 主记录ID)
 
+            if await self._已收到批次取消(batch_id):
+                print("[任务服务] 收到取消信号，停止执行")
+                return self._构建取消结果(task_name, shop_id)
+
             try:
                 单次结果 = await self.执行任务(
                     shop_id=shop_id,
@@ -291,6 +325,9 @@ class 任务服务:
         记录结果列表: List[Dict[str, Any]] = []
 
         for 索引, flow_param_id in enumerate(flow_param_ids):
+            if await self._已收到批次取消(batch_id):
+                print("[任务服务] 收到取消信号，停止执行")
+                return self._构建取消结果(task_name, shop_id)
             try:
                 await 流程参数服务实例.更新(
                     flow_param_id,
@@ -378,6 +415,10 @@ class 任务服务:
                         }
                     )
                 break
+
+            if await self._已收到批次取消(batch_id):
+                print("[任务服务] 收到取消信号，停止执行")
+                return self._构建取消结果(task_name, shop_id)
 
             if 索引 < len(flow_param_ids) - 1:
                 await asyncio.sleep(random.uniform(2.0, 5.0))
@@ -734,6 +775,24 @@ class 任务服务:
         当前步骤结果 = (流程参数记录.get("step_results") or {}).get(task_name) or {}
         合并执行当前步 = bool(当前步骤.get("merge")) or isinstance(当前步骤结果.get("merged_context"), dict)
 
+        if 执行结果.get("status") == "cancelled":
+            await 流程参数服务实例.更新步骤结果(
+                flow_param_id,
+                task_name,
+                步骤状态="failed",
+                step_index=实际步骤序号,
+                当前步骤=实际步骤序号,
+                错误信息=错误信息,
+            )
+            await 流程参数服务实例.更新(
+                flow_param_id,
+                {
+                    "error": 错误信息,
+                    "current_step": 实际步骤序号,
+                },
+            )
+            return
+
         if 合并执行当前步:
             可继续记录ID列表 = await self._回写合并步骤结果(
                 主记录ID=flow_param_id,
@@ -766,6 +825,10 @@ class 任务服务:
             可继续记录ID列表 = [flow_param_id]
 
         if 最终步骤 or not 下一步骤:
+            return
+
+        if await self._已收到批次取消(批次ID):
+            print("[任务服务] 收到取消信号，停止执行")
             return
 
         当前步骤名 = str(当前步骤["task"])
@@ -1172,6 +1235,20 @@ class 任务服务:
                 if params.get("merge") is not None:
                     店铺配置["merge"] = bool(params.get("merge"))
 
+            当前批次ID = str(店铺配置.get("batch_id") or "")
+            if await self._已收到批次取消(当前批次ID):
+                print("[任务服务] 收到取消信号，停止执行")
+                await self.更新任务状态(task_id, "cancelled", error="用户手动停止")
+                return {
+                    "task_id": task_id,
+                    "shop_id": shop_id,
+                    "shop_name": 展示店铺名,
+                    "task_name": task_name,
+                    "status": "cancelled",
+                    "result": None,
+                    "error": "用户手动停止",
+                }
+
             print(f"[任务服务] 开始执行任务...")
             # 中文注释：任务执行过程可能包含页面交互和网络等待，设置超时可避免任务永久占用 Worker。
             try:
@@ -1395,6 +1472,7 @@ class 任务服务:
         """
         from tasks.任务注册表 import 获取任务
 
+        batch_id = str(店铺配置.get("batch_id") or "")
         流程参数ID列表 = self._标准化流程参数ID列表(店铺配置.get("flow_param_ids"))
         if len(流程参数ID列表) > 1 or (bool(店铺配置.get("merge")) and 流程参数ID列表):
             return await self._执行流程批量任务(
@@ -1403,6 +1481,10 @@ class 任务服务:
                 页面=页面,
                 店铺配置=店铺配置,
             )
+
+        if await self._已收到批次取消(batch_id):
+            print("[任务服务] 收到取消信号，停止执行")
+            return self._构建取消结果(task_name, shop_id)
 
         任务参数记录 = await self._准备任务参数(shop_id, task_name, 店铺配置)
         使用流程上下文 = isinstance(店铺配置.get("flow_context"), dict)

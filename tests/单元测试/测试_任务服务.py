@@ -161,6 +161,31 @@ class 测试_任务服务:
         模拟回填.assert_not_awaited()
 
     @pytest.mark.asyncio
+    async def test_执行任务_收到取消信号时直接返回_cancelled(self):
+        假任务实例 = SimpleNamespace(
+            _执行结果={},
+            执行=AsyncMock(return_value="成功"),
+        )
+
+        with patch(
+            "backend.services.执行服务.检查取消标记",
+            new=AsyncMock(return_value=True),
+        ), patch(
+            "tasks.任务注册表.获取任务",
+            return_value=假任务实例,
+        ) as 模拟获取任务:
+            结果 = await 任务服务实例.执行任务(
+                shop_id="shop-1",
+                task_name="登录",
+                页面=object(),
+                店铺配置={"shop_id": "shop-1", "batch_id": "batch-cancel"},
+            )
+
+        assert 结果["status"] == "cancelled"
+        assert 结果["error"] == "用户手动停止"
+        模拟获取任务.assert_not_called()
+
+    @pytest.mark.asyncio
     async def test_执行任务_flow_param_ids_barrier模式复用同一页面循环执行(self):
         """多条 flow_params 的 barrier-only 模式应在同一页面内循环执行。"""
         任务一 = SimpleNamespace(
@@ -219,6 +244,58 @@ class 测试_任务服务:
         assert 模拟获取上下文.await_args_list[1].args == (102, "发布相似商品")
         assert 模拟处理流程.await_count == 2
         模拟睡眠.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_执行任务_flow_param_ids_收到取消后不再继续下一条(self):
+        任务一 = SimpleNamespace(
+            _执行结果={"新商品ID": "new-1001"},
+            执行=AsyncMock(return_value="成功"),
+        )
+        页面对象 = object()
+        店铺配置 = {
+            "shop_id": "shop-1",
+            "username": "demo",
+            "password": "pwd",
+            "flow_param_ids": [101, 102],
+            "step_index": 2,
+            "total_steps": 3,
+            "on_fail": "continue",
+            "batch_id": "batch-1",
+        }
+
+        with patch(
+            "backend.services.执行服务.检查取消标记",
+            new=AsyncMock(side_effect=[False, False, False, True]),
+        ), patch(
+            "backend.services.流程参数服务.流程参数服务实例.更新",
+            new=AsyncMock(return_value={}),
+        ), patch(
+            "backend.services.流程参数服务.流程参数服务实例.更新步骤结果",
+            new=AsyncMock(return_value={}),
+        ), patch(
+            "backend.services.流程参数服务.流程参数服务实例.获取步骤上下文",
+            new=AsyncMock(return_value={"parent_product_id": "9001", "discount": 6}),
+        ), patch(
+            "backend.services.任务服务.任务服务实例.处理流程步骤执行完成",
+            new=AsyncMock(),
+        ) as 模拟处理流程, patch(
+            "backend.services.任务服务.asyncio.sleep",
+            new=AsyncMock(),
+        ) as 模拟睡眠, patch(
+            "tasks.任务注册表.获取任务",
+            return_value=任务一,
+        ):
+            结果 = await 任务服务实例.执行任务(
+                shop_id="shop-1",
+                task_name="发布相似商品",
+                页面=页面对象,
+                店铺配置=店铺配置,
+            )
+
+        assert 结果["status"] == "cancelled"
+        任务一.执行.assert_awaited_once()
+        模拟处理流程.assert_awaited_once()
+        模拟睡眠.assert_not_awaited()
 
     @pytest.mark.asyncio
     async def test_执行任务_flow_param_ids_merge模式只执行一次(self):
@@ -356,3 +433,30 @@ class 测试_任务服务:
         assert "浏览器初始化超时" in 结果["error"]
         assert 模拟更新任务状态.await_count >= 2
         模拟更新店铺状态.assert_awaited()
+
+    @pytest.mark.asyncio
+    async def test_统一执行任务_执行前检测到取消则写为_cancelled(self):
+        with patch("backend.services.任务服务.任务服务实例.更新任务状态", new=AsyncMock()) as 模拟更新任务状态, \
+                patch("backend.services.店铺服务.店铺服务实例.根据ID获取完整信息", new=AsyncMock(return_value={
+                    "id": "shop-1",
+                    "name": "测试店铺",
+                    "username": "demo",
+                    "password": "pwd",
+                })), \
+                patch("backend.services.浏览器服务.确保已初始化", new=AsyncMock()), \
+                patch("backend.services.浏览器服务.获取当前管理器实例", return_value=假管理器()), \
+                patch("backend.services.执行服务.检查取消标记", new=AsyncMock(return_value=True)), \
+                patch("backend.services.任务服务.任务服务实例._确保页面可用", new=AsyncMock(return_value=object())), \
+                patch("backend.services.任务服务.任务服务实例.执行任务", new=AsyncMock(return_value={"result": "成功", "result_data": {}})) as 模拟执行任务:
+            结果 = await 任务服务实例.统一执行任务(
+                task_id="task-1",
+                shop_id="shop-1",
+                task_name="发布相似商品",
+                params={"batch_id": "batch-1"},
+                来源="test",
+            )
+
+        assert 结果["status"] == "cancelled"
+        assert 结果["error"] == "用户手动停止"
+        assert 模拟更新任务状态.await_args_list[-1].args[1] == "cancelled"
+        模拟执行任务.assert_not_awaited()
