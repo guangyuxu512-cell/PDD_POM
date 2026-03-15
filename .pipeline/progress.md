@@ -2353,3 +2353,48 @@
 - 已执行全量测试：`python -m pytest -c tests/pytest.ini -q`，结果 `327 passed, 16 warnings`
 - 16 条 warning 仍为既有存量：10 条来自第三方 `openpyxl`，6 条来自 Celery `datetime.utcnow()` 弃用提示，非本轮引入
 - 工作区仍存在 `.pipeline/task.md`、`data/ecom.db`、`data/screenshots/`、`__pycache__/` 等本地变更或运行副产物，非本轮源码交付
+
+---
+
+## 任务摘要
+
+完成 Task 45：将数据管理页的“规则配置”占位替换为完整规则 CRUD 页面，包含筛选、列表、编辑弹窗和测试匹配能力。
+
+## 改动文件列表
+
+- `frontend/src/views/RuleManage.vue`
+- `frontend/src/views/DataManage.vue`
+- `tests/单元测试/测试_前端管理页.py`
+- `tests/单元测试/测试_规则配置页.py`
+- `.pipeline/progress.md`
+
+## 改动说明
+
+- `frontend/src/views/RuleManage.vue`
+  - 新建规则配置页组件，包含规则列表、平台/业务/店铺筛选、新建/编辑弹窗、条件编辑器、动作编辑器和测试匹配弹窗
+  - 直接复用现有 `get/post/put/del` API 方法调用 `/api/rules` 与 `/api/shops`
+  - 条件编辑器使用一层 `and/or` + 多条件行，字段输入采用 `<input list="..."> + <datalist>`，允许自定义字段名
+  - 动作编辑器按类型联动动作选项，微信通知场景支持模板输入
+  - 列表页支持启用/禁用开关、原生 `confirm()` 删除确认，以及空表提示
+- `frontend/src/views/DataManage.vue`
+  - 引入 `RuleManage`
+  - 用 `<RuleManage v-else :show-title="false" />` 替换原先“规则配置功能开发中”的占位内容
+- `tests/单元测试/测试_前端管理页.py`
+  - 更新数据管理容器页静态断言，校验 `RuleManage` 已接入且规则 Tab 不再保留旧占位
+- `tests/单元测试/测试_规则配置页.py`
+  - 新增规则配置页静态测试，覆盖页面骨架、关键文案、条件/动作编辑器结构、规则 API 调用和 `DataManage` 引用关系
+
+## 影响范围
+
+- 数据管理页现在可以直接进行规则查询、创建、编辑、删除、启停和匹配调试，不再是占位页
+- 前端已具备可视化规则配置入口，能够直接消费后端 `rules` 接口
+- 规则配置页和数据管理页之间的集成已通过静态回归覆盖，后续改动更容易发现入口回归
+
+## 注意事项
+
+- 本轮未修改 `frontend/src/api/index.ts`，已确认现有 `get/post/put/del` 封装可直接复用
+- 已执行前端静态回归：`python -m pytest -c tests/pytest.ini -q tests/单元测试/测试_前端管理页.py tests/单元测试/测试_规则配置页.py`，结果 `5 passed`
+- 已执行前端类型检查：`cd frontend && npx vue-tsc -b`
+- 已执行全量测试：在 PowerShell 临时设置 `timeBeginPeriod(1)` 并提高当前进程优先级后运行 `python -m pytest -c tests/pytest.ini -q`，结果 `329 passed, 16 warnings`
+- 16 条 warning 仍为既有存量：10 条来自第三方 `openpyxl`，6 条来自 Celery `datetime.utcnow()` 弃用提示，非本轮引入
+- 工作区仍存在 `.pipeline/task.md`、`data/ecom.db`、`__pycache__/` 等本地变更或运行副产物，非本轮源码交付

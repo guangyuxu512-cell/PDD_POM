@@ -93,9 +93,10 @@ class 测试_前端管理页:
         for 关键字 in [
             "数据管理",
             "TaskParamsManage",
+            "RuleManage",
             "CSV导入 / 执行结果",
             "规则配置",
-            "规则配置功能开发中",
+            ":show-title=\"false\"",
         ]:
             assert 关键字 in 数据页
 

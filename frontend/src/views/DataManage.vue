@@ -2,6 +2,7 @@
 import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
+import RuleManage from './RuleManage.vue'
 import TaskParamsManage from './TaskParamsManage.vue'
 
 type TabKey = 'params' | 'rules'
@@ -43,9 +44,7 @@ function switchTab(tab: TabKey) {
 
     <div class="tab-content">
       <TaskParamsManage v-if="activeTab === 'params'" :show-title="false" />
-      <div v-else class="placeholder">
-        <p>📋 规则配置功能开发中...</p>
-      </div>
+      <RuleManage v-else :show-title="false" />
     </div>
   </div>
 </template>
@@ -88,15 +87,5 @@ function switchTab(tab: TabKey) {
 
 .tab-content {
   min-height: 0;
-}
-
-.placeholder {
-  padding: 60px;
-  text-align: center;
-  color: #9ca3af;
-  font-size: 16px;
-  background: #ffffff;
-  border: 1px solid #e5e7eb;
-  border-radius: 12px;
 }
 </style>
