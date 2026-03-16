@@ -2063,3 +2063,17 @@
 - [x] 验证通过：在 `frontend/` 目录执行 `npx vue-tsc -b`
 - [x] 验证通过：`python -m pytest -c tests/pytest.ini -q`
 - [x] 全量验证结果：`304 passed, 16 warnings`（10 条为第三方 `openpyxl` 警告，6 条为现有 Celery 警告）
+
+## Prompt 95：Task 46A 售后队列表 + 详情页完整抓取 + 列表翻页扫描 + JS 动态读取 ✅
+
+- [x] 新建 `backend/models/售后队列模型.py`
+- [x] 新建 `backend/services/售后队列服务.py`
+- [x] 更新 `backend/models/数据库.py`，接入 `aftersale_queue` 建表与初始化
+- [x] 更新 `selectors/售后页选择器.py`，新增 `待商家处理Tab` 与详情页区域选择器
+- [x] 更新 `pages/售后页.py`，新增列表翻页扫描、详情标签页管理、JS 详情抓取、动态按钮读取/点击、详情页截图
+- [x] 新建 `tests/test_售后队列服务.py`
+- [x] 更新 `tests/test_售后页.py`
+- [x] 针对性验证通过：`python -m pytest -q tests/test_售后队列服务.py tests/test_售后页.py`
+- [x] 针对性验证结果：`24 passed`
+- [x] 验证通过：`python -m pytest -c tests/pytest.ini -q`
+- [x] 全量验证结果：`347 passed, 16 warnings`（10 条为第三方 `openpyxl` 警告，6 条为现有 Celery 警告）

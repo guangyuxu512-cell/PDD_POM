@@ -2398,3 +2398,60 @@
 - 已执行全量测试：在 PowerShell 临时设置 `timeBeginPeriod(1)` 并提高当前进程优先级后运行 `python -m pytest -c tests/pytest.ini -q`，结果 `329 passed, 16 warnings`
 - 16 条 warning 仍为既有存量：10 条来自第三方 `openpyxl`，6 条来自 Celery `datetime.utcnow()` 弃用提示，非本轮引入
 - 工作区仍存在 `.pipeline/task.md`、`data/ecom.db`、`__pycache__/` 等本地变更或运行副产物，非本轮源码交付
+
+---
+
+## 任务摘要
+
+完成 Task 46A：新增售后工作队列表和售后抓取层能力，补齐详情页 JS 全量抓取、列表翻页扫描、详情标签页管理与配套单元测试。
+
+## 改动文件列表
+
+- `backend/models/售后队列模型.py`
+- `backend/services/售后队列服务.py`
+- `backend/models/数据库.py`
+- `selectors/售后页选择器.py`
+- `pages/售后页.py`
+- `tests/test_售后队列服务.py`
+- `tests/test_售后页.py`
+- `PLAN.md`
+- `改造进度.md`
+- `.pipeline/progress.md`
+
+## 改动说明
+
+- `backend/models/售后队列模型.py`
+  - 新建 `aftersale_queue` 表结构和初始化方法
+  - 增加 `batch_id + 订单号` 唯一索引，保证同批次列表扫描写入不重复
+- `backend/services/售后队列服务.py`
+  - 新增售后队列 CRUD + 批次管理服务
+  - 支持批次生成、单条/批量写入、详情 JSON 回填、阶段更新、到期记录查询、拒绝次数统计和批次汇总
+- `backend/models/数据库.py`
+  - 将售后队列表加入统一建表清单，并在初始化数据库时显式初始化
+- `selectors/售后页选择器.py`
+  - 新增 `待商家处理Tab` 和详情页区域选择器
+- `pages/售后页.py`
+  - `切换待处理()` 改为优先使用“待商家处理”Tab
+  - 新增 `扫描所有待处理()`、`点击详情并切换标签()`、`关闭详情标签()`
+  - 新增 `抓取详情页完整信息()`，用单次 `evaluate(...)` 动态提取按钮、物流、协商和申请字段
+  - 新增 `点击指定按钮()`、`读取当前所有按钮()`、`检查订单是否待处理()`、`详情页截图()`
+- `tests/test_售后队列服务.py`
+  - 覆盖批次格式、队列写入、批量去重、详情更新、阶段更新、到期记录、拒绝次数和批次统计
+- `tests/test_售后页.py`
+  - 覆盖翻页扫描、详情标签切换、JS 抓取、动态按钮、待处理判断和详情截图
+- `PLAN.md` / `改造进度.md` / `.pipeline/progress.md`
+  - 同步记录 Task 46A 的实现范围与验证结果
+
+## 影响范围
+
+- 后端现在具备独立的售后工作队列，可把列表摘要和详情页完整信息分阶段落库
+- 售后页 POM 已支持跨页扫描和详情标签页操作，后续 `tasks/售后任务.py` 可以直接复用这些抓取能力
+- 详情页信息提取改为单次 JS 评估，后续拼多多页面改版时主要只需调整 JS 标签匹配逻辑
+
+## 注意事项
+
+- 本轮按任务约束未改动 `tasks/售后任务.py` 和 `backend/api/`，队列消费和 API 暴露留待后续任务
+- 已执行针对性回归：`python -m pytest -q tests/test_售后队列服务.py tests/test_售后页.py`，结果 `24 passed`
+- 已执行全量测试：`python -m pytest -c tests/pytest.ini -q`，结果 `347 passed, 16 warnings`
+- 16 条 warning 仍为既有存量：10 条来自第三方 `openpyxl`，6 条来自 Celery `datetime.utcnow()` 弃用提示，非本轮引入
+- 工作区仍存在 `.pipeline/task.md`、`data/ecom.db`、`__pycache__/` 等本地变更或运行副产物，非本轮源码交付

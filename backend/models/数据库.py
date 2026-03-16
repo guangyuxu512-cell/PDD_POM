@@ -14,6 +14,7 @@ import aiosqlite
 from backend.models.店铺模型 import 店铺表定义
 from backend.models.流程模型 import 流程表定义
 from backend.models.定时任务模型 import 定时任务表定义
+from backend.models.售后队列模型 import 初始化售后队列表, 售后队列建表SQL
 
 
 数据库路径 = Path("data/ecom.db")
@@ -100,6 +101,7 @@ def 获取建表语句列表() -> list[str]:
         操作日志建表SQL,
         任务参数建表SQL,
         流程参数建表SQL,
+        售后队列建表SQL,
     ]
 
 
@@ -180,6 +182,7 @@ async def 初始化数据库() -> None:
         from backend.models.规则模型 import 初始化规则表
 
         await 初始化规则表(连接)
+        await 初始化售后队列表(连接)
         await _补齐旧版表结构(连接)
         await 连接.commit()
 

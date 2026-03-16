@@ -17,6 +17,13 @@ class 售后页选择器:
         备选选择器=["//div[contains(@class, 'refund-item')]"],
     )
 
+    待商家处理Tab = 选择器配置(
+        主选择器="//div[contains(@class, 'ant-tabs-tab') and contains(., '待商家处理')]",
+        备选选择器=[
+            "//div[contains(@class, 'ant-tabs-tab') and contains(., '待处理')]",
+        ],
+    )
+
     待处理Tab = 选择器配置(
         主选择器="//div[contains(@class, 'ant-tabs-tab') and contains(., '待处理')]",
     )
@@ -108,6 +115,14 @@ class 售后页选择器:
     物流公司选择框 = 选择器配置(
         主选择器="//div[contains(@class, 'logistics-select')]//input",
         备选选择器=["//input[contains(@placeholder, '物流公司') or contains(@placeholder, '快递公司')]"],
+    )
+
+    详情页区域 = 选择器配置(
+        主选择器="//div[contains(@class, 'after-sale') and contains(@class, 'detail')]",
+        备选选择器=[
+            "//div[contains(@class, 'aftersale') and contains(@class, 'detail')]",
+            "//div[contains(@class, 'refund') and contains(@class, 'detail')]",
+        ],
     )
 
     下一页按钮 = 选择器配置(
