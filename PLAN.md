@@ -2077,3 +2077,17 @@
 - [x] 针对性验证结果：`24 passed`
 - [x] 验证通过：`python -m pytest -c tests/pytest.ini -q`
 - [x] 全量验证结果：`347 passed, 16 warnings`（10 条为第三方 `openpyxl` 警告，6 条为现有 Celery 警告）
+
+## Prompt 96：Task 46B 决策引擎 + 弹窗扫描器 + 售后任务重写 + 选择器校准 ✅
+
+- [x] 更新 `selectors/售后页选择器.py`，校准售后列表 URL、待商家处理卡片、`order_item` 行结构、按订单号详情/操作按钮定位
+- [x] 更新 `pages/售后页.py`，新增 `确保待商家处理已选中()`、`点击订单详情并切换标签()`、`检查是否需要处理()`、`弹窗扫描循环()`，并校准详情页字段提取
+- [x] 新建 `backend/services/售后决策引擎.py`
+- [x] 更新 `tasks/售后任务.py`，重写为“扫描入队 -> 逐条详情 -> 决策 -> 执行 -> 回写队列”
+- [x] 新建 `tests/test_售后决策引擎.py`
+- [x] 更新 `tests/test_售后页.py`
+- [x] 更新 `tests/test_售后任务.py`
+- [x] 针对性验证通过：`python -m pytest -c tests/pytest.ini -q tests/test_售后决策引擎.py tests/test_售后页.py tests/test_售后任务.py`
+- [x] 针对性验证结果：`30 passed`
+- [x] 验证通过：`python -m pytest -c tests/pytest.ini -q`
+- [x] 全量验证结果：`355 passed, 16 warnings`（10 条为第三方 `openpyxl` 警告，6 条为现有 Celery 警告）

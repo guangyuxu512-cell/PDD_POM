@@ -5,21 +5,38 @@ from selectors.选择器配置 import 选择器配置
 class 售后页选择器:
     """售后管理页面元素定位。"""
 
-    售后列表页URL = "https://mms.pinduoduo.com/aftersales/list"
+    售后列表页URL = "https://mms.pinduoduo.com/aftersales/aftersale_list?msfrom=mms_sidenav"
 
     列表容器 = 选择器配置(
-        主选择器="//div[contains(@class, 'after-sales-list')]",
-        备选选择器=["//div[contains(@class, 'refund-list')]"],
+        主选择器="//div[contains(@class, 'order_list')]",
+        备选选择器=[
+            "//div[contains(@class, 'order_item_list')]",
+            "//div[contains(@class, 'after-sales-list')]",
+            "//div[contains(@class, 'refund-list')]",
+        ],
     )
 
+    待商家处理卡片 = 选择器配置(
+        主选择器='//span[text()="待商家处理"]/ancestor::div[@data-testid="beast-core-card"]',
+        备选选择器=[
+            "//span[contains(., '待商家处理')]/ancestor::div[@data-testid='beast-core-card']",
+        ],
+    )
+
+    待商家处理选中类名片段 = "CAD_beastCardChecked"
+
     售后单行 = 选择器配置(
-        主选择器="//tr[contains(@class, 'ant-table-row')]",
-        备选选择器=["//div[contains(@class, 'refund-item')]"],
+        主选择器='//div[contains(@class, "order_item")]',
+        备选选择器=[
+            "//tr[contains(@class, 'ant-table-row')]",
+            "//div[contains(@class, 'refund-item')]",
+        ],
     )
 
     待商家处理Tab = 选择器配置(
-        主选择器="//div[contains(@class, 'ant-tabs-tab') and contains(., '待商家处理')]",
+        主选择器='//span[text()="待商家处理"]/ancestor::div[@data-testid="beast-core-card"]',
         备选选择器=[
+            "//div[contains(@class, 'ant-tabs-tab') and contains(., '待商家处理')]",
             "//div[contains(@class, 'ant-tabs-tab') and contains(., '待处理')]",
         ],
     )
@@ -130,11 +147,59 @@ class 售后页选择器:
     )
 
     @staticmethod
+    def 获取订单详情链接(订单号: str) -> 选择器配置:
+        """按订单号定位该行的查看详情链接。"""
+        return 选择器配置(
+            主选择器=(
+                f'//span[text()="{订单号}"]/ancestor::div[contains(@class, "order_item")]'
+                '//a[span[text()="查看详情"]]'
+            ),
+            备选选择器=[
+                (
+                    f'//span[text()="{订单号}"]/ancestor::div[contains(@class, "order_item")]'
+                    '//a[contains(., "详情")]'
+                ),
+                (
+                    f'//span[text()="{订单号}"]/ancestor::tr[contains(@class, "ant-table-row")]'
+                    '//a[contains(., "详情")]'
+                ),
+            ],
+        )
+
+    @staticmethod
+    def 获取订单操作按钮(订单号: str, 操作文本: str) -> 选择器配置:
+        """按订单号定位该行的指定操作按钮。"""
+        return 选择器配置(
+            主选择器=(
+                f'//span[text()="{订单号}"]/ancestor::div[contains(@class, "order_item")]'
+                f'//a[span[text()="{操作文本}"]] | '
+                f'//span[text()="{订单号}"]/ancestor::div[contains(@class, "order_item")]'
+                f'//button[span[text()="{操作文本}"]]'
+            ),
+            备选选择器=[
+                (
+                    f'//span[text()="{订单号}"]/ancestor::div[contains(@class, "order_item")]'
+                    f'//a[contains(., "{操作文本}")] | '
+                    f'//span[text()="{订单号}"]/ancestor::div[contains(@class, "order_item")]'
+                    f'//button[contains(., "{操作文本}")]'
+                ),
+                (
+                    f'//span[text()="{订单号}"]/ancestor::tr[contains(@class, "ant-table-row")]'
+                    f'//a[contains(., "{操作文本}")] | '
+                    f'//span[text()="{订单号}"]/ancestor::tr[contains(@class, "ant-table-row")]'
+                    f'//button[contains(., "{操作文本}")]'
+                ),
+            ],
+        )
+
+    @staticmethod
     def 获取第N行操作按钮(行号: int, 操作文本: str) -> 选择器配置:
         """获取列表第 N 行的指定操作按钮。"""
         return 选择器配置(
-            主选择器=f"(//tr[contains(@class, 'ant-table-row')])[{行号}]//button[contains(., '{操作文本}')]",
+            主选择器=f'(//div[contains(@class, "order_item")])[{行号}]//button[contains(., "{操作文本}")]',
             备选选择器=[
+                f'(//div[contains(@class, "order_item")])[{行号}]//a[contains(., "{操作文本}")]',
+                f"(//tr[contains(@class, 'ant-table-row')])[{行号}]//button[contains(., '{操作文本}')]",
                 f"(//tr[contains(@class, 'ant-table-row')])[{行号}]//a[contains(., '{操作文本}')]",
             ],
         )
@@ -143,8 +208,10 @@ class 售后页选择器:
     def 获取第N行详情链接(行号: int) -> 选择器配置:
         """获取列表第 N 行的查看详情链接。"""
         return 选择器配置(
-            主选择器=f"(//tr[contains(@class, 'ant-table-row')])[{行号}]//a[contains(., '查看详情')]",
+            主选择器=f'(//div[contains(@class, "order_item")])[{行号}]//a[contains(., "查看详情")]',
             备选选择器=[
+                f'(//div[contains(@class, "order_item")])[{行号}]//a[contains(., "详情")]',
+                f"(//tr[contains(@class, 'ant-table-row')])[{行号}]//a[contains(., '查看详情')]",
                 f"(//div[contains(@class, 'refund-item')])[{行号}]//a[contains(., '详情')]",
             ],
         )

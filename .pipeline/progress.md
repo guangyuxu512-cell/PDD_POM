@@ -2455,3 +2455,60 @@
 - 已执行全量测试：`python -m pytest -c tests/pytest.ini -q`，结果 `347 passed, 16 warnings`
 - 16 条 warning 仍为既有存量：10 条来自第三方 `openpyxl`，6 条来自 Celery `datetime.utcnow()` 弃用提示，非本轮引入
 - 工作区仍存在 `.pipeline/task.md`、`data/ecom.db`、`__pycache__/` 等本地变更或运行副产物，非本轮源码交付
+
+---
+
+## 任务摘要
+
+完成 Task 46B：校准售后页选择器，新增售后决策引擎与弹窗扫描能力，并将售后任务重写为队列驱动的详情决策链路。
+
+## 改动文件列表
+
+- `selectors/售后页选择器.py`
+- `pages/售后页.py`
+- `backend/services/售后决策引擎.py`
+- `tasks/售后任务.py`
+- `tests/test_售后决策引擎.py`
+- `tests/test_售后页.py`
+- `tests/test_售后任务.py`
+- `PLAN.md`
+- `改造进度.md`
+- `.pipeline/progress.md`
+
+## 改动说明
+
+- `selectors/售后页选择器.py`
+  - 校准售后页真实 URL
+  - 新增待商家处理卡片与选中类名片段
+  - 将主行结构切换为 `order_item`
+  - 新增按订单号定位详情链接和操作按钮的方法
+- `pages/售后页.py`
+  - 新增待商家处理选中检查、按订单号打开详情标签、实时按钮检测、弹窗扫描和 JS 弹窗处理
+  - 校准详情页字段提取标签，补齐 `售后编码`、`订单编号`、`联系地址`、`协商最新`、`售后状态描述` 等字段
+  - 保留列表扫描、按钮点击、详情截图等队列处理所需基础能力
+- `backend/services/售后决策引擎.py`
+  - 新建统一决策层，输出 `{操作, 目标按钮, 备选按钮, 弹窗偏好, 备注, 飞书通知}` 结构
+  - 支持退货退款、仅退款小额自动处理、售后图片人工、物流拒收、规则拒绝和拒绝次数上限场景
+- `tasks/售后任务.py`
+  - 移除旧状态机逻辑，改成“扫描入队 -> 实时详情 -> 决策 -> 执行 -> 回写队列”
+  - 人工、失败和拒绝场景统一回写 `aftersale_queue.当前阶段`
+  - 拒绝场景写入 `下次处理时间=now+30min`
+- `tests/test_售后决策引擎.py`
+  - 覆盖 10 个决策分支，包括退货退款、仅退款、人工处理、拒绝和优先级按钮匹配
+- `tests/test_售后页.py`
+  - 覆盖待商家处理选中、详情标签切换、详情抓取、实时按钮判断、弹窗扫描和 JS 弹窗按钮点击
+- `tests/test_售后任务.py`
+  - 覆盖完整流程、详情无按钮跳过、弹窗人工、拒绝回写、备选按钮和搜不到订单跳过
+
+## 影响范围
+
+- 售后页现在可以基于订单号稳定打开详情，并在详情页实时判断是否还需要处理
+- 售后任务不再依赖旧状态机，而是直接复用 `售后队列服务` 和 `售后决策引擎`
+- 售后自动处理已具备基础弹窗自处理能力，为 46C 的定时补扫和后续规则扩展提供基础
+
+## 注意事项
+
+- 已执行针对性回归：`python -m pytest -c tests/pytest.ini -q tests/test_售后决策引擎.py tests/test_售后页.py tests/test_售后任务.py`，结果 `30 passed`
+- 已执行全量测试：`python -m pytest -c tests/pytest.ini -q`，结果 `355 passed, 16 warnings`
+- 16 条 warning 仍为既有存量：10 条来自第三方 `openpyxl`，6 条来自 Celery `datetime.utcnow()` 弃用提示
+- 工作区仍存在 `.pipeline/task.md`、`data/ecom.db`、`__pycache__/` 等本地变更或运行副产物，非本轮源码交付
