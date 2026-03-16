@@ -2103,3 +2103,21 @@
 - [x] 针对性验证结果：`33 passed`
 - [x] 验证通过：`python -m pytest -c tests/pytest.ini -q`
 - [x] 全量验证结果：`358 passed, 16 warnings`（10 条为第三方 `openpyxl` 警告，6 条为现有 Celery 警告）
+
+## Prompt 98：Task 46B 二次重构 — 退货物流决策 + 列表页分流 + 备注联动 ✅
+
+- [x] 更新 `selectors/售后页选择器.py`，新增列表备注、详情备注、退货物流 Tab 与“查看全部”选择器
+- [x] 更新 `pages/售后页.py`，新增列表页添加备注、详情页添加备注、退货物流抓取与目标页面点击/填写辅助方法
+- [x] 更新 `backend/models/售后队列模型.py`，为 `aftersale_queue` 增加 `shop_name`、退货物流相关字段，并补齐旧表 `ALTER TABLE` 兼容逻辑
+- [x] 更新 `backend/services/售后队列服务.py`，适配新字段写入/详情回写，并新增 `更新退货物流(...)`
+- [x] 重写 `backend/services/售后决策引擎.py`，实现退货物流阶段判断、白名单匹配、入库校验、金额上限与等待天数逻辑
+- [x] 重写 `tasks/售后任务.py`，实现列表页分流、去掉搜索步骤、退货物流抓取、等待/等待验货分支与统一转人工流程
+- [x] 更新 `tests/test_售后决策引擎.py`，扩展到 30+ 场景，覆盖退货物流、白名单、等待、等待验货和仅退款分支
+- [x] 更新 `tests/test_售后页.py`，补充列表页备注、详情页备注和退货物流抓取测试
+- [x] 更新 `tests/test_售后任务.py`，补充列表分流、去掉搜索、退货物流等待、自动退款与等待验货测试
+- [x] 针对性验证通过：`python -m pytest -c tests/pytest.ini -q tests/test_售后决策引擎.py tests/test_售后页.py tests/test_售后任务.py`
+- [x] 针对性验证结果：`61 passed`
+- [x] 邻近回归验证通过：`python -m pytest -c tests/pytest.ini -q tests/test_售后队列服务.py`
+- [x] 邻近回归验证结果：`10 passed`
+- [x] 全量验证通过：`python -m pytest -c tests/pytest.ini tests/ -v`
+- [x] 全量验证结果：`386 passed, 16 warnings`（10 条为第三方 `openpyxl` 警告，6 条为现有 Celery 警告）

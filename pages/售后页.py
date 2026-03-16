@@ -48,6 +48,25 @@ class 售后页(基础页):
                 continue
         return False
 
+    @staticmethod
+    async def _点击目标页面元素(目标页面, 选择器: str, 超时: int = 10000) -> None:
+        await 目标页面.wait_for_selector(选择器, timeout=超时)
+        定位器 = 目标页面.locator(选择器).first
+        点击结果 = 定位器.click(timeout=超时)
+        if inspect.isawaitable(点击结果):
+            await 点击结果
+
+    @staticmethod
+    async def _填写目标页面元素(目标页面, 选择器: str, 内容: str, 超时: int = 10000) -> None:
+        await 目标页面.wait_for_selector(选择器, timeout=超时)
+        定位器 = 目标页面.locator(选择器).first
+        点击结果 = 定位器.click(timeout=超时)
+        if inspect.isawaitable(点击结果):
+            await 点击结果
+        填写结果 = 定位器.fill(str(内容), timeout=超时)
+        if inspect.isawaitable(填写结果):
+            await 填写结果
+
     async def _等待并切换详情标签(self, 点击协程, 标识文本: str) -> None:
         上下文 = self.页面.context
         等待新标签任务 = asyncio.create_task(
@@ -254,6 +273,174 @@ class 售后页(基础页):
 
     async def 点击订单详情并切换标签(self, 订单号: str) -> None:
         await self._等待并切换详情标签(self.点击订单详情(订单号), 订单号)
+
+    async def 列表页添加备注(self, 订单号: str, 内容: str) -> bool:
+        """在列表页按订单号添加备注。"""
+        try:
+            点击成功 = False
+            for 选择器 in 售后页选择器.获取订单备注按钮(订单号).所有选择器():
+                try:
+                    await self.安全点击(选择器)
+                    点击成功 = True
+                    break
+                except Exception:
+                    continue
+            if not 点击成功:
+                print(f"[售后页] 未找到列表备注按钮: {订单号}")
+                return False
+
+            await self.随机延迟(0.5, 1)
+
+            for 选择器 in 售后页选择器.列表备注输入框.所有选择器():
+                try:
+                    await self.安全填写(选择器, 内容)
+                    break
+                except Exception:
+                    continue
+            else:
+                print(f"[售后页] 未找到列表备注输入框: {订单号}")
+                return False
+
+            await self.随机延迟(0.3, 0.8)
+
+            for 选择器 in 售后页选择器.列表备注保存按钮.所有选择器():
+                try:
+                    await self.安全点击(选择器)
+                    await self.操作后延迟()
+                    print(f"[售后页] 列表备注已保存: {订单号} -> {内容[:30]}")
+                    return True
+                except Exception:
+                    continue
+
+            print(f"[售后页] 未找到列表备注保存按钮: {订单号}")
+            return False
+        except Exception as 异常:
+            print(f"[售后页] 列表添加备注失败: {异常}")
+            return False
+
+    async def 详情页添加备注(self, 内容: str) -> bool:
+        """在详情页添加备注。"""
+        目标页面 = await self._获取目标页面()
+        try:
+            for 选择器 in 售后页选择器.详情备注按钮.所有选择器():
+                try:
+                    await self._点击目标页面元素(目标页面, 选择器)
+                    break
+                except Exception:
+                    continue
+            else:
+                print("[售后页] 未找到详情备注按钮")
+                return False
+
+            await self.随机延迟(0.5, 1)
+
+            for 选择器 in 售后页选择器.详情备注输入框.所有选择器():
+                try:
+                    await self._填写目标页面元素(目标页面, 选择器, 内容)
+                    break
+                except Exception:
+                    continue
+            else:
+                print("[售后页] 未找到详情备注输入框")
+                return False
+
+            await self.随机延迟(0.3, 0.8)
+
+            for 选择器 in 售后页选择器.详情备注保存按钮.所有选择器():
+                try:
+                    await self._点击目标页面元素(目标页面, 选择器)
+                    await self.操作后延迟()
+                    print(f"[售后页] 详情备注已保存: {内容[:30]}")
+                    return True
+                except Exception:
+                    continue
+
+            print("[售后页] 未找到详情备注保存按钮")
+            return False
+        except Exception as 异常:
+            print(f"[售后页] 详情添加备注失败: {异常}")
+            return False
+
+    async def 抓取退货物流信息(self) -> dict:
+        """切换退货物流 Tab 并抓取物流轨迹。"""
+        目标页面 = await self._获取目标页面()
+
+        退货Tab点击成功 = False
+        for 选择器 in 售后页选择器.退货物流Tab.所有选择器():
+            try:
+                await self._点击目标页面元素(目标页面, 选择器)
+                await self.随机延迟(0.5, 1)
+                退货Tab点击成功 = True
+                break
+            except Exception:
+                continue
+
+        if not 退货Tab点击成功:
+            print("[售后页] 未找到退货物流Tab，可能没有退货物流")
+            return {"有退货物流": False}
+
+        for 选择器 in 售后页选择器.查看全部按钮.所有选择器():
+            try:
+                await self._点击目标页面元素(目标页面, 选择器)
+                await self.随机延迟(0.5, 1)
+                break
+            except Exception:
+                continue
+
+        try:
+            结果 = await 目标页面.evaluate(
+                """
+                () => {
+                    const 清洗 = (值) => String(值 || '').replace(/\\s+/g, ' ').trim();
+                    const body = document.body ? document.body.innerText : '';
+
+                    const 公司匹配 = body.match(/快递公司[：:]\\s*([^\\n]+)/);
+                    const 单号匹配 = body.match(/快递单号[：:]\\s*([A-Za-z0-9]+)/);
+                    const 轨迹列表 = [];
+                    const 轨迹正则 = /(\\d{4}-\\d{2}-\\d{2}\\s+\\d{2}:\\d{2}(?::\\d{2})?)\\s*\\n?\\s*(.+?)(?=\\d{4}-\\d{2}-\\d{2}|$)/gs;
+                    let 匹配;
+                    while ((匹配 = 轨迹正则.exec(body)) !== null) {
+                        轨迹列表.push({
+                            时间: 清洗(匹配[1]),
+                            描述: 清洗(匹配[2]),
+                        });
+                    }
+
+                    const 最新轨迹 = 轨迹列表.length > 0 ? 轨迹列表[0] : null;
+                    const 派件人匹配 = body.match(/快递员[：:]\\s*([^\\s(（]+)/);
+                    const 派件人备选 = body.match(/快递员[：:]\\s*\\S+?([\\u4e00-\\u9fa5]{2,4})\\s*[（(]/);
+                    const 网点匹配 = body.match(/【([^】]+)】/);
+                    const 起始位置 = body.indexOf('退货物流');
+                    const 结束位置 = body.indexOf('备注');
+
+                    return {
+                        有退货物流: true,
+                        退货快递公司: 公司匹配 ? 清洗(公司匹配[1]) : '',
+                        退货快递单号: 单号匹配 ? 清洗(单号匹配[1]) : '',
+                        轨迹全文: 清洗(body.substring(
+                            起始位置 >= 0 ? 起始位置 : 0,
+                            结束位置 >= 0 ? 结束位置 : body.length
+                        )).substring(0, 2000),
+                        轨迹列表: 轨迹列表.slice(0, 20),
+                        最新轨迹,
+                        退货物流状态: 最新轨迹 ? 清洗(最新轨迹.描述) : '',
+                        派件人: 派件人匹配 ? 清洗(派件人匹配[1]) : (派件人备选 ? 清洗(派件人备选[1]) : ''),
+                        网点: 网点匹配 ? 清洗(网点匹配[1]) : '',
+                    };
+                }
+                """,
+            )
+        except Exception as 异常:
+            print(f"[售后页] 抓取退货物流失败: {异常}")
+            return {"有退货物流": False}
+
+        结果字典 = dict(结果 or {"有退货物流": False})
+        if 结果字典.get("有退货物流"):
+            print(
+                f"[售后页] 抓取退货物流成功: "
+                f"{结果字典.get('退货快递公司', '')} {结果字典.get('退货快递单号', '')}"
+            )
+        return 结果字典
 
     async def 点击指定按钮(self, 按钮文本: str) -> bool:
         await self.操作前延迟()

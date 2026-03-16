@@ -1,19 +1,6 @@
-2026/03/16-09:18:23.206 bf0 Reusing MANIFEST E:\pdd_zd\data\profiles\8eec98e4-89b9-49d5-ab1f-c72be3c405f6\Default\Local Storage\leveldb/MANIFEST-000001
-2026/03/16-09:18:23.214 bf0 Recovering log #210
-2026/03/16-09:18:23.214 bf0 Level-0 table #213: started
-2026/03/16-09:18:23.244 bf0 Level-0 table #213: 15621 bytes OK
-2026/03/16-09:18:23.244 bf0 Recovering log #212
-2026/03/16-09:18:23.245 bf0 Reusing old log E:\pdd_zd\data\profiles\8eec98e4-89b9-49d5-ab1f-c72be3c405f6\Default\Local Storage\leveldb/000212.log 
-2026/03/16-09:18:23.265 bf0 Delete type=0 #210
-2026/03/16-09:18:23.266 4998 Compacting 4@0 + 1@1 files
-2026/03/16-09:18:23.294 4998 Generated table #214@0: 92 keys, 175069 bytes
-2026/03/16-09:18:23.294 4998 Compacted 4@0 + 1@1 files => 175069 bytes
-2026/03/16-09:18:23.323 4998 compacted to: files[ 0 1 0 0 0 0 0 ]
-2026/03/16-09:18:23.323 4998 Delete type=2 #205
-2026/03/16-09:18:23.323 4998 Delete type=2 #207
-2026/03/16-09:18:23.323 4998 Delete type=2 #209
-2026/03/16-09:18:23.323 4998 Delete type=2 #211
-2026/03/16-09:18:23.323 4998 Delete type=2 #213
-2026/03/16-09:19:23.277 4998 Level-0 table #216: started
-2026/03/16-09:19:23.313 4998 Level-0 table #216: 18502 bytes OK
-2026/03/16-09:19:23.331 4998 Delete type=0 #212
+2026/03/16-09:41:43.420 64a0 Reusing MANIFEST E:\pdd_zd\data\profiles\8eec98e4-89b9-49d5-ab1f-c72be3c405f6\Default\Local Storage\leveldb/MANIFEST-000001
+2026/03/16-09:41:43.429 64a0 Recovering log #215
+2026/03/16-09:41:43.431 64a0 Reusing old log E:\pdd_zd\data\profiles\8eec98e4-89b9-49d5-ab1f-c72be3c405f6\Default\Local Storage\leveldb/000215.log 
+2026/03/16-09:42:43.444 9ba0 Level-0 table #219: started
+2026/03/16-09:42:43.463 9ba0 Level-0 table #219: 15533 bytes OK
+2026/03/16-09:42:43.481 9ba0 Delete type=0 #215

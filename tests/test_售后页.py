@@ -344,3 +344,84 @@ class 测试_售后页:
             path=str(tmp_path / "screenshots" / "detail-case.png"),
             full_page=True,
         )
+
+    @pytest.mark.asyncio
+    async def test_列表页添加备注_成功保存(self, 模拟页面):
+        from pages.售后页 import 售后页
+
+        页面对象 = 售后页(模拟页面)
+        页面对象.安全点击 = AsyncMock()
+        页面对象.安全填写 = AsyncMock()
+        页面对象.随机延迟 = AsyncMock()
+        页面对象.操作后延迟 = AsyncMock()
+
+        结果 = await 页面对象.列表页添加备注("ORDER-1", "转人工处理")
+
+        assert 结果 is True
+        assert 页面对象.安全点击.await_count == 2
+        页面对象.安全填写.assert_awaited_once()
+        页面对象.操作后延迟.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_详情页添加备注_成功保存(self, 模拟页面):
+        from pages.售后页 import 售后页
+
+        详情页 = MagicMock()
+        页面对象 = 售后页(模拟页面)
+        页面对象._详情页 = 详情页
+        页面对象._点击目标页面元素 = AsyncMock()
+        页面对象._填写目标页面元素 = AsyncMock()
+        页面对象.随机延迟 = AsyncMock()
+        页面对象.操作后延迟 = AsyncMock()
+
+        结果 = await 页面对象.详情页添加备注("需要人工复核")
+
+        assert 结果 is True
+        assert 页面对象._点击目标页面元素.await_count == 2
+        页面对象._填写目标页面元素.assert_awaited_once()
+        页面对象.操作后延迟.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_抓取退货物流信息_有退货物流时返回解析结果(self, 模拟页面):
+        from pages.售后页 import 售后页
+
+        详情页 = MagicMock()
+        详情页.evaluate = AsyncMock(
+            return_value={
+                "有退货物流": True,
+                "退货快递公司": "极兔速递",
+                "退货快递单号": "JT123456",
+                "轨迹全文": "完整物流",
+                "轨迹列表": [{"时间": "2026-03-16 10:00", "描述": "快递员陈喜德正在派件"}],
+                "最新轨迹": {"时间": "2026-03-16 10:00", "描述": "快递员陈喜德正在派件"},
+                "退货物流状态": "快递员陈喜德正在派件",
+                "派件人": "陈喜德",
+                "网点": "合肥站点",
+            }
+        )
+
+        页面对象 = 售后页(模拟页面)
+        页面对象._详情页 = 详情页
+        页面对象._点击目标页面元素 = AsyncMock()
+        页面对象.随机延迟 = AsyncMock()
+
+        结果 = await 页面对象.抓取退货物流信息()
+
+        assert 结果["有退货物流"] is True
+        assert 结果["退货快递公司"] == "极兔速递"
+        assert 结果["退货物流状态"] == "快递员陈喜德正在派件"
+        assert 页面对象._点击目标页面元素.await_count >= 1
+
+    @pytest.mark.asyncio
+    async def test_抓取退货物流信息_没有Tab时返回无物流(self, 模拟页面):
+        from pages.售后页 import 售后页
+
+        详情页 = MagicMock()
+        页面对象 = 售后页(模拟页面)
+        页面对象._详情页 = 详情页
+        页面对象._点击目标页面元素 = AsyncMock(side_effect=RuntimeError("not found"))
+        页面对象.随机延迟 = AsyncMock()
+
+        结果 = await 页面对象.抓取退货物流信息()
+
+        assert 结果 == {"有退货物流": False}

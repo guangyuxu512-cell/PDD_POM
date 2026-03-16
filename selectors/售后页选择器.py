@@ -109,6 +109,16 @@ class 售后页选择器:
         备选选择器=["//button[contains(., '详情')]"],
     )
 
+    列表备注输入框 = 选择器配置(
+        主选择器='//textarea[@data-testid="beast-core-textArea-htmlInput"]',
+        备选选择器=['//div[@data-testid="beast-core-textArea"]//textarea'],
+    )
+
+    列表备注保存按钮 = 选择器配置(
+        主选择器='//button[@data-tracking="85986"]',
+        备选选择器=['//button[@data-testid="beast-core-button" and span[text()="保存"]]'],
+    )
+
     确认弹窗 = 选择器配置(
         主选择器="//div[contains(@class, 'ant-modal-content')]",
     )
@@ -141,6 +151,31 @@ class 售后页选择器:
         ],
     )
 
+    详情备注按钮 = 选择器配置(
+        主选择器='//button[@data-testid="beast-core-button" and span[text()="添加备注"]]',
+        备选选择器=['//span[text()="添加备注"]/parent::button[@data-testid="beast-core-button"]'],
+    )
+
+    详情备注输入框 = 选择器配置(
+        主选择器='//textarea[@maxlength="300"]',
+        备选选择器=['//div[@class="Beast__1lcg8"]//textarea'],
+    )
+
+    详情备注保存按钮 = 选择器配置(
+        主选择器='//button[@data-tracking="85986" and span[text()="保存"]]',
+        备选选择器=['//button[@data-testid="beast-core-button" and span[text()="保存"]]'],
+    )
+
+    退货物流Tab = 选择器配置(
+        主选择器='//button[text()="退货物流"] | //div[text()="退货物流"]',
+        备选选择器=['//span[text()="退货物流"]/parent::*'],
+    )
+
+    查看全部按钮 = 选择器配置(
+        主选择器='//div[@class="mui-steps-item-title" and text()="查看全部"]',
+        备选选择器=['//div[text()="查看全部"]/parent::div[@class="mui-steps-item-content"]'],
+    )
+
     下一页按钮 = 选择器配置(
         主选择器="//li[contains(@class, 'ant-pagination-next')]",
     )
@@ -161,6 +196,26 @@ class 售后页选择器:
                 (
                     f'//span[text()="{订单号}"]/ancestor::tr[contains(@class, "ant-table-row")]'
                     '//a[contains(., "详情")]'
+                ),
+            ],
+        )
+
+    @staticmethod
+    def 获取订单备注按钮(订单号: str) -> 选择器配置:
+        """列表页按订单号定位的添加备注链接。"""
+        return 选择器配置(
+            主选择器=(
+                f'//span[text()="{订单号}"]/ancestor::div[contains(@class, "order_item")]'
+                '//a[span[text()="添加备注"]]'
+            ),
+            备选选择器=[
+                (
+                    f'//span[text()="{订单号}"]/ancestor::div[contains(@class, "order_item")]'
+                    '//a[contains(., "添加备注")]'
+                ),
+                (
+                    f'//span[text()="{订单号}"]/ancestor::tr[contains(@class, "ant-table-row")]'
+                    '//a[contains(., "添加备注")]'
                 ),
             ],
         )

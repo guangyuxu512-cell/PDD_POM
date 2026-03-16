@@ -9,6 +9,11 @@ CREATE TABLE IF NOT EXISTS aftersale_queue (
     id                  INTEGER PRIMARY KEY AUTOINCREMENT,
     batch_id            TEXT NOT NULL,
     shop_id             TEXT NOT NULL,
+    shop_name           TEXT,
+    退货快递公司         TEXT,
+    退货快递单号         TEXT,
+    退货物流状态         TEXT,
+    退货物流全文         TEXT,
     订单号               TEXT NOT NULL,
     售后类型             TEXT,
     售后状态             TEXT,
@@ -48,11 +53,32 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_aftersale_queue_batch_order
 ON aftersale_queue (batch_id, 订单号);
 """
 
+售后队列新增字段定义 = {
+    "shop_name": "ALTER TABLE aftersale_queue ADD COLUMN shop_name TEXT",
+    "退货快递公司": "ALTER TABLE aftersale_queue ADD COLUMN 退货快递公司 TEXT",
+    "退货快递单号": "ALTER TABLE aftersale_queue ADD COLUMN 退货快递单号 TEXT",
+    "退货物流状态": "ALTER TABLE aftersale_queue ADD COLUMN 退货物流状态 TEXT",
+    "退货物流全文": "ALTER TABLE aftersale_queue ADD COLUMN 退货物流全文 TEXT",
+}
+
+
+async def _补齐售后队列表字段(连接: aiosqlite.Connection) -> None:
+    async with 连接.execute("PRAGMA table_info(aftersale_queue)") as 游标:
+        字段集合 = {行[1] for 行 in await 游标.fetchall()}
+
+    if not 字段集合:
+        return
+
+    for 字段名, SQL in 售后队列新增字段定义.items():
+        if 字段名 not in 字段集合:
+            await 连接.execute(SQL)
+
 
 async def 初始化售后队列表(连接: aiosqlite.Connection | None = None) -> None:
     """初始化售后工作队列表。"""
     if 连接 is not None:
         await 连接.execute(售后队列建表SQL)
+        await _补齐售后队列表字段(连接)
         await 连接.execute(售后队列去重索引SQL)
         return
 
@@ -60,6 +86,7 @@ async def 初始化售后队列表(连接: aiosqlite.Connection | None = None) -
 
     async with 获取连接() as 数据库连接:
         await 数据库连接.execute(售后队列建表SQL)
+        await _补齐售后队列表字段(数据库连接)
         await 数据库连接.execute(售后队列去重索引SQL)
         await 数据库连接.commit()
 

@@ -2554,3 +2554,70 @@
 - 已执行全量测试：`python -m pytest -c tests/pytest.ini -q`，结果 `358 passed, 16 warnings`
 - 16 条 warning 仍为既有存量：10 条来自第三方 `openpyxl`，6 条来自 Celery `datetime.utcnow()` 弃用提示
 - 工作区仍存在 `.pipeline/task.md`、`data/ecom.db`、`__pycache__/` 等本地变更或运行副产物，非本轮源码交付
+
+---
+
+## 任务摘要
+
+完成 Task 46B 二次重构：新增退货物流抓取与决策、列表页分流转人工、列表/详情备注操作，并补齐 SQLite 新字段兼容。
+
+## 改动文件列表
+
+- `selectors/售后页选择器.py`
+- `pages/售后页.py`
+- `backend/models/售后队列模型.py`
+- `backend/services/售后队列服务.py`
+- `backend/services/售后决策引擎.py`
+- `tasks/售后任务.py`
+- `tests/test_售后决策引擎.py`
+- `tests/test_售后页.py`
+- `tests/test_售后任务.py`
+- `PLAN.md`
+- `改造进度.md`
+- `.pipeline/progress.md`
+
+## 改动说明
+
+- `selectors/售后页选择器.py`
+  - 新增列表页备注、详情页备注、退货物流 Tab 与“查看全部”按钮选择器
+  - 新增按订单号定位列表页“添加备注”入口的方法
+- `pages/售后页.py`
+  - 新增列表页备注、详情页备注和退货物流抓取方法
+  - 增加详情页专用点击/填写辅助方法，避免继续把 `页面=目标页面` 传给基类安全操作接口
+- `backend/models/售后队列模型.py`
+  - 为 `aftersale_queue` 增加 `shop_name` 和 4 个退货物流字段
+  - 初始化时补充旧表字段探测与 `ALTER TABLE ADD COLUMN` 迁移
+- `backend/services/售后队列服务.py`
+  - 适配新字段入队和详情回写
+  - 新增 `更新退货物流(...)` 用于详情补抓后单独回写物流摘要字段
+- `backend/services/售后决策引擎.py`
+  - 重写退货退款逻辑，支持物流阶段等待、白名单派件人匹配、入库校验优先级和自动退款金额上限
+  - 保留仅退款逻辑并补齐备注、人工原因和通知内容
+- `tasks/售后任务.py`
+  - 扫描入队后新增“补寄/维修/换货”列表页直接转人工
+  - `_处理单条()` 去掉搜索步骤，直接按订单号点详情
+  - 退货退款详情页新增退货物流抓取、等待退回/等待验货分支和统一转人工流程
+- `tests/test_售后决策引擎.py`
+  - 扩展到 30+ 决策场景，覆盖退货物流阶段、白名单和仅退款回归
+- `tests/test_售后页.py`
+  - 增加列表页备注、详情页备注和退货物流抓取测试
+- `tests/test_售后任务.py`
+  - 增加列表分流、去掉搜索、退货物流等待、自动退款、等待验货和备选按钮测试
+- `PLAN.md` / `改造进度.md` / `.pipeline/progress.md`
+  - 同步记录本轮实现范围与验证结果
+
+## 影响范围
+
+- 售后任务现在可以在列表页提前把补寄/维修/换货分流到人工处理，减少无效进详情页操作
+- 退货退款场景现在会抓取退货物流并据此决定等待、自动退款、等待验货或转人工
+- `aftersale_queue` 具备店铺名和退货物流字段，后续查询与人工跟进信息更完整
+- 列表页备注和详情页备注已经拆开，后续页面结构继续变化时可以分别校准
+
+## 注意事项
+
+- 已执行针对性回归：`python -m pytest -c tests/pytest.ini -q tests/test_售后决策引擎.py tests/test_售后页.py tests/test_售后任务.py`，结果 `61 passed`
+- 已执行邻近回归：`python -m pytest -c tests/pytest.ini -q tests/test_售后队列服务.py`，结果 `10 passed`
+- 已执行全量测试：`python -m pytest -c tests/pytest.ini tests/ -v`，结果 `386 passed, 16 warnings`
+- 首次全量回归命中过一条既有 `tests/单元测试/测试_反检测.py::test_随机延迟在范围内` 计时波动，用例单独复跑通过后再次执行全量已全部通过
+- 16 条 warning 为既有存量：10 条来自第三方 `openpyxl`，6 条来自 Celery `datetime.utcnow()` 弃用提示
+- 工作区仍存在 `.pipeline/task.md`、`data/ecom.db` 及 `data/profiles/`、`data/screenshots/` 下的本地变更，非本轮源码交付
