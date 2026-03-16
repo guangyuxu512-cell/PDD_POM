@@ -143,77 +143,101 @@ class 售后页(基础页):
 
     async def 获取售后单数量(self) -> int:
         await self.操作前延迟()
-        for 选择器 in 售后页选择器.售后单行.所有选择器():
-            try:
-                行列表 = await self.页面.query_selector_all(选择器)
-                if 行列表:
-                    await self.操作后延迟()
-                    return len(行列表)
-            except Exception:
-                continue
-        return 0
+        数量 = await self.页面.evaluate(
+            """
+            () => document.querySelectorAll(
+                'div[class*="after-sales-table_order_item"]'
+            ).length
+            """
+        )
+        await self.操作后延迟()
+        return int(数量 or 0)
 
     async def 获取第N行信息(self, 行号: int) -> dict[str, str]:
         await self.操作前延迟()
         结果 = await self.页面.evaluate(
             """
-            ({ 行选择器列表, 行号 }) => {
+            (行号) => {
                 const 清洗 = (值) => String(值 || '').replace(/\\s+/g, ' ').trim();
-                const 查询全部 = (选择器) => {
-                    if (选择器.startsWith('//') || 选择器.startsWith('(')) {
-                        const 快照 = document.evaluate(
-                            选择器,
-                            document,
-                            null,
-                            XPathResult.ORDERED_NODE_SNAPSHOT_TYPE,
-                            null,
-                        );
-                        const 节点列表 = [];
-                        for (let i = 0; i < 快照.snapshotLength; i += 1) {
-                            节点列表.push(快照.snapshotItem(i));
-                        }
-                        return 节点列表.filter(Boolean);
+                const 所有行 = document.querySelectorAll(
+                    'div[class*="after-sales-table_order_item"]'
+                );
+                if (行号 > 所有行.length) {
+                    return null;
+                }
+
+                const 行 = 所有行[行号 - 1];
+                const 订单号节点 = 行.querySelector('[class*="table-item-header_sn__"]');
+                const 订单号 = 清洗(订单号节点 ? 订单号节点.textContent : '');
+
+                const 申请时间节点 = 行.querySelector(
+                    '[class*="table-item-header_apply_time"] span'
+                );
+                const 申请时间 = 清洗(申请时间节点 ? 申请时间节点.textContent : '');
+
+                const 剩余时间节点 = 行.querySelector('[class*="table-item-header_time__"]');
+                const 剩余处理时间 = 清洗(剩余时间节点 ? 剩余时间节点.textContent : '');
+
+                const 所有列 = 行.querySelectorAll('[class*="after-sales-table_item_cell"]');
+                const 读列 = (索引) => {
+                    if (索引 >= 所有列.length) {
+                        return '';
                     }
-                    return Array.from(document.querySelectorAll(选择器));
+                    return 清洗(所有列[索引].textContent);
                 };
 
-                let 行节点 = null;
-                for (const 选择器 of 行选择器列表) {
-                    const 节点列表 = 查询全部(选择器);
-                    if (节点列表.length >= 行号) {
-                        行节点 = 节点列表[行号 - 1];
-                        break;
-                    }
-                }
-                if (!行节点) {
-                    return { 订单号: '', 售后类型: '', 退款金额: '', 商品名称: '' };
-                }
+                const 商品名节点 = 所有列[0]
+                    ? 所有列[0].querySelector('[class*="order-info_main"]')
+                    : null;
+                const 规格节点 = 所有列[0]
+                    ? 所有列[0].querySelector('[class*="order-info_sub"]')
+                    : null;
+                const 商品名称 = 清洗(商品名节点 ? 商品名节点.textContent : '');
+                const 商品规格 = 清洗(规格节点 ? 规格节点.textContent : '');
 
-                const 文本列表 = Array.from(
-                    new Set(
-                        Array.from(行节点.querySelectorAll('td, div, span, p'))
-                            .map((节点) => 清洗(节点.textContent))
-                            .filter(Boolean)
-                    )
-                );
-                const 行文本 = 清洗(行节点.textContent);
-                const 商品候选 = 文本列表
-                    .filter((文本) => !['查看详情', '同意退款', '同意退货', '拒绝'].some((值) => 文本.includes(值)))
-                    .filter((文本) => !['仅退款', '退货退款', '换货', '补寄', '维修'].some((值) => 文本.includes(值)))
-                    .filter((文本) => !/[¥￥]\\s*\\d+(\\.\\d{1,2})?/.test(文本))
-                    .sort((a, b) => b.length - a.length);
+                const 实收节点 = 所有列[1]
+                    ? 所有列[1].querySelector('[class*="amount_dotted"]')
+                    : null;
+                const 退款节点 = 所有列[1]
+                    ? 所有列[1].querySelector('[class*="amount_refund"]')
+                    : null;
+                const 实收金额 = 清洗(实收节点 ? 实收节点.textContent : '');
+                const 退款金额 = 清洗(退款节点 ? 退款节点.textContent : '');
+
+                const 售后状态节点 = 所有列[4] ? 所有列[4].querySelector('div') : null;
+                const 售后状态 = 清洗(售后状态节点 ? 售后状态节点.textContent : '');
+
+                const 操作按钮 = 所有列[7]
+                    ? Array.from(所有列[7].querySelectorAll('a span, button span'))
+                        .map((节点) => 清洗(节点.textContent))
+                        .filter((文本) => 文本.length > 0)
+                    : [];
 
                 return {
-                    订单号: 文本列表.find((文本) => /\\d{6,}/.test(文本)) || (行文本.match(/\\d{6,}/) || [''])[0],
-                    售后类型: 文本列表.find((文本) => ['仅退款', '退货退款', '换货', '补寄', '维修'].some((值) => 文本.includes(值))) || '',
-                    退款金额: 文本列表.find((文本) => /[¥￥]\\s*\\d+(\\.\\d{1,2})?/.test(文本)) || '',
-                    商品名称: 商品候选[0] || '',
+                    订单号: 订单号,
+                    申请时间: 申请时间,
+                    剩余处理时间: 剩余处理时间,
+                    商品名称: 商品名称,
+                    商品规格: 商品规格,
+                    实收金额: 实收金额,
+                    退款金额: 退款金额,
+                    发货状态: 清洗(读列(2)),
+                    售后类型: 清洗(读列(3)),
+                    售后状态: 售后状态,
+                    售后协商: 清洗(读列(5)),
+                    售后原因: 清洗(读列(6)),
+                    操作按钮: 操作按钮,
                 };
             }
             """,
-            {"行选择器列表": 售后页选择器.售后单行.所有选择器(), "行号": 行号},
+            行号,
         )
         await self.操作后延迟()
+        if 结果:
+            print(
+                f"[售后页] 第{行号}行: 订单={结果.get('订单号')}, "
+                f"类型={结果.get('售后类型')}, 退款={结果.get('退款金额')}"
+            )
         return dict(结果 or {})
 
     async def 点击订单详情(self, 订单号: str) -> None:
@@ -309,7 +333,7 @@ class 售后页(基础页):
             数量 = await self.获取售后单数量()
             for 行号 in range(1, 数量 + 1):
                 信息 = await self.获取第N行信息(行号)
-                if 信息.get("订单号"):
+                if 信息 and 信息.get("订单号"):
                     结果.append(信息)
             if not await self.翻页():
                 break

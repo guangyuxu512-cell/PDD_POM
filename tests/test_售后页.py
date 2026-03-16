@@ -73,6 +73,78 @@ class 测试_售后页:
         页面对象.页面加载延迟.assert_awaited_once()
 
     @pytest.mark.asyncio
+    async def test_获取售后单数量_通过JS读取真实列表行数量(self, 模拟页面):
+        from pages.售后页 import 售后页
+
+        模拟页面.evaluate = AsyncMock(return_value=3)
+        页面对象 = 售后页(模拟页面)
+        页面对象.操作前延迟 = AsyncMock()
+        页面对象.操作后延迟 = AsyncMock()
+
+        结果 = await 页面对象.获取售后单数量()
+
+        assert 结果 == 3
+        模拟页面.evaluate.assert_awaited_once()
+        页面对象.操作后延迟.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_获取第N行信息_返回清洗后的完整字段(self, 模拟页面):
+        from pages.售后页 import 售后页
+
+        模拟页面.evaluate = AsyncMock(
+            return_value={
+                "订单号": "260311-138328215900728",
+                "申请时间": "2026-03-14 17:13:26",
+                "剩余处理时间": "5天8时29分52秒",
+                "商品名称": "大捞粗篱用漏瓢防烫捞面勺大号大漏漏勺油炸木纹厨房用品孔家",
+                "商品规格": "x1；富贵木柄特厚升级款【12#大漏】1支",
+                "实收金额": "¥3.79",
+                "退款金额": "退款：¥3.61",
+                "发货状态": "已发货",
+                "售后类型": "退货退款",
+                "售后状态": "退货退款，待商家确认收货",
+                "售后协商": "",
+                "售后原因": "不想要了",
+                "操作按钮": ["同意退款", "查看详情", "添加备注"],
+            }
+        )
+        页面对象 = 售后页(模拟页面)
+        页面对象.操作前延迟 = AsyncMock()
+        页面对象.操作后延迟 = AsyncMock()
+
+        结果 = await 页面对象.获取第N行信息(1)
+
+        assert 结果["订单号"] == "260311-138328215900728"
+        assert 结果["申请时间"] == "2026-03-14 17:13:26"
+        assert 结果["商品规格"] == "x1；富贵木柄特厚升级款【12#大漏】1支"
+        assert 结果["退款金额"] == "退款：¥3.61"
+        assert 结果["操作按钮"] == ["同意退款", "查看详情", "添加备注"]
+        模拟页面.evaluate.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_扫描所有待处理_只收集有订单号的数据(self, 模拟页面):
+        from pages.售后页 import 售后页
+
+        页面对象 = 售后页(模拟页面)
+        页面对象.确保待商家处理已选中 = AsyncMock()
+        页面对象.获取售后单数量 = AsyncMock(side_effect=[2, 1])
+        页面对象.获取第N行信息 = AsyncMock(
+            side_effect=[
+                {"订单号": "ORDER-1", "售后类型": "退货退款"},
+                {},
+                {"订单号": "ORDER-2", "售后类型": "仅退款"},
+            ]
+        )
+        页面对象.翻页 = AsyncMock(side_effect=[True, False])
+
+        结果 = await 页面对象.扫描所有待处理()
+
+        assert 结果 == [
+            {"订单号": "ORDER-1", "售后类型": "退货退款"},
+            {"订单号": "ORDER-2", "售后类型": "仅退款"},
+        ]
+
+    @pytest.mark.asyncio
     async def test_点击订单详情并切换标签_等待并切换到新标签(self, 模拟页面):
         from pages.售后页 import 售后页
 

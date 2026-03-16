@@ -2512,3 +2512,45 @@
 - 已执行全量测试：`python -m pytest -c tests/pytest.ini -q`，结果 `355 passed, 16 warnings`
 - 16 条 warning 仍为既有存量：10 条来自第三方 `openpyxl`，6 条来自 Celery `datetime.utcnow()` 弃用提示
 - 工作区仍存在 `.pipeline/task.md`、`data/ecom.db`、`__pycache__/` 等本地变更或运行副产物，非本轮源码交付
+
+---
+
+## 任务摘要
+
+完成 Hotfix 46A-fix：重写售后列表页抓取 JS，按真实 DOM 精准清洗列表字段。
+
+## 改动文件列表
+
+- `selectors/售后页选择器.py`
+- `pages/售后页.py`
+- `tests/test_售后页.py`
+- `PLAN.md`
+- `改造进度.md`
+- `.pipeline/progress.md`
+
+## 改动说明
+
+- `selectors/售后页选择器.py`
+  - 将 `售后单行` 主选择器切换为 `div[class*="after-sales-table_order_item"]`
+  - 仅保留任务要求的 XPath 备选，避免旧的宽泛行匹配继续混入脏数据
+- `pages/售后页.py`
+  - 将 `获取售后单数量()` 改为单次 JS 读取真实列表行数量
+  - 将 `获取第N行信息()` 改为按真实 DOM class 精准提取头部、金额列、状态列和操作列字段
+  - `扫描所有待处理()` 仅保留清洗后且包含订单号的记录，避免空字典写入后续队列
+- `tests/test_售后页.py`
+  - 新增列表数量读取测试
+  - 新增完整字段提取测试
+  - 新增扫描过滤空记录测试
+
+## 影响范围
+
+- 售后列表摘要写入 SQLite 前的数据更干净，每个字段只对应一个值
+- 后续 `售后任务` 的扫描入队阶段会直接消费新的清洗结果，减少列表页 HTML 拼接文本污染详情决策
+- 46B 的详情页决策与弹窗链路未改动
+
+## 注意事项
+
+- 已执行针对性回归：`python -m pytest -c tests/pytest.ini -q tests/test_售后页.py tests/test_售后任务.py tests/test_售后决策引擎.py`，结果 `33 passed`
+- 已执行全量测试：`python -m pytest -c tests/pytest.ini -q`，结果 `358 passed, 16 warnings`
+- 16 条 warning 仍为既有存量：10 条来自第三方 `openpyxl`，6 条来自 Celery `datetime.utcnow()` 弃用提示
+- 工作区仍存在 `.pipeline/task.md`、`data/ecom.db`、`__pycache__/` 等本地变更或运行副产物，非本轮源码交付

@@ -26,10 +26,9 @@ class 售后页选择器:
     待商家处理选中类名片段 = "CAD_beastCardChecked"
 
     售后单行 = 选择器配置(
-        主选择器='//div[contains(@class, "order_item")]',
+        主选择器='div[class*="after-sales-table_order_item"]',
         备选选择器=[
-            "//tr[contains(@class, 'ant-table-row')]",
-            "//div[contains(@class, 'refund-item')]",
+            '//div[contains(@class, "after-sales-table_order_item")]',
         ],
     )
 

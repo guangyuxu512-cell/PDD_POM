@@ -2091,3 +2091,15 @@
 - [x] 针对性验证结果：`30 passed`
 - [x] 验证通过：`python -m pytest -c tests/pytest.ini -q`
 - [x] 全量验证结果：`355 passed, 16 warnings`（10 条为第三方 `openpyxl` 警告，6 条为现有 Celery 警告）
+
+## Prompt 97：Hotfix 46A-fix 列表页抓取 JS 重写 + 数据清洗 ✅
+
+- [x] 更新 `selectors/售后页选择器.py`，将列表行主选择器切换为 `div[class*="after-sales-table_order_item"]`
+- [x] 更新 `pages/售后页.py`，重写 `获取售后单数量()` 为单次 JS 计数
+- [x] 更新 `pages/售后页.py`，重写 `获取第N行信息()` 为按真实 DOM class 精准提取字段
+- [x] 更新 `pages/售后页.py`，调整 `扫描所有待处理()` 仅收集清洗后且包含订单号的记录
+- [x] 更新 `tests/test_售后页.py`，补充列表数量读取、完整字段提取和扫描过滤测试
+- [x] 针对性验证通过：`python -m pytest -c tests/pytest.ini -q tests/test_售后页.py tests/test_售后任务.py tests/test_售后决策引擎.py`
+- [x] 针对性验证结果：`33 passed`
+- [x] 验证通过：`python -m pytest -c tests/pytest.ini -q`
+- [x] 全量验证结果：`358 passed, 16 warnings`（10 条为第三方 `openpyxl` 警告，6 条为现有 Celery 警告）
