@@ -2197,3 +2197,15 @@
 - [x] 已尝试：`python -m pytest -c tests/pytest.ini -q`，失败项仍为既有抖动用例 `tests/单元测试/测试_反检测.py::测试_真人模拟器::test_随机延迟在范围内`
 - [x] 全量验证通过：PowerShell 临时设置 `timeBeginPeriod(1)` 并以高优先级独立 Python 进程执行 `python -m pytest -c tests/pytest.ini -q`
 - [x] 全量验证结果：`397 passed, 16 warnings`（10 条为第三方 `openpyxl` 警告，6 条为现有 Celery 警告）
+
+## Prompt 103：修正售后列表拦截注册时机 ✅
+
+- [x] 更新 `pages/售后页.py`，将 `导航并拦截售后列表()` 改为先导航再注册拦截
+- [x] 更新 `pages/售后页.py`，为 `确保待商家处理已选中()` 增加 `强制点击` 参数
+- [x] 当待商家处理已选中且 `强制点击=True` 时，仍会再次点击卡片触发新请求
+- [x] `导航并拦截售后列表()` 首轮为空时复用 `强制点击=True` 重试，并补 `API拦截失败，fallback到JS抓取` 日志
+- [x] 更新 `tests/test_售后页.py`，覆盖强制点击路径和导航后两次强制点击重试断言
+- [x] 定向验证通过：`python -m pytest -c tests/pytest.ini -q tests/test_售后页.py tests/test_售后任务.py`
+- [x] 定向验证结果：`36 passed`
+- [x] 验证通过：`python -m pytest -c tests/pytest.ini -q`
+- [x] 全量验证结果：`398 passed, 16 warnings`（10 条为第三方 `openpyxl` 警告，6 条为现有 Celery 警告）

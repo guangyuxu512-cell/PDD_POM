@@ -2881,3 +2881,44 @@
 - 已通过 PowerShell 临时启用 `timeBeginPeriod(1)` 并以高优先级独立 Python 进程执行同一全量命令，结果 `397 passed, 16 warnings`
 - 16 条 warning 为既有存量：10 条来自第三方 `openpyxl`，6 条来自 Celery `datetime.utcnow()` 弃用提示
 - `.pipeline/task.md` 仍为当前任务单的本地变更；`data/` 下运行副产物不属于本轮源码改动
+
+---
+
+## 任务摘要
+
+修正售后列表 API 拦截的触发时机，避免导航默认请求被误捕获，并补上待商家处理已选中时的强制点击重试。
+
+## 改动文件列表
+
+- `pages/售后页.py`
+- `tests/test_售后页.py`
+- `.pipeline/progress.md`
+- `PLAN.md`
+- `改造进度.md`
+
+## 改动说明
+
+- `pages/售后页.py`
+  - 调整 `导航并拦截售后列表()`：先执行 `导航到售后列表()`，再注册 `拦截售后列表API()`，避免把页面初始加载请求当成待商家处理切换请求
+  - 将首轮拦截超时改为 `10` 秒，与重试路径保持一致
+  - 为 `确保待商家处理已选中()` 增加 `强制点击` 参数
+  - 当卡片已选中但传入 `强制点击=True` 时，仍会再次点击卡片并等待加载，显式触发新的列表请求
+  - `导航并拦截售后列表()` 在首轮为空时改为复用 `强制点击=True` 重试，并输出 `API拦截失败，fallback到JS抓取` 日志
+- `tests/test_售后页.py`
+  - 新增“已选中但强制点击时再次点击”的用例
+  - 更新 `导航并拦截售后列表()` 用例，断言导航后再走两次 `强制点击=True` 的待商家处理切换
+- `PLAN.md` / `改造进度.md`
+  - 同步记录本轮 API 拦截触发时机修正与验证结果
+
+## 影响范围
+
+- 售后列表 API 拦截会优先等待待商家处理切换触发的新请求，不再误吃列表页初始加载返回
+- 当待商家处理卡片本身已处于选中态时，重试路径仍能主动再次点击，提升拦截命中率
+- 任务层 fallback 逻辑保持不变，接口仍未命中时会回退到原有 JS/DOM 扫描
+
+## 注意事项
+
+- 已执行定向回归：`python -m pytest -c tests/pytest.ini -q tests/test_售后页.py tests/test_售后任务.py`，结果 `36 passed`
+- 已执行全量测试：`python -m pytest -c tests/pytest.ini -q`，结果 `398 passed, 16 warnings`
+- 16 条 warning 为既有存量：10 条来自第三方 `openpyxl`，6 条来自 Celery `datetime.utcnow()` 弃用提示
+- `.pipeline/task.md` 仍为当前任务单的本地变更；`data/` 下运行副产物不属于本轮源码改动

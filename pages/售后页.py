@@ -196,32 +196,28 @@ class 售后页(基础页):
         return 结果容器
 
     async def 导航并拦截售后列表(self) -> list[dict]:
-        """导航到售后列表页并优先通过 API 拦截获取当前页数据。"""
-        拦截任务 = asyncio.create_task(self.拦截售后列表API(超时秒=15))
+        """先导航到列表页，再通过待商家处理卡片切换触发接口拦截。"""
         await self.导航到售后列表()
-        await self.确保待商家处理已选中()
+
+        拦截任务 = asyncio.create_task(self.拦截售后列表API(超时秒=10))
+        await self.确保待商家处理已选中(强制点击=True)
         结果 = await 拦截任务
 
         if not 结果:
             print("[售后页] 首次 API 拦截为空，重试触发待商家处理请求")
             拦截任务 = asyncio.create_task(self.拦截售后列表API(超时秒=10))
-            for 选择器 in 售后页选择器.待商家处理卡片.所有选择器():
-                try:
-                    await self.安全点击(选择器)
-                    await self.页面加载延迟()
-                    break
-                except Exception:
-                    continue
-            else:
-                await self.确保待商家处理已选中()
+            await self.确保待商家处理已选中(强制点击=True)
             结果 = await 拦截任务
+
+        if not 结果:
+            print("[售后页] API拦截失败，fallback到JS抓取")
 
         return 结果
 
     async def 切换待处理(self) -> None:
         await self.确保待商家处理已选中()
 
-    async def 确保待商家处理已选中(self) -> None:
+    async def 确保待商家处理已选中(self, 强制点击: bool = False) -> None:
         await self.操作前延迟()
         类名片段 = 售后页选择器.待商家处理选中类名片段
         最后异常 = None
@@ -249,6 +245,11 @@ class 售后页(基础页):
                     {"选择器": 选择器, "类名片段": 类名片段},
                 )
                 if 已选中:
+                    if 强制点击:
+                        await self.安全点击(选择器)
+                        await self.页面加载延迟()
+                        print("[售后页] 待商家处理卡片已选中，已强制再次点击")
+                        return
                     print("[售后页] 待商家处理卡片已选中")
                     return
                 await self.安全点击(选择器)

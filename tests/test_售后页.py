@@ -60,6 +60,22 @@ class 测试_售后页:
         页面对象.安全点击.assert_not_awaited()
 
     @pytest.mark.asyncio
+    async def test_确保待商家处理已选中_已选中但强制点击时再次点击(self, 模拟页面):
+        from pages.售后页 import 售后页
+        from selectors.售后页选择器 import 售后页选择器
+
+        模拟页面.evaluate = AsyncMock(return_value=True)
+        页面对象 = 售后页(模拟页面)
+        页面对象.操作前延迟 = AsyncMock()
+        页面对象.页面加载延迟 = AsyncMock()
+        页面对象.安全点击 = AsyncMock()
+
+        await 页面对象.确保待商家处理已选中(强制点击=True)
+
+        页面对象.安全点击.assert_awaited_once_with(售后页选择器.待商家处理卡片.主选择器)
+        页面对象.页面加载延迟.assert_awaited_once()
+
+    @pytest.mark.asyncio
     async def test_确保待商家处理已选中_未选中时点击(self, 模拟页面):
         from pages.售后页 import 售后页
         from selectors.售后页选择器 import 售后页选择器
@@ -150,8 +166,10 @@ class 测试_售后页:
 
         assert 结果 == [{"订单号": "ORDER-2", "售后类型": "仅退款"}]
         页面对象.导航到售后列表.assert_awaited_once()
-        页面对象.确保待商家处理已选中.assert_awaited_once()
-        页面对象.安全点击.assert_awaited_once()
+        assert 页面对象.确保待商家处理已选中.await_count == 2
+        assert 页面对象.确保待商家处理已选中.await_args_list[0].kwargs == {"强制点击": True}
+        assert 页面对象.确保待商家处理已选中.await_args_list[1].kwargs == {"强制点击": True}
+        页面对象.安全点击.assert_not_awaited()
 
     @pytest.mark.asyncio
     async def test_翻页并拦截_无下一页直接返回None(self, 模拟页面):
