@@ -1,15 +1,6 @@
-2026/03/19-02:26:58.937 a660 Reusing MANIFEST E:\pdd_zd\data\profiles\8eec98e4-89b9-49d5-ab1f-c72be3c405f6\Default\Local Storage\leveldb/MANIFEST-000001
-2026/03/19-02:26:58.947 a660 Recovering log #245
-2026/03/19-02:26:58.949 a660 Reusing old log E:\pdd_zd\data\profiles\8eec98e4-89b9-49d5-ab1f-c72be3c405f6\Default\Local Storage\leveldb/000245.log 
-2026/03/19-02:27:58.990 a660 Level-0 table #249: started
-2026/03/19-02:27:59.020 a660 Level-0 table #249: 17015 bytes OK
-2026/03/19-02:27:59.071 a660 Delete type=0 #245
-2026/03/19-02:27:59.072 a660 Compacting 4@0 + 1@1 files
-2026/03/19-02:27:59.118 a660 Generated table #250@0: 93 keys, 178288 bytes
-2026/03/19-02:27:59.118 a660 Compacted 4@0 + 1@1 files => 178288 bytes
-2026/03/19-02:27:59.143 a660 compacted to: files[ 0 1 0 0 0 0 0 ]
-2026/03/19-02:27:59.144 a660 Delete type=2 #237
-2026/03/19-02:27:59.144 a660 Delete type=2 #240
-2026/03/19-02:27:59.144 a660 Delete type=2 #243
-2026/03/19-02:27:59.145 a660 Delete type=2 #246
-2026/03/19-02:27:59.145 a660 Delete type=2 #249
+2026/03/19-02:33:36.678 f28 Reusing MANIFEST E:\pdd_zd\data\profiles\8eec98e4-89b9-49d5-ab1f-c72be3c405f6\Default\Local Storage\leveldb/MANIFEST-000001
+2026/03/19-02:33:36.686 f28 Recovering log #248
+2026/03/19-02:33:36.687 f28 Reusing old log E:\pdd_zd\data\profiles\8eec98e4-89b9-49d5-ab1f-c72be3c405f6\Default\Local Storage\leveldb/000248.log 
+2026/03/19-02:34:36.699 8a9c Level-0 table #253: started
+2026/03/19-02:34:36.755 8a9c Level-0 table #253: 15337 bytes OK
+2026/03/19-02:34:36.790 8a9c Delete type=0 #248
