@@ -1,6 +1,15 @@
-2026/03/19-06:55:14.186 acf8 Reusing MANIFEST E:\pdd_zd\data\profiles\8eec98e4-89b9-49d5-ab1f-c72be3c405f6\Default\Local Storage\leveldb/MANIFEST-000001
-2026/03/19-06:55:14.193 acf8 Recovering log #288
-2026/03/19-06:55:14.194 acf8 Reusing old log E:\pdd_zd\data\profiles\8eec98e4-89b9-49d5-ab1f-c72be3c405f6\Default\Local Storage\leveldb/000288.log 
-2026/03/19-06:56:14.213 2b80 Level-0 table #292: started
-2026/03/19-06:56:14.241 2b80 Level-0 table #292: 17023 bytes OK
-2026/03/19-06:56:14.261 2b80 Delete type=0 #288
+2026/03/19-07:11:40.727 9d2c Reusing MANIFEST E:\pdd_zd\data\profiles\8eec98e4-89b9-49d5-ab1f-c72be3c405f6\Default\Local Storage\leveldb/MANIFEST-000001
+2026/03/19-07:11:40.736 9d2c Recovering log #291
+2026/03/19-07:11:40.739 9d2c Reusing old log E:\pdd_zd\data\profiles\8eec98e4-89b9-49d5-ab1f-c72be3c405f6\Default\Local Storage\leveldb/000291.log 
+2026/03/19-07:12:40.756 73a4 Level-0 table #295: started
+2026/03/19-07:12:40.783 73a4 Level-0 table #295: 17023 bytes OK
+2026/03/19-07:12:40.806 73a4 Delete type=0 #291
+2026/03/19-07:12:40.806 73a4 Compacting 4@0 + 1@1 files
+2026/03/19-07:12:40.852 73a4 Generated table #296@0: 93 keys, 178297 bytes
+2026/03/19-07:12:40.852 73a4 Compacted 4@0 + 1@1 files => 178297 bytes
+2026/03/19-07:12:40.872 73a4 compacted to: files[ 0 1 0 0 0 0 0 ]
+2026/03/19-07:12:40.873 73a4 Delete type=2 #284
+2026/03/19-07:12:40.873 73a4 Delete type=2 #286
+2026/03/19-07:12:40.873 73a4 Delete type=2 #289
+2026/03/19-07:12:40.873 73a4 Delete type=2 #292
+2026/03/19-07:12:40.873 73a4 Delete type=2 #295

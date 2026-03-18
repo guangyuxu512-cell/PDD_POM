@@ -900,14 +900,21 @@ class 售后页(基础页):
         await self.操作前延迟()
         if not await self._检查有下一页():
             return False
-        for 选择器 in 售后页选择器.下一页按钮.所有选择器():
-            try:
-                await self.安全点击(选择器)
-                await self.操作后延迟()
-                return True
-            except Exception:
-                continue
-        return False
+        翻页结果 = await self.页面.evaluate(
+            """
+            () => {
+                const btn = document.querySelector(
+                    'li[data-testid="beast-core-pagination-next"]'
+                );
+                if (!btn) return false;
+                btn.click();
+                return true;
+            }
+            """
+        )
+        if 翻页结果:
+            await self.操作后延迟()
+        return bool(翻页结果)
 
     async def 翻页并抓取(self) -> list[dict] | None:
         """翻到下一页，等待 DOM 刷新，再批量抓取。返回 None 表示没有下一页。"""
