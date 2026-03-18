@@ -2237,3 +2237,16 @@
 - [x] 定向补充验证通过：`python -m pytest -c tests/pytest.ini -q tests/test_售后页.py tests/test_售后任务.py tests/test_售后队列服务.py`
 - [x] 全量验证通过：`python -m pytest -c tests/pytest.ini tests/ -v`
 - [x] 全量验证结果：`405 passed, 16 warnings`（10 条为第三方 `openpyxl` 警告，6 条为现有 Celery 警告）
+
+## Prompt 106：修复售后页待商家处理拦截与 Beast 分页 ✅
+
+- [x] 更新 `pages/售后页.py`，`导航并拦截售后列表()` 在导航后额外等待页面稳定，再注册拦截并点击“待商家处理”
+- [x] 更新 `pages/售后页.py`，`拦截售后列表API()` 新增 `仅待商家处理` 开关，并按 URL 参数 / 列表状态过滤非目标响应
+- [x] 更新 `pages/售后页.py`，`翻页并拦截()` 透传 `仅待商家处理=True`
+- [x] 更新 `pages/售后页.py`，`_检查有下一页()` 新增 `PGT_disabled` 禁用态识别
+- [x] 更新 `selectors/售后页选择器.py`，将 `下一页按钮` 主选择器切换到 `beast-core-pagination-next` 并保留旧版兜底
+- [x] 更新 `tests/test_售后页.py`，覆盖非待商家处理响应过滤、导航稳定等待、Beast Core 分页选择器和禁用态识别
+- [x] 定向验证通过：`python -m pytest -c tests/pytest.ini -q tests/test_售后页.py`
+- [x] 定向补充验证通过：`python -m pytest -c tests/pytest.ini -q tests/test_售后页.py tests/test_售后任务.py`
+- [x] 全量验证通过：PowerShell 临时设置 `timeBeginPeriod(1)` 并提升当前进程优先级后执行 `python -m pytest -c tests/pytest.ini tests/ -v`
+- [x] 全量验证结果：`408 passed, 16 warnings`（10 条为第三方 `openpyxl` 警告，6 条为现有 Celery 警告）

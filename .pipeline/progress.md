@@ -3015,3 +3015,53 @@
 - 已执行全量测试：`python -m pytest -c tests/pytest.ini tests/ -v`，结果 `405 passed, 16 warnings`
 - 16 条 warning 为既有存量：10 条来自第三方 `openpyxl`，6 条来自 Celery `datetime.utcnow()` 弃用提示
 - `.pipeline/task.md` 仍为当前任务单的本地变更；`data/` 下运行副产物不属于本轮源码改动
+
+---
+
+## 任务摘要
+
+修复售后页“待商家处理”API 拦截误捕获默认列表的问题，并切换到 Beast Core 分页选择器与禁用态判断。
+
+## 改动文件列表
+
+- `pages/售后页.py`
+- `selectors/售后页选择器.py`
+- `tests/test_售后页.py`
+- `.pipeline/progress.md`
+- `PLAN.md`
+- `改造进度.md`
+
+## 改动说明
+
+- `pages/售后页.py`
+  - `导航并拦截售后列表()` 在导航后增加一次额外的页面稳定等待，再注册拦截器并点击“待商家处理”
+  - `拦截售后列表API()` 新增 `仅待商家处理` 参数
+  - 当启用该参数时，优先按响应 URL 的筛选参数判断是否为待商家处理请求；缺少参数时再按列表项状态文本兜底判断
+  - 非待商家处理响应会被忽略，避免误吃导航阶段默认“全部”列表数据
+  - `翻页并拦截()` 同样开启待商家处理过滤
+  - `_检查有下一页()` 增加 `PGT_disabled` 识别，兼容 Beast Core 分页禁用态
+- `selectors/售后页选择器.py`
+  - `下一页按钮` 主选择器改为 `//li[@data-testid="beast-core-pagination-next"]`
+  - 增加 `PGT_next` 备选选择器，并保留旧版 `ant-pagination-next` 兜底
+- `tests/test_售后页.py`
+  - 新增忽略默认列表响应用例
+  - 新增 Beast Core 分页禁用态识别用例
+  - 新增下一页选择器静态断言
+  - 更新导航并拦截与翻页拦截用例，断言新的等待和参数行为
+- `PLAN.md` / `改造进度.md`
+  - 同步记录本轮售后页 POM/选择器修复与验证结果
+
+## 影响范围
+
+- 售后列表首次导航后，API 拦截更聚焦于“待商家处理”列表，不再容易混入默认“全部”数据
+- 翻页按钮定位适配到 Beast Core 新版分页结构，最后一页禁用态也能被正确识别
+- `售后任务.py` 和 `售后队列服务.py` 未改动，本轮影响范围限定在 POM 层、选择器层和相关测试
+
+## 注意事项
+
+- 已执行定向回归：`python -m pytest -c tests/pytest.ini -q tests/test_售后页.py`，结果 `31 passed`
+- 已执行补充回归：`python -m pytest -c tests/pytest.ini -q tests/test_售后页.py tests/test_售后任务.py`，结果 `45 passed`
+- 首次直接执行全量 `python -m pytest -c tests/pytest.ini tests/ -v` 命中既有抖动用例 `tests/单元测试/测试_反检测.py::测试_真人模拟器::test_随机延迟在范围内`
+- 已通过 PowerShell 临时设置 `timeBeginPeriod(1)` 并提升当前进程优先级后再次执行全量测试，结果 `408 passed, 16 warnings`
+- 16 条 warning 为既有存量：10 条来自第三方 `openpyxl`，6 条来自 Celery `datetime.utcnow()` 弃用提示
+- `.pipeline/task.md` 仍为当前任务单的本地变更；`data/` 下运行副产物不属于本轮源码改动

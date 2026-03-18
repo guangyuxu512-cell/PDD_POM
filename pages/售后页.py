@@ -5,6 +5,7 @@ import asyncio
 import inspect
 from pathlib import Path
 from typing import Any
+from urllib.parse import parse_qs, unquote, urlparse
 
 from backend.配置 import 配置实例
 from pages.基础页 import 基础页
@@ -120,7 +121,49 @@ class 售后页(基础页):
         except Exception:
             return 0
 
-    async def 拦截售后列表API(self, 超时秒: int = 15) -> list[dict]:
+    @staticmethod
+    def _响应URL是否待商家处理(响应地址: str) -> bool:
+        try:
+            查询参数 = parse_qs(urlparse(str(响应地址 or "")).query)
+        except Exception:
+            return False
+
+        if not 查询参数:
+            return False
+
+        状态值集合 = {
+            "10",
+            "pending",
+            "todo",
+            "seller_pending",
+            "merchant_pending",
+            "waitseller",
+            "wait_seller",
+        }
+        for 键, 值列表 in 查询参数.items():
+            键名 = str(键 or "").strip().lower()
+            for 原始值 in 值列表:
+                值 = unquote(str(原始值 or "")).strip().lower()
+                if not 值:
+                    continue
+                if "待商家处理" in 值 or "待处理" in 值:
+                    return True
+                if any(片段 in 键名 for 片段 in ("status", "tab", "type")) and 值 in 状态值集合:
+                    return True
+        return False
+
+    @staticmethod
+    def _列表数据是否待商家处理(列表数据: list[dict[str, Any]]) -> bool:
+        有效状态列表 = []
+        for 项 in 列表数据:
+            if not isinstance(项, dict):
+                continue
+            状态文本 = str(项.get("afterSalesTitle") or 项.get("售后状态") or "").strip()
+            if 状态文本:
+                有效状态列表.append(状态文本)
+        return bool(有效状态列表) and all("待商家" in 状态 for 状态 in 有效状态列表)
+
+    async def 拦截售后列表API(self, 超时秒: int = 15, 仅待商家处理: bool = False) -> list[dict]:
         """拦截售后列表接口响应并直接返回结构化摘要。"""
         结果容器: list[dict[str, Any]] = []
         捕获事件 = asyncio.Event()
@@ -147,6 +190,10 @@ class 售后页(基础页):
                 列表数据 = result.get("list") or result.get("pageItems") or []
                 if not isinstance(列表数据, list) or not 列表数据:
                     return
+                if 仅待商家处理:
+                    if not self._响应URL是否待商家处理(响应地址) and not self._列表数据是否待商家处理(列表数据):
+                        print(f"[售后页] 已忽略非待商家处理响应: {响应地址}")
+                        return
 
                 结果容器.clear()
                 已捕获订单号集合: set[str] = set()
@@ -201,14 +248,17 @@ class 售后页(基础页):
     async def 导航并拦截售后列表(self) -> list[dict]:
         """先导航到列表页，再通过待商家处理卡片切换触发接口拦截。"""
         await self.导航到售后列表()
+        await self.页面加载延迟()
 
-        拦截任务 = asyncio.create_task(self.拦截售后列表API(超时秒=10))
+        拦截任务 = asyncio.create_task(self.拦截售后列表API(超时秒=10, 仅待商家处理=True))
+        await asyncio.sleep(0)
         await self.确保待商家处理已选中(强制点击=True)
         结果 = await 拦截任务
 
         if not 结果:
             print("[售后页] 首次 API 拦截为空，重试触发待商家处理请求")
-            拦截任务 = asyncio.create_task(self.拦截售后列表API(超时秒=10))
+            拦截任务 = asyncio.create_task(self.拦截售后列表API(超时秒=10, 仅待商家处理=True))
+            await asyncio.sleep(0)
             await self.确保待商家处理已选中(强制点击=True)
             结果 = await 拦截任务
 
@@ -642,7 +692,12 @@ class 售后页(基础页):
                 class_name = 下一页按钮.get_attribute("class")
                 if inspect.isawaitable(class_name):
                     class_name = await class_name
-                if str(aria_disabled or "").lower() == "true" or "disabled" in str(class_name or "").lower():
+                class_name_text = str(class_name or "").lower()
+                if (
+                    str(aria_disabled or "").lower() == "true"
+                    or "disabled" in class_name_text
+                    or "pgt_disabled" in class_name_text
+                ):
                     return False
                 return True
             except Exception:
@@ -667,7 +722,8 @@ class 售后页(基础页):
         if not await self._检查有下一页():
             return None
 
-        拦截任务 = asyncio.create_task(self.拦截售后列表API(超时秒=10))
+        拦截任务 = asyncio.create_task(self.拦截售后列表API(超时秒=10, 仅待商家处理=True))
+        await asyncio.sleep(0)
         翻页成功 = await self.翻页()
         if not 翻页成功:
             拦截任务.cancel()

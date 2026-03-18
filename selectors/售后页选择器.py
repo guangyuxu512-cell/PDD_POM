@@ -177,7 +177,11 @@ class 售后页选择器:
     )
 
     下一页按钮 = 选择器配置(
-        主选择器="//li[contains(@class, 'ant-pagination-next')]",
+        主选择器='//li[@data-testid="beast-core-pagination-next"]',
+        备选选择器=[
+            "//li[contains(@class, 'PGT_next')]",
+            "//li[contains(@class, 'ant-pagination-next')]",
+        ],
     )
 
     @staticmethod
