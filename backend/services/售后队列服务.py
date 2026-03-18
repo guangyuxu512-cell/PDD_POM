@@ -230,16 +230,24 @@ class 售后队列服务:
         self,
         连接: aiosqlite.Connection,
         订单号: str,
+        shop_id: str = "",
     ) -> aiosqlite.Row | None:
+        """查询订单是否已存在（以 shop_id + 订单号 去重）。"""
+        条件 = "WHERE 订单号 = ?"
+        参数: list[Any] = [订单号]
+        if shop_id:
+            条件 += " AND shop_id = ?"
+            参数.append(shop_id)
+
         async with 连接.execute(
-            """
+            f"""
             SELECT id, batch_id, shop_id, 当前阶段
             FROM aftersale_queue
-            WHERE 订单号 = ?
+            {条件}
             ORDER BY id DESC
             LIMIT 1
             """,
-            (订单号,),
+            参数,
         ) as 游标:
             return await 游标.fetchone()
 
@@ -255,7 +263,7 @@ class 售后队列服务:
         """写入一条售后单到队列（从列表页扫描阶段调用）。"""
         async with 获取连接() as 连接:
             数据 = self._校验基础记录(dict(记录 or {}))
-            已有记录 = await self._查询订单记录(连接, 数据["订单号"])
+            已有记录 = await self._查询订单记录(连接, 数据["订单号"], 数据["shop_id"])
             if 已有记录:
                 return 0
             try:
@@ -271,18 +279,19 @@ class 售后队列服务:
         if not 记录列表:
             return 0
 
-        已处理订单号集合: set[str] = set()
+        已处理订单键集合: set[tuple[str, str]] = set()
         写入数量 = 0
         async with 获取连接() as 连接:
             for 原始记录 in 记录列表:
                 记录 = dict(原始记录 or {})
                 数据 = self._校验基础记录(记录)
                 订单号 = 数据["订单号"]
-                if 订单号 in 已处理订单号集合:
+                订单键 = (数据["shop_id"], 订单号)
+                if 订单键 in 已处理订单键集合:
                     continue
-                已处理订单号集合.add(订单号)
+                已处理订单键集合.add(订单键)
 
-                已有记录 = await self._查询订单记录(连接, 订单号)
+                已有记录 = await self._查询订单记录(连接, 订单号, 数据["shop_id"])
                 if 已有记录:
                     continue
                 try:

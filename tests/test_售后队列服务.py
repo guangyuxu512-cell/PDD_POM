@@ -69,6 +69,7 @@ class 测试_售后队列服务:
                 )
             }
             assert "idx_aftersale_queue_shop_order" in 索引集合
+            assert "idx_aftersale_queue_shop_order_unique" in 索引集合
 
     @pytest.mark.asyncio
     async def test_创建批次_格式正确(self, 临时环境: Path):
@@ -117,7 +118,7 @@ class 测试_售后队列服务:
             )
 
     @pytest.mark.asyncio
-    async def test_写入队列_订单已存在时直接跳过(self, 临时环境: Path):
+    async def test_写入队列_同店铺订单已存在时直接跳过(self, 临时环境: Path):
         服务 = 售后队列服务()
 
         首次写入ID = await 服务.写入队列(
@@ -143,6 +144,32 @@ class 测试_售后队列服务:
         assert len(列表) == 1
         assert 列表[0]["batch_id"] == "AS-shop-1-old"
         assert 列表[0]["售后类型"] == "仅退款"
+
+    @pytest.mark.asyncio
+    async def test_写入队列_不同店铺同订单允许分别写入(self, 临时环境: Path):
+        服务 = 售后队列服务()
+
+        店铺一记录ID = await 服务.写入队列(
+            {
+                "batch_id": "AS-shop-1-a",
+                "shop_id": "shop-1",
+                "订单号": "ORDER-SHARED",
+                "售后类型": "仅退款",
+            }
+        )
+        店铺二记录ID = await 服务.写入队列(
+            {
+                "batch_id": "AS-shop-2-a",
+                "shop_id": "shop-2",
+                "订单号": "ORDER-SHARED",
+                "售后类型": "退货退款",
+            }
+        )
+
+        assert 店铺一记录ID > 0
+        assert 店铺二记录ID > 0
+        assert len(await 服务.获取待处理列表(shop_id="shop-1")) == 1
+        assert len(await 服务.获取待处理列表(shop_id="shop-2")) == 1
 
     @pytest.mark.asyncio
     async def test_批量写入队列_同批次同订单去重(self, 临时环境: Path):

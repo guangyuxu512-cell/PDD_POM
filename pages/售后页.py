@@ -251,132 +251,248 @@ class 售后页(基础页):
         print(f"[售后页] API拦截抓取到 {len(结果容器)} 条售后单")
         return 结果容器
 
-    async def 导航并拦截售后列表(self) -> list[dict]:
-        """导航到售后列表页，点击待商家处理，批量抓取第一页。"""
+    async def 导航并抓取售后列表(self) -> tuple[list[dict], int]:
+        """
+        导航到售后列表页 -> 点击待商家处理 -> 抓取第一页。
+        返回 (第一页数据列表, 待处理总数)。
+        """
         await self.导航到售后列表()
+        待处理总数 = await self.获取待处理数量从卡片()
         await self.确保待商家处理已选中(强制点击=True)
-        return await self.批量抓取当前页()
+        await asyncio.sleep(1)
+        第一页数据 = await self.批量抓取当前页()
+        return 第一页数据, 待处理总数
+
+    async def 导航并拦截售后列表(self) -> list[dict]:
+        数据, _ = await self.导航并抓取售后列表()
+        return 数据
 
     async def 切换待处理(self) -> None:
         await self.确保待商家处理已选中()
 
-    async def 确保待商家处理已选中(self, 强制点击: bool = False) -> None:
+    async def 获取待处理数量从卡片(self) -> int:
+        """从「待商家处理」卡片上的数字 badge 读取待处理总数。"""
         await self.操作前延迟()
-        类名片段 = 售后页选择器.待商家处理选中类名片段
-        最后异常 = None
-        for 选择器 in 售后页选择器.待商家处理卡片.所有选择器():
-            try:
-                已选中 = await self.页面.evaluate(
-                    """
-                    ({ 选择器, 类名片段 }) => {
-                        const 查询 = (sel) => {
-                            if (sel.startsWith('//') || sel.startsWith('(')) {
-                                return document.evaluate(
-                                    sel,
-                                    document,
-                                    null,
-                                    XPathResult.FIRST_ORDERED_NODE_TYPE,
-                                    null,
-                                ).singleNodeValue;
-                            }
-                            return document.querySelector(sel);
-                        };
-                        const 节点 = 查询(选择器);
-                        return Boolean(节点) && String(节点.className || '').includes(类名片段);
+        数量 = await self.页面.evaluate(
+            """
+            () => {
+                const allSpans = Array.from(document.querySelectorAll('span'));
+                const label = allSpans.find((s) => s.textContent.trim() === '待商家处理');
+                if (label) {
+                    const parent = label.parentElement;
+                    if (parent) {
+                        const countSpan = parent.querySelector('span[class*="count"]');
+                        if (countSpan) {
+                            const num = parseInt(countSpan.textContent.trim(), 10);
+                            if (!isNaN(num)) return num;
+                        }
                     }
-                    """,
-                    {"选择器": 选择器, "类名片段": 类名片段},
-                )
-                if 已选中:
-                    if 强制点击:
-                        await self.安全点击(选择器)
-                        await self.页面加载延迟()
-                        print("[售后页] 待商家处理卡片已选中，已强制再次点击")
-                        return
-                    print("[售后页] 待商家处理卡片已选中")
-                    return
-                await self.安全点击(选择器)
-                await self.页面加载延迟()
-                print("[售后页] 已点击待商家处理卡片")
-                return
-            except Exception as 异常:
-                最后异常 = 异常
-        raise RuntimeError(f"待商家处理卡片操作失败: {最后异常}")
+                    const sibling = label.nextElementSibling;
+                    if (sibling && sibling.tagName === 'SPAN') {
+                        const num = parseInt(sibling.textContent.trim(), 10);
+                        if (!isNaN(num)) return num;
+                    }
+                }
+                const cards = document.querySelectorAll('div[data-testid="beast-core-card"]');
+                for (const card of cards) {
+                    if ((card.textContent || '').includes('待商家处理')) {
+                        const countSpan = card.querySelector('span[class*="count"]');
+                        if (countSpan) {
+                            const num = parseInt(countSpan.textContent.trim(), 10);
+                            if (!isNaN(num)) return num;
+                        }
+                    }
+                }
+                return 0;
+            }
+            """
+        )
+        结果 = int(数量 or 0)
+        print(f"[售后页] 待商家处理数量: {结果}")
+        return 结果
 
-    async def 批量抓取当前页(self) -> list[dict]:
-        """一次 JS evaluate 批量抓取当前页所有售后单行。"""
+    async def 确保待商家处理已选中(self, 强制点击: bool = False) -> None:
+        """确保「待商家处理」卡片处于选中态。默认页面可能在「投诉预警」。"""
+        await self.操作前延迟()
+        选中类名片段 = 售后页选择器.投诉预警选中类名片段
+
+        当前状态 = await self.页面.evaluate(
+            """
+            (选中类名片段) => {
+                const cards = Array.from(
+                    document.querySelectorAll('div[data-testid="beast-core-card"]')
+                );
+                let 待商家处理卡片 = null;
+                let 待商家处理已选中 = false;
+
+                for (const card of cards) {
+                    const text = card.textContent || '';
+                    if (text.includes('待商家处理')) {
+                        待商家处理卡片 = card;
+                        待商家处理已选中 = (card.className || '').includes(选中类名片段);
+                        break;
+                    }
+                }
+                return {
+                    找到卡片: Boolean(待商家处理卡片),
+                    已选中: 待商家处理已选中,
+                };
+            }
+            """,
+            选中类名片段,
+        )
+
+        if not 当前状态 or not 当前状态.get("找到卡片"):
+            raise RuntimeError("未找到「待商家处理」卡片，页面可能未正确加载")
+
+        if 当前状态.get("已选中") and not 强制点击:
+            print("[售后页] 待商家处理卡片已选中，无需操作")
+            return
+
+        点击成功 = await self.页面.evaluate(
+            """
+            () => {
+                const cards = Array.from(
+                    document.querySelectorAll('div[data-testid="beast-core-card"]')
+                );
+                for (const card of cards) {
+                    if ((card.textContent || '').includes('待商家处理')) {
+                        card.click();
+                        return true;
+                    }
+                }
+                return false;
+            }
+            """
+        )
+
+        if not 点击成功:
+            raise RuntimeError("点击「待商家处理」卡片失败")
+
+        await self.页面加载延迟()
+
+        验证 = await self.页面.evaluate(
+            """
+            (选中类名片段) => {
+                const cards = Array.from(
+                    document.querySelectorAll('div[data-testid="beast-core-card"]')
+                );
+                for (const card of cards) {
+                    if ((card.textContent || '').includes('待商家处理')) {
+                        return (card.className || '').includes(选中类名片段);
+                    }
+                }
+                return false;
+            }
+            """,
+            选中类名片段,
+        )
+
+        if not 验证:
+            print("[售后页] 警告: 点击后「待商家处理」仍未选中，可能需要重试")
+        else:
+            print("[售后页] 已成功切换到「待商家处理」")
+
+    async def 批量抓取当前页(self, 最大重试: int = 3) -> list[dict]:
+        """一次 JS evaluate 批量抓取当前页所有售后单行，带重试。"""
         await self.操作前延迟()
 
-        try:
-            await self.页面.wait_for_selector(
-                'div[class*="after-sales-table_order_item"]',
-                timeout=8000,
-            )
-        except Exception:
-            print("[售后页] 未检测到售后单行，当前页可能为空")
-            return []
+        for 尝试次数 in range(最大重试):
+            try:
+                await self.页面.wait_for_selector(
+                    'div[class*="after-sales-table_order_item"]',
+                    timeout=8000,
+                )
+                break
+            except Exception:
+                if 尝试次数 < 最大重试 - 1:
+                    print(f"[售后页] 第{尝试次数 + 1}次等待售后单行超时，重试...")
+                    await asyncio.sleep(1)
+                else:
+                    print("[售后页] 未检测到售后单行，当前页可能为空")
+                    return []
 
-        await asyncio.sleep(0.5)
+        await asyncio.sleep(0.8)
 
         结果 = await self.页面.evaluate(
             """
             () => {
-                const 清洗 = (值) => String(值 || '').replace(/\\s+/g, ' ').trim();
+                const 清洗 = (v) => String(v || '').replace(/\\s+/g, ' ').trim();
                 const 所有行 = document.querySelectorAll(
                     'div[class*="after-sales-table_order_item"]'
                 );
                 const 结果列表 = [];
+
                 for (let i = 0; i < 所有行.length; i++) {
                     const 行 = 所有行[i];
 
-                    const 订单号节点 = 行.querySelector('[class*="table-item-header_sn__"]');
+                    const 订单号节点 = 行.querySelector('[class*="table-item-header_sn"]');
                     const 订单号 = 清洗(订单号节点 ? 订单号节点.textContent : '');
                     if (!订单号) continue;
 
                     const 申请时间节点 = 行.querySelector(
                         '[class*="table-item-header_apply_time"] span'
                     );
-                    const 剩余时间节点 = 行.querySelector('[class*="table-item-header_time__"]');
+                    const 剩余时间节点 = 行.querySelector('[class*="table-item-header_time"]');
 
-                    const 所有列 = 行.querySelectorAll('[class*="after-sales-table_item_cell"]');
-                    const 读列 = (索引) => {
-                        if (索引 >= 所有列.length) return '';
-                        return 清洗(所有列[索引].textContent);
-                    };
+                    const 所有列 = Array.from(
+                        行.querySelectorAll('[class*="after-sales-table_item_cell"]')
+                    );
 
-                    const 商品名节点 = 所有列[0]
-                        ? 所有列[0].querySelector('[class*="order-info_main"]')
-                        : null;
-                    const 规格节点 = 所有列[0]
-                        ? 所有列[0].querySelector('[class*="order-info_sub"]')
-                        : null;
-                    const 实收节点 = 所有列[1]
-                        ? 所有列[1].querySelector('[class*="amount_dotted"]')
-                        : null;
-                    const 退款节点 = 所有列[1]
-                        ? 所有列[1].querySelector('[class*="amount_refund"]')
-                        : null;
-                    const 售后状态节点 = 所有列[4] ? 所有列[4].querySelector('div') : null;
-                    const 操作按钮 = 所有列[7]
-                        ? Array.from(所有列[7].querySelectorAll('a span, button span'))
-                              .map((节点) => 清洗(节点.textContent))
-                              .filter((文本) => 文本.length > 0)
-                        : [];
+                    let 商品名称 = '', 商品规格 = '', 实收金额 = '', 退款金额 = '';
+                    let 发货状态 = '', 售后类型 = '', 售后状态 = '';
+                    let 售后协商 = '', 售后原因 = '';
+                    let 操作按钮 = [];
+
+                    if (所有列[0]) {
+                        const main = 所有列[0].querySelector('[class*="order-info_main"]');
+                        const sub = 所有列[0].querySelector('[class*="order-info_sub"]');
+                        商品名称 = 清洗(main ? main.textContent : '');
+                        商品规格 = 清洗(sub ? sub.textContent : '');
+                    }
+
+                    if (所有列[1]) {
+                        const dotted = 所有列[1].querySelector('[class*="amount_dotted"]');
+                        const refund = 所有列[1].querySelector('[class*="amount_refund"]');
+                        实收金额 = 清洗(dotted ? dotted.textContent : '');
+                        退款金额 = 清洗(refund ? refund.textContent : '');
+                    }
+
+                    const 读列 = (idx) => idx < 所有列.length ? 清洗(所有列[idx].textContent) : '';
+                    发货状态 = 读列(2);
+                    售后类型 = 读列(3);
+
+                    if (所有列[4]) {
+                        const div = 所有列[4].querySelector('div');
+                        售后状态 = 清洗(div ? div.textContent : 读列(4));
+                    }
+
+                    售后协商 = 读列(5);
+                    售后原因 = 读列(6);
+
+                    const 操作列 = 所有列[所有列.length - 1];
+                    if (操作列) {
+                        操作按钮 = Array.from(
+                            操作列.querySelectorAll('a span, button span')
+                        )
+                            .map((n) => 清洗(n.textContent))
+                            .filter((t) => t.length > 0 && t.length < 20);
+                    }
 
                     结果列表.push({
-                        订单号: 订单号,
+                        订单号,
                         申请时间: 清洗(申请时间节点 ? 申请时间节点.textContent : ''),
                         剩余处理时间: 清洗(剩余时间节点 ? 剩余时间节点.textContent : ''),
-                        商品名称: 清洗(商品名节点 ? 商品名节点.textContent : ''),
-                        商品规格: 清洗(规格节点 ? 规格节点.textContent : ''),
-                        实收金额: 清洗(实收节点 ? 实收节点.textContent : ''),
-                        退款金额: 清洗(退款节点 ? 退款节点.textContent : ''),
-                        发货状态: 清洗(读列(2)),
-                        售后类型: 清洗(读列(3)),
-                        售后状态: 清洗(售后状态节点 ? 售后状态节点.textContent : ''),
-                        售后协商: 清洗(读列(5)),
-                        售后原因: 清洗(读列(6)),
-                        操作按钮: 操作按钮,
+                        商品名称,
+                        商品规格,
+                        实收金额,
+                        退款金额,
+                        发货状态,
+                        售后类型,
+                        售后状态,
+                        售后协商,
+                        售后原因,
+                        操作按钮,
                     });
                 }
                 return 结果列表;
@@ -793,18 +909,18 @@ class 售后页(基础页):
                 continue
         return False
 
-    async def 翻页并拦截(self) -> list[dict] | None:
-        """翻到下一页，等待DOM刷新，再批量抓取。返回 None 表示没有下一页。"""
+    async def 翻页并抓取(self) -> list[dict] | None:
+        """翻到下一页，等待 DOM 刷新，再批量抓取。返回 None 表示没有下一页。"""
         if not await self._检查有下一页():
             return None
 
         旧首行订单号 = await self.页面.evaluate(
             """
             () => {
-                const 首行 = document.querySelector('div[class*="after-sales-table_order_item"]');
-                if (!首行) return '';
-                const 订单节点 = 首行.querySelector('[class*="table-item-header_sn__"]');
-                return 订单节点 ? 订单节点.textContent.trim() : '';
+                const row = document.querySelector('div[class*="after-sales-table_order_item"]');
+                if (!row) return '';
+                const sn = row.querySelector('[class*="table-item-header_sn"]');
+                return sn ? sn.textContent.trim() : '';
             }
             """
         )
@@ -813,15 +929,15 @@ class 售后页(基础页):
         if not 翻页成功:
             return None
 
-        for _ in range(25):
+        for _ in range(40):
             await asyncio.sleep(0.2)
             当前首行订单号 = await self.页面.evaluate(
                 """
                 () => {
-                    const 首行 = document.querySelector('div[class*="after-sales-table_order_item"]');
-                    if (!首行) return '';
-                    const 订单节点 = 首行.querySelector('[class*="table-item-header_sn__"]');
-                    return 订单节点 ? 订单节点.textContent.trim() : '';
+                    const row = document.querySelector('div[class*="after-sales-table_order_item"]');
+                    if (!row) return '';
+                    const sn = row.querySelector('[class*="table-item-header_sn"]');
+                    return sn ? sn.textContent.trim() : '';
                 }
                 """
             )
@@ -829,10 +945,11 @@ class 售后页(基础页):
                 print(f"[售后页] 翻页DOM已刷新: {旧首行订单号} → {当前首行订单号}")
                 break
         else:
-            print("[售后页] 翻页DOM刷新超时，可能已到最后一页")
-            return None
+            print("[售后页] 翻页DOM刷新超时，尝试继续抓取")
 
         return await self.批量抓取当前页()
+
+    翻页并拦截 = 翻页并抓取
 
     async def 扫描所有待处理(self) -> list[dict]:
         await self.确保待商家处理已选中()

@@ -3319,3 +3319,72 @@
 - 已执行全量测试：`python -X utf8 -c "import ctypes, sys, pytest; k=ctypes.windll.kernel32; ctypes.windll.winmm.timeBeginPeriod(1); p=k.GetCurrentProcess(); t=k.GetCurrentThread(); k.SetPriorityClass(p, 0x00000080); k.SetThreadPriority(t, 15); k.SetProcessAffinityMask(p, 1); sys.exit(pytest.main(['-c','tests/pytest.ini','tests/','-v']))"`，结果 `413 passed, 16 warnings`
 - 16 条 warning 为既有存量：10 条来自第三方 `openpyxl`，6 条来自 Celery `datetime.utcnow()` 弃用提示
 - `.pipeline/task.md` 仍为当前任务单的本地变更；`data/` 下运行副产物不属于本轮源码改动
+
+---
+
+## 任务摘要
+
+完成售后扫描链路重构：读取卡片待处理总数、增强 DOM 抓取与翻页稳定性，并把售后队列去重维度修正为 `shop_id + 订单号`。
+
+## 改动文件列表
+
+- `selectors/售后页选择器.py`
+- `pages/售后页.py`
+- `backend/models/售后队列模型.py`
+- `backend/services/售后队列服务.py`
+- `tasks/售后任务.py`
+- `tests/test_售后页.py`
+- `tests/test_售后任务.py`
+- `tests/test_售后队列服务.py`
+- `PLAN.md`
+- `改造进度.md`
+- `.pipeline/progress.md`
+
+## 改动说明
+
+- `selectors/售后页选择器.py`
+  - 新增 `待商家处理数量`、`投诉预警卡片` 和 `投诉预警选中类名片段`
+  - 为卡片数字 badge 读取和默认落在“投诉预警”时的状态判断提供选择器基础
+- `pages/售后页.py`
+  - 新增 `获取待处理数量从卡片()`，在进入列表扫描前先读卡片数量
+  - 新增 `导航并抓取售后列表()`，统一返回 `(第一页数据, 待处理总数)`
+  - 重写 `确保待商家处理已选中()`，不再依赖旧选择器点击链路，改为 JS 检查和切换卡片
+  - 重写 `批量抓取当前页()`，增加等待重试，放宽 DOM 取值方式，降低列索引脆弱性
+  - 新增 `翻页并抓取()`，把 DOM 刷新等待从 25 次扩大到 40 次，并在超时后继续抓取；保留 `翻页并拦截` 兼容别名
+  - 保留 `导航并拦截售后列表()` 兼容包装，避免旧调用方直接失效
+- `backend/models/售后队列模型.py`
+  - 新增 `idx_aftersale_queue_shop_order_unique`
+  - 初始化时先清理旧的 `(shop_id, 订单号)` 重复记录，再创建唯一索引，避免旧库升级失败
+- `backend/services/售后队列服务.py`
+  - `_查询订单记录()` 改为按 `shop_id + 订单号` 查询
+  - `写入队列()` / `批量写入队列()` 改为店铺级去重
+  - 批量写入内存态去重键同步从“订单号”调整为“店铺 + 订单号”
+- `tasks/售后任务.py`
+  - 扫描入口改为 `导航并抓取售后列表()`
+  - 新增“待处理总数 / 预计页数”上报
+  - 汇总文案改为 `扫描N单, 写入M单, P页`
+  - 保留重复页终止保护，并补空页计数处理
+- `tests/test_售后页.py`
+  - 补充卡片数量读取、待处理数量选择器、导航新返回值、翻页超时继续抓取和批量抓取重试用例
+- `tests/test_售后任务.py`
+  - Mock 链路切换到 `导航并抓取售后列表()` / `翻页并抓取()`
+  - 更新页数汇总和日志断言
+- `tests/test_售后队列服务.py`
+  - 新增不同店铺同订单允许分别写入的覆盖
+  - 初始化索引断言补充新的唯一索引
+- `PLAN.md` / `改造进度.md`
+  - 同步记录本轮售后扫描与去重改造结果
+
+## 影响范围
+
+- 售后扫描现在会先读取卡片总数，再按预计页数输出扫描日志，定位分页异常更直接
+- 默认落在“投诉预警”时可以自动切到“待商家处理”，减少第一页抓空的概率
+- 同一订单号在不同店铺下不再互相冲突；同店铺重复订单会被数据库唯一索引和写入前查询双重拦截
+- 旧调用方继续使用 `导航并拦截售后列表()` / `翻页并拦截()` 时仍可运行
+
+## 注意事项
+
+- 已执行定向回归：`python -m pytest -c tests/pytest.ini -q tests/test_售后页.py tests/test_售后任务.py tests/test_售后队列服务.py`，结果 `65 passed`
+- 已执行全量测试：`python -m pytest -c tests/pytest.ini -q`，结果 `416 passed, 16 warnings`
+- 16 条 warning 为既有存量：10 条来自第三方 `openpyxl`，6 条来自 Celery `datetime.utcnow()` 弃用提示
+- `.pipeline/task.md` 为当前任务单的既有本地变更，未在本轮修改

@@ -46,49 +46,72 @@ class 测试_售后页:
         )
 
     @pytest.mark.asyncio
+    async def test_获取待处理数量从卡片_返回整数(self, 模拟页面):
+        from pages.售后页 import 售后页
+
+        模拟页面.evaluate = AsyncMock(return_value=14)
+        页面对象 = 售后页(模拟页面)
+        页面对象.操作前延迟 = AsyncMock()
+
+        结果 = await 页面对象.获取待处理数量从卡片()
+
+        assert 结果 == 14
+        模拟页面.evaluate.assert_awaited_once()
+
+    @pytest.mark.asyncio
     async def test_确保待商家处理已选中_已选中时不点击(self, 模拟页面):
         from pages.售后页 import 售后页
 
-        模拟页面.evaluate = AsyncMock(return_value=True)
+        模拟页面.evaluate = AsyncMock(
+            return_value={"找到卡片": True, "已选中": True}
+        )
         页面对象 = 售后页(模拟页面)
         页面对象.操作前延迟 = AsyncMock()
         页面对象.页面加载延迟 = AsyncMock()
-        页面对象.安全点击 = AsyncMock()
 
         await 页面对象.确保待商家处理已选中()
 
-        页面对象.安全点击.assert_not_awaited()
+        模拟页面.evaluate.assert_awaited_once()
+        页面对象.页面加载延迟.assert_not_awaited()
 
     @pytest.mark.asyncio
     async def test_确保待商家处理已选中_已选中但强制点击时再次点击(self, 模拟页面):
         from pages.售后页 import 售后页
-        from selectors.售后页选择器 import 售后页选择器
 
-        模拟页面.evaluate = AsyncMock(return_value=True)
+        模拟页面.evaluate = AsyncMock(
+            side_effect=[
+                {"找到卡片": True, "已选中": True},
+                True,
+                True,
+            ]
+        )
         页面对象 = 售后页(模拟页面)
         页面对象.操作前延迟 = AsyncMock()
         页面对象.页面加载延迟 = AsyncMock()
-        页面对象.安全点击 = AsyncMock()
 
         await 页面对象.确保待商家处理已选中(强制点击=True)
 
-        页面对象.安全点击.assert_awaited_once_with(售后页选择器.待商家处理卡片.主选择器)
+        assert 模拟页面.evaluate.await_count == 3
         页面对象.页面加载延迟.assert_awaited_once()
 
     @pytest.mark.asyncio
     async def test_确保待商家处理已选中_未选中时点击(self, 模拟页面):
         from pages.售后页 import 售后页
-        from selectors.售后页选择器 import 售后页选择器
 
-        模拟页面.evaluate = AsyncMock(return_value=False)
+        模拟页面.evaluate = AsyncMock(
+            side_effect=[
+                {"找到卡片": True, "已选中": False},
+                True,
+                True,
+            ]
+        )
         页面对象 = 售后页(模拟页面)
         页面对象.操作前延迟 = AsyncMock()
         页面对象.页面加载延迟 = AsyncMock()
-        页面对象.安全点击 = AsyncMock()
 
         await 页面对象.确保待商家处理已选中()
 
-        页面对象.安全点击.assert_awaited_once_with(售后页选择器.待商家处理卡片.主选择器)
+        assert 模拟页面.evaluate.await_count == 3
         页面对象.页面加载延迟.assert_awaited_once()
 
     @pytest.mark.asyncio
@@ -105,7 +128,8 @@ class 测试_售后页:
         页面对象.操作前延迟 = AsyncMock()
         页面对象.操作后延迟 = AsyncMock()
 
-        结果 = await 页面对象.批量抓取当前页()
+        with patch("pages.售后页.asyncio.sleep", new_callable=AsyncMock):
+            结果 = await 页面对象.批量抓取当前页()
 
         assert 结果 == [
             {"订单号": "ORDER-1", "售后类型": "退货退款"},
@@ -119,7 +143,7 @@ class 测试_售后页:
         页面对象.操作后延迟.assert_awaited_once()
 
     @pytest.mark.asyncio
-    async def test_批量抓取当前页_空页时直接返回空列表(self, 模拟页面):
+    async def test_批量抓取当前页_重试后仍为空时返回空列表(self, 模拟页面):
         from pages.售后页 import 售后页
 
         模拟页面.wait_for_selector = AsyncMock(side_effect=RuntimeError("empty"))
@@ -127,9 +151,11 @@ class 测试_售后页:
         页面对象.操作前延迟 = AsyncMock()
         页面对象.操作后延迟 = AsyncMock()
 
-        结果 = await 页面对象.批量抓取当前页()
+        with patch("pages.售后页.asyncio.sleep", new_callable=AsyncMock):
+            结果 = await 页面对象.批量抓取当前页()
 
         assert 结果 == []
+        assert 模拟页面.wait_for_selector.await_count == 3
         模拟页面.evaluate.assert_not_awaited()
         页面对象.操作后延迟.assert_not_awaited()
 
@@ -346,40 +372,39 @@ class 测试_售后页:
         ]
 
     @pytest.mark.asyncio
-    async def test_导航并拦截售后列表_点击待处理后批量抓取第一页(self, 模拟页面):
+    async def test_导航并抓取售后列表_返回第一页数据和待处理总数(self, 模拟页面):
         from pages.售后页 import 售后页
 
         页面对象 = 售后页(模拟页面)
         页面对象.导航到售后列表 = AsyncMock()
+        页面对象.获取待处理数量从卡片 = AsyncMock(return_value=14)
         页面对象.确保待商家处理已选中 = AsyncMock()
-        页面对象.安全点击 = AsyncMock()
-        页面对象.页面加载延迟 = AsyncMock()
         页面对象.批量抓取当前页 = AsyncMock(
             return_value=[{"订单号": "ORDER-2", "售后类型": "仅退款"}]
         )
 
-        结果 = await 页面对象.导航并拦截售后列表()
+        with patch("pages.售后页.asyncio.sleep", new_callable=AsyncMock):
+            结果 = await 页面对象.导航并抓取售后列表()
 
-        assert 结果 == [{"订单号": "ORDER-2", "售后类型": "仅退款"}]
+        assert 结果 == ([{"订单号": "ORDER-2", "售后类型": "仅退款"}], 14)
         页面对象.导航到售后列表.assert_awaited_once()
+        页面对象.获取待处理数量从卡片.assert_awaited_once()
         页面对象.确保待商家处理已选中.assert_awaited_once_with(强制点击=True)
         页面对象.批量抓取当前页.assert_awaited_once()
-        页面对象.安全点击.assert_not_awaited()
 
     @pytest.mark.asyncio
-    async def test_导航并拦截售后列表_当前页为空时返回空列表(self, 模拟页面):
+    async def test_导航并拦截售后列表_兼容返回仅数据(self, 模拟页面):
         from pages.售后页 import 售后页
 
         页面对象 = 售后页(模拟页面)
-        页面对象.导航到售后列表 = AsyncMock()
-        页面对象.确保待商家处理已选中 = AsyncMock()
-        页面对象.批量抓取当前页 = AsyncMock(return_value=[])
+        页面对象.导航并抓取售后列表 = AsyncMock(
+            return_value=([{"订单号": "ORDER-3", "售后类型": "退货退款"}], 8)
+        )
 
         结果 = await 页面对象.导航并拦截售后列表()
 
-        assert 结果 == []
-        页面对象.确保待商家处理已选中.assert_awaited_once_with(强制点击=True)
-        页面对象.批量抓取当前页.assert_awaited_once()
+        assert 结果 == [{"订单号": "ORDER-3", "售后类型": "退货退款"}]
+        页面对象.导航并抓取售后列表.assert_awaited_once()
 
     @pytest.mark.asyncio
     async def test_翻页并拦截_无下一页直接返回None(self, 模拟页面):
@@ -388,16 +413,16 @@ class 测试_售后页:
         页面对象 = 售后页(模拟页面)
         页面对象._检查有下一页 = AsyncMock(return_value=False)
         页面对象.翻页 = AsyncMock()
-        页面对象.拦截售后列表API = AsyncMock()
+        页面对象.批量抓取当前页 = AsyncMock()
 
         结果 = await 页面对象.翻页并拦截()
 
         assert 结果 is None
         页面对象.翻页.assert_not_awaited()
-        页面对象.拦截售后列表API.assert_not_awaited()
+        页面对象.批量抓取当前页.assert_not_awaited()
 
     @pytest.mark.asyncio
-    async def test_翻页并拦截_成功返回下一页数据(self, 模拟页面):
+    async def test_翻页并抓取_成功返回下一页数据(self, 模拟页面):
         from pages.售后页 import 售后页
 
         页面对象 = 售后页(模拟页面)
@@ -408,27 +433,31 @@ class 测试_售后页:
             return_value=[{"订单号": "ORDER-3", "售后类型": "退货退款"}]
         )
 
-        结果 = await 页面对象.翻页并拦截()
+        with patch("pages.售后页.asyncio.sleep", new_callable=AsyncMock):
+            结果 = await 页面对象.翻页并抓取()
 
         assert 结果 == [{"订单号": "ORDER-3", "售后类型": "退货退款"}]
         页面对象.翻页.assert_awaited_once()
         页面对象.批量抓取当前页.assert_awaited_once()
 
     @pytest.mark.asyncio
-    async def test_翻页并拦截_DOM刷新超时返回None(self, 模拟页面):
+    async def test_翻页并抓取_DOM刷新超时时继续抓取(self, 模拟页面):
         from pages.售后页 import 售后页
 
         页面对象 = 售后页(模拟页面)
         页面对象._检查有下一页 = AsyncMock(return_value=True)
         页面对象.翻页 = AsyncMock(return_value=True)
-        模拟页面.evaluate = AsyncMock(side_effect=["ORDER-OLD"] + ["ORDER-OLD"] * 25)
-        页面对象.批量抓取当前页 = AsyncMock()
+        模拟页面.evaluate = AsyncMock(side_effect=["ORDER-OLD"] + ["ORDER-OLD"] * 40)
+        页面对象.批量抓取当前页 = AsyncMock(
+            return_value=[{"订单号": "ORDER-4", "售后类型": "仅退款"}]
+        )
 
-        结果 = await 页面对象.翻页并拦截()
+        with patch("pages.售后页.asyncio.sleep", new_callable=AsyncMock):
+            结果 = await 页面对象.翻页并抓取()
 
-        assert 结果 is None
+        assert 结果 == [{"订单号": "ORDER-4", "售后类型": "仅退款"}]
         页面对象.翻页.assert_awaited_once()
-        页面对象.批量抓取当前页.assert_not_awaited()
+        页面对象.批量抓取当前页.assert_awaited_once()
 
     @pytest.mark.asyncio
     async def test_检查有下一页_BeastCore禁用态返回False(self, 模拟页面):
@@ -454,6 +483,11 @@ class 测试_售后页:
         assert 售后页选择器.下一页按钮.主选择器 == '//li[@data-testid="beast-core-pagination-next"]'
         assert "//li[contains(@class, 'PGT_next')]" in 售后页选择器.下一页按钮.备选选择器
         assert "//li[contains(@class, 'ant-pagination-next')]" in 售后页选择器.下一页按钮.备选选择器
+
+    def test_待商家处理数量选择器_返回3个候选(self):
+        from selectors.售后页选择器 import 售后页选择器
+
+        assert len(售后页选择器.待商家处理数量.所有选择器()) == 3
 
     @pytest.mark.asyncio
     async def test_获取售后单数量_通过JS读取真实列表行数量(self, 模拟页面):

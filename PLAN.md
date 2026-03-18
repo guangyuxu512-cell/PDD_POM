@@ -2317,3 +2317,17 @@
 - [x] 定向验证通过：`python -m pytest -c tests/pytest.ini -q tests/test_售后页.py tests/test_售后任务.py`
 - [x] 全量验证通过：在 Python 进程内设置 `timeBeginPeriod(1)`、高优先级、线程高优先级和固定亲和性后执行 `python -m pytest -c tests/pytest.ini tests/ -v`
 - [x] 全量验证结果：`413 passed, 16 warnings`（10 条为第三方 `openpyxl` 警告，6 条为现有 Celery 警告）
+
+## Prompt 113：售后扫描读取卡片总数并改为店铺级去重 ✅
+
+- [x] 更新 `selectors/售后页选择器.py`，新增 `待商家处理数量`、`投诉预警卡片` 和选中类名片段
+- [x] 更新 `pages/售后页.py`，新增 `获取待处理数量从卡片()`、`导航并抓取售后列表()`、`翻页并抓取()`
+- [x] 更新 `pages/售后页.py`，重写 `确保待商家处理已选中()` 和 `批量抓取当前页()`，保留 `导航并拦截售后列表()` / `翻页并拦截()` 兼容入口
+- [x] 更新 `backend/models/售后队列模型.py`，新增 `(shop_id, 订单号)` 唯一索引并在初始化时清理重复旧数据
+- [x] 更新 `backend/services/售后队列服务.py`，写入前改为按 `shop_id + 订单号` 查询去重，批量写入的页内去重键同步切到店铺维度
+- [x] 更新 `tasks/售后任务.py`，扫描入口改为“导航 -> 读取待处理总数 -> 抓第一页 -> 分页汇总”，汇总结果补充页数
+- [x] 更新 `tests/test_售后页.py`、`tests/test_售后任务.py`、`tests/test_售后队列服务.py`
+- [x] 定向验证通过：`python -m pytest -c tests/pytest.ini -q tests/test_售后页.py tests/test_售后任务.py tests/test_售后队列服务.py`
+- [x] 定向验证结果：`65 passed`
+- [x] 全量验证通过：`python -m pytest -c tests/pytest.ini -q`
+- [x] 全量验证结果：`416 passed, 16 warnings`（10 条为第三方 `openpyxl` 警告，6 条为现有 Celery 警告）

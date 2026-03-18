@@ -17,13 +17,20 @@ def 构造队列服务(*, 写入结果序列: list[int] | None = None):
 
 def 构造售后页(
     *,
-    导航拦截结果: list[dict] | None = None,
-    翻页拦截序列: list[list[dict] | None] | None = None,
+    导航抓取结果: list[dict] | None = None,
+    待处理总数: int = 0,
+    翻页抓取序列: list[list[dict] | None] | None = None,
     DOM摘要序列: list[dict] | None = None,
 ):
     页面对象 = MagicMock()
-    页面对象.导航并拦截售后列表 = AsyncMock(return_value=导航拦截结果 if 导航拦截结果 is not None else [])
-    页面对象.翻页并拦截 = AsyncMock(side_effect=翻页拦截序列 or [None])
+    导航并抓取模拟 = AsyncMock(
+        return_value=(导航抓取结果 if 导航抓取结果 is not None else [], 待处理总数)
+    )
+    翻页并抓取模拟 = AsyncMock(side_effect=翻页抓取序列 or [None])
+    页面对象.导航并抓取售后列表 = 导航并抓取模拟
+    页面对象.导航并拦截售后列表 = 导航并抓取模拟
+    页面对象.翻页并抓取 = 翻页并抓取模拟
+    页面对象.翻页并拦截 = 翻页并抓取模拟
 
     DOM摘要列表 = DOM摘要序列 or []
     页面对象.获取售后单数量 = AsyncMock(return_value=len(DOM摘要列表))
@@ -106,7 +113,7 @@ class 测试_售后任务:
     @pytest.mark.asyncio
     async def test_执行_API多页扫描并写入队列(self, 模拟页面):
         模拟售后页 = 构造售后页(
-            导航拦截结果=[
+            导航抓取结果=[
                 {
                     "订单号": "ORDER-1",
                     "售后类型": "我要退货退款",
@@ -115,7 +122,8 @@ class 测试_售后任务:
                     "商品名称": "商品1",
                 }
             ],
-            翻页拦截序列=[
+            待处理总数=12,
+            翻页抓取序列=[
                 [
                     {
                         "订单号": "ORDER-2",
@@ -141,9 +149,9 @@ class 测试_售后任务:
 
             结果 = await 任务.执行(模拟页面, {"shop_id": "shop-1", "shop_name": "店铺A"})
 
-        assert 结果 == "扫描2单, 写入2单"
-        模拟售后页.导航并拦截售后列表.assert_awaited_once()
-        assert 模拟售后页.翻页并拦截.await_count == 2
+        assert 结果 == "扫描2单, 写入2单, 2页"
+        模拟售后页.导航并抓取售后列表.assert_awaited_once()
+        assert 模拟售后页.翻页并抓取.await_count == 2
         模拟售后页.获取售后单数量.assert_not_awaited()
         模拟售后页.获取第N行信息.assert_not_awaited()
 
@@ -158,7 +166,7 @@ class 测试_售后任务:
     @pytest.mark.asyncio
     async def test_执行_重复页全部已扫描时停止翻页(self, 模拟页面):
         模拟售后页 = 构造售后页(
-            导航拦截结果=[
+            导航抓取结果=[
                 {
                     "订单号": "ORDER-1",
                     "售后类型": "仅退款",
@@ -167,7 +175,8 @@ class 测试_售后任务:
                     "商品名称": "商品1",
                 }
             ],
-            翻页拦截序列=[
+            待处理总数=11,
+            翻页抓取序列=[
                 [
                     {
                         "订单号": "ORDER-1",
@@ -201,22 +210,23 @@ class 测试_售后任务:
 
             结果 = await 任务.执行(模拟页面, {"shop_id": "shop-1", "shop_name": "店铺A"})
 
-        assert 结果 == "扫描1单, 写入1单"
+        assert 结果 == "扫描1单, 写入1单, 2页"
         模拟队列服务.批量写入队列.assert_awaited_once()
-        assert 模拟售后页.翻页并拦截.await_count == 1
+        assert 模拟售后页.翻页并抓取.await_count == 1
         assert any(
-            调用.args == ("[扫描] 第1页 扫描1单(新1单)，写入1单", "shop-1")
+            调用.args == ("[扫描] 第1/2页 扫描1单(新1)，写入1单", "shop-1")
             for 调用 in 模拟上报.await_args_list
         )
         assert any(
-            调用.args == ("[扫描] 第2页全部为已扫描订单，停止翻页", "shop-1")
+            调用.args == ("[扫描] 第2页全部已扫描，停止", "shop-1")
             for 调用 in 模拟上报.await_args_list
         )
 
     @pytest.mark.asyncio
     async def test_执行_第一页为空时返回无待处理售后单(self, 模拟页面):
         模拟售后页 = 构造售后页(
-            导航拦截结果=[],
+            导航抓取结果=[],
+            待处理总数=0,
             DOM摘要序列=[
                 {
                     "订单号": "ORDER-1",
@@ -249,7 +259,7 @@ class 测试_售后任务:
     @pytest.mark.asyncio
     async def test_执行_下一页空列表时结束并返回已扫描汇总(self, 模拟页面):
         模拟售后页 = 构造售后页(
-            导航拦截结果=[
+            导航抓取结果=[
                 {
                     "订单号": "ORDER-1",
                     "售后类型": "仅退款",
@@ -258,7 +268,8 @@ class 测试_售后任务:
                     "商品名称": "商品1",
                 }
             ],
-            翻页拦截序列=[[], None],
+            待处理总数=11,
+            翻页抓取序列=[[], None],
         )
         模拟队列服务 = 构造队列服务(写入结果序列=[1])
 
@@ -273,13 +284,13 @@ class 测试_售后任务:
 
             结果 = await 任务.执行(模拟页面, {"shop_id": "shop-1", "shop_name": "店铺A"})
 
-        assert 结果 == "扫描1单, 写入1单"
+        assert 结果 == "扫描1单, 写入1单, 2页"
         模拟队列服务.批量写入队列.assert_awaited_once()
 
     @pytest.mark.asyncio
     async def test_执行_当前页重复订单只保留最后一条(self, 模拟页面):
         模拟售后页 = 构造售后页(
-            导航拦截结果=[
+            导航抓取结果=[
                 {
                     "订单号": "ORDER-1",
                     "售后类型": "仅退款",
@@ -309,7 +320,7 @@ class 测试_售后任务:
 
             结果 = await 任务.执行(模拟页面, {"shop_id": "shop-1", "shop_name": "店铺A"})
 
-        assert 结果 == "扫描1单, 写入1单"
+        assert 结果 == "扫描1单, 写入1单, 1页"
         写入记录列表 = 模拟队列服务.批量写入队列.await_args.args[0]
         assert len(写入记录列表) == 1
         assert 写入记录列表[0]["订单号"] == "ORDER-1"
@@ -321,7 +332,7 @@ class 测试_售后任务:
     @pytest.mark.asyncio
     async def test_执行_写队列异常时返回失败(self, 模拟页面):
         模拟售后页 = 构造售后页(
-            导航拦截结果=[
+            导航抓取结果=[
                 {
                     "订单号": "ORDER-1",
                     "售后类型": "仅退款",

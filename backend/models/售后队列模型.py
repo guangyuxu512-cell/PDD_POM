@@ -53,6 +53,18 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_aftersale_queue_batch_order
 ON aftersale_queue (batch_id, 订单号);
 """
 
+售后队列店铺订单去重清理SQL = """
+DELETE FROM aftersale_queue
+WHERE id NOT IN (
+    SELECT MIN(id) FROM aftersale_queue GROUP BY shop_id, 订单号
+);
+"""
+
+售后队列店铺订单去重索引SQL = """
+CREATE UNIQUE INDEX IF NOT EXISTS idx_aftersale_queue_shop_order_unique
+ON aftersale_queue (shop_id, 订单号);
+"""
+
 售后队列新增字段定义 = {
     "shop_name": "ALTER TABLE aftersale_queue ADD COLUMN shop_name TEXT",
     "退货快递公司": "ALTER TABLE aftersale_queue ADD COLUMN 退货快递公司 TEXT",
@@ -80,6 +92,8 @@ async def 初始化售后队列表(连接: aiosqlite.Connection | None = None) -
         await 连接.execute(售后队列建表SQL)
         await _补齐售后队列表字段(连接)
         await 连接.execute(售后队列去重索引SQL)
+        await 连接.execute(售后队列店铺订单去重清理SQL)
+        await 连接.execute(售后队列店铺订单去重索引SQL)
         return
 
     from backend.models.数据库 import 获取连接
@@ -88,11 +102,14 @@ async def 初始化售后队列表(连接: aiosqlite.Connection | None = None) -
         await 数据库连接.execute(售后队列建表SQL)
         await _补齐售后队列表字段(数据库连接)
         await 数据库连接.execute(售后队列去重索引SQL)
+        await 数据库连接.execute(售后队列店铺订单去重清理SQL)
+        await 数据库连接.execute(售后队列店铺订单去重索引SQL)
         await 数据库连接.commit()
 
 
 __all__ = [
     "售后队列建表SQL",
     "售后队列去重索引SQL",
+    "售后队列店铺订单去重索引SQL",
     "初始化售后队列表",
 ]

@@ -23,7 +23,23 @@ class 售后页选择器:
         ],
     )
 
+    待商家处理数量 = 选择器配置(
+        主选择器='//span[text()="待商家处理"]/following-sibling::span[contains(@class, "count")]',
+        备选选择器=[
+            '//span[text()="待商家处理"]/parent::div//span[contains(@class, "MmsUiQuickFilter___count")]',
+            '//div[@data-testid="beast-core-card"]//span[text()="待商家处理"]/following-sibling::span',
+        ],
+    )
+
+    投诉预警卡片 = 选择器配置(
+        主选择器='//span[text()="投诉预警"]/ancestor::div[@data-testid="beast-core-card"]',
+        备选选择器=[
+            '//span[contains(., "投诉预警")]/ancestor::div[@data-testid="beast-core-card"]',
+        ],
+    )
+
     待商家处理选中类名片段 = "CAD_beastCardChecked"
+    投诉预警选中类名片段 = "CAD_beastCardChecked"
 
     售后单行 = 选择器配置(
         主选择器='div[class*="after-sales-table_order_item"]',
