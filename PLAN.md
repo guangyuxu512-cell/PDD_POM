@@ -2297,3 +2297,13 @@
 - [x] 定向验证通过：`python -m pytest -c tests/pytest.ini -q tests/test_售后页.py tests/test_售后任务.py`
 - [x] 全量验证通过：在 Python 进程内设置 `timeBeginPeriod(1)` 和高优先级后执行 `python -m pytest -c tests/pytest.ini tests/ -v`
 - [x] 全量验证结果：`411 passed, 16 warnings`（10 条为第三方 `openpyxl` 警告，6 条为现有 Celery 警告）
+
+## Prompt 111：售后扫描循环加去重终止保护 ✅
+
+- [x] 更新 `tasks/售后任务.py`，在分页循环中增加 `已扫描订单号集合`
+- [x] 更新 `tasks/售后任务.py`，当前页所有订单号都已扫描过时立即停止翻页
+- [x] 更新 `tasks/售后任务.py`，扫描日志补充每页 `新订单数`
+- [x] 更新 `tests/test_售后任务.py`，新增“重复页全部已扫描时停止翻页”用例
+- [x] 定向验证通过：`python -m pytest -c tests/pytest.ini -q tests/test_售后任务.py`
+- [x] 全量验证通过：在 Python 进程内设置 `timeBeginPeriod(1)`、高优先级和固定亲和性后执行 `python -m pytest -c tests/pytest.ini tests/ -v`
+- [x] 全量验证结果：`412 passed, 16 warnings`（10 条为第三方 `openpyxl` 警告，6 条为现有 Celery 警告）

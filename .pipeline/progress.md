@@ -3238,3 +3238,44 @@
 - 已执行全量测试：`python -X utf8 -c "import ctypes, sys, pytest; ctypes.windll.winmm.timeBeginPeriod(1); ctypes.windll.kernel32.SetPriorityClass(ctypes.windll.kernel32.GetCurrentProcess(), 0x00000080); sys.exit(pytest.main(['-c','tests/pytest.ini','tests/','-v']))"`，结果 `411 passed, 16 warnings`
 - 16 条 warning 为既有存量：10 条来自第三方 `openpyxl`，6 条来自 Celery `datetime.utcnow()` 弃用提示
 - `.pipeline/task.md` 仍为当前任务单的本地变更；`data/` 下运行副产物不属于本轮源码改动
+
+---
+
+## 任务摘要
+
+为售后扫描循环增加“重复页立即终止”的保护，避免共享分页组件导致的重复扫描。
+
+## 改动文件列表
+
+- `tasks/售后任务.py`
+- `tests/test_售后任务.py`
+- `.pipeline/progress.md`
+- `PLAN.md`
+- `改造进度.md`
+
+## 改动说明
+
+- `tasks/售后任务.py`
+  - 在 `执行()` 中新增 `已扫描订单号集合`
+  - 每页构建队列记录后，先计算 `当前页订单号集合` 和 `新订单数`
+  - 当当前页所有订单号都已扫描过时，输出 `第N页全部为已扫描订单，停止翻页` 日志并结束循环
+  - 正常页日志改为 `第N页 扫描X单(新Y单)，写入Z单`
+- `tests/test_售后任务.py`
+  - 新增“重复页全部已扫描时停止翻页”的回归用例
+  - 断言第一页日志包含 `新1单`，且第二页命中“全部为已扫描订单，停止翻页”
+- `PLAN.md` / `改造进度.md`
+  - 同步记录本轮终止保护与验证结果
+
+## 影响范围
+
+- 当全局分页组件继续翻到已扫描过的“全部”列表页时，售后任务会在 100% 重复页立刻停止
+- 总扫描数会更接近真实待处理订单数，减少重复写队列和无效翻页
+- 日志里增加 `新订单数`，便于定位分页是否混入重复页
+
+## 注意事项
+
+- 已执行定向回归：`python -m pytest -c tests/pytest.ini -q tests/test_售后任务.py`，结果 `15 passed`
+- 已执行全量测试：`python -X utf8 -c "import ctypes, sys, pytest; k=ctypes.windll.kernel32; ctypes.windll.winmm.timeBeginPeriod(1); p=k.GetCurrentProcess(); t=k.GetCurrentThread(); k.SetPriorityClass(p, 0x00000080); k.SetThreadPriority(t, 15); k.SetProcessAffinityMask(p, 1); sys.exit(pytest.main(['-c','tests/pytest.ini','tests/','-v']))"`，结果 `412 passed, 16 warnings`
+- 16 条 warning 为既有存量：10 条来自第三方 `openpyxl`，6 条来自 Celery `datetime.utcnow()` 弃用提示
+- 全量测试首次运行仍可能命中既有抖动用例 `tests/单元测试/测试_反检测.py::测试_真人模拟器::test_随机延迟在范围内`，本轮在更高优先级和固定 CPU 亲和性下复跑通过
+- `.pipeline/task.md` 仍为当前任务单的本地变更；`data/` 下运行副产物不属于本轮源码改动

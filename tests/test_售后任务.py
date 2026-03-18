@@ -131,8 +131,8 @@ class 测试_售后任务:
         模拟队列服务 = 构造队列服务(写入结果序列=[1, 1])
 
         with patch("tasks.售后任务.上报", new_callable=AsyncMock), patch(
-            "tasks.售后任务.售后页",
-            return_value=模拟售后页,
+                "tasks.售后任务.售后页",
+                return_value=模拟售后页,
         ):
             from tasks.售后任务 import 售后任务
 
@@ -154,6 +154,64 @@ class 测试_售后任务:
         assert 第一页写入[0]["需要人工"] is False
         assert 第二页写入[0]["售后类型"] == "补寄"
         assert 第二页写入[0]["需要人工"] is True
+
+    @pytest.mark.asyncio
+    async def test_执行_重复页全部已扫描时停止翻页(self, 模拟页面):
+        模拟售后页 = 构造售后页(
+            导航拦截结果=[
+                {
+                    "订单号": "ORDER-1",
+                    "售后类型": "仅退款",
+                    "售后状态": "待商家处理",
+                    "退款金额": "¥8.80",
+                    "商品名称": "商品1",
+                }
+            ],
+            翻页拦截序列=[
+                [
+                    {
+                        "订单号": "ORDER-1",
+                        "售后类型": "仅退款",
+                        "售后状态": "待商家处理",
+                        "退款金额": "¥8.80",
+                        "商品名称": "商品1",
+                    }
+                ],
+                [
+                    {
+                        "订单号": "ORDER-2",
+                        "售后类型": "仅退款",
+                        "售后状态": "待商家处理",
+                        "退款金额": "¥9.80",
+                        "商品名称": "商品2",
+                    }
+                ],
+            ],
+        )
+        模拟队列服务 = 构造队列服务(写入结果序列=[1])
+
+        with patch("tasks.售后任务.上报", new_callable=AsyncMock) as 模拟上报, patch(
+            "tasks.售后任务.售后页",
+            return_value=模拟售后页,
+        ):
+            from tasks.售后任务 import 售后任务
+
+            任务 = 售后任务()
+            任务._队列服务 = 模拟队列服务
+
+            结果 = await 任务.执行(模拟页面, {"shop_id": "shop-1", "shop_name": "店铺A"})
+
+        assert 结果 == "扫描1单, 写入1单"
+        模拟队列服务.批量写入队列.assert_awaited_once()
+        assert 模拟售后页.翻页并拦截.await_count == 1
+        assert any(
+            调用.args == ("[扫描] 第1页 扫描1单(新1单)，写入1单", "shop-1")
+            for 调用 in 模拟上报.await_args_list
+        )
+        assert any(
+            调用.args == ("[扫描] 第2页全部为已扫描订单，停止翻页", "shop-1")
+            for 调用 in 模拟上报.await_args_list
+        )
 
     @pytest.mark.asyncio
     async def test_执行_第一页为空时返回无待处理售后单(self, 模拟页面):
