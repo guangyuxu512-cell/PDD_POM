@@ -252,32 +252,10 @@ class 售后页(基础页):
         return 结果容器
 
     async def 导航并拦截售后列表(self) -> list[dict]:
-        """导航到列表页，等待所有默认请求完成，再拦截待商家处理的请求。"""
+        """导航到售后列表页，点击待商家处理，批量抓取第一页。"""
         await self.导航到售后列表()
-
-        print("[售后页] 等待所有默认请求完成（networkidle）")
-        try:
-            await self.页面.wait_for_load_state("networkidle", timeout=10000)
-        except Exception:
-            print("[售后页] networkidle 超时，继续执行")
-        print("[售后页] 网络已空闲，开始拦截")
-
-        拦截任务 = asyncio.create_task(self.拦截售后列表API(超时秒=15))
-        await asyncio.sleep(0.1)
         await self.确保待商家处理已选中(强制点击=True)
-        结果 = await 拦截任务
-
-        if not 结果:
-            print("[售后页] 首次 API 拦截为空，重试")
-            拦截任务 = asyncio.create_task(self.拦截售后列表API(超时秒=15))
-            await asyncio.sleep(0.1)
-            await self.确保待商家处理已选中(强制点击=True)
-            结果 = await 拦截任务
-
-        if not 结果:
-            print("[售后页] API拦截失败，fallback到JS抓取")
-
-        return 结果
+        return await self.批量抓取当前页()
 
     async def 切换待处理(self) -> None:
         await self.确保待商家处理已选中()
@@ -324,6 +302,92 @@ class 售后页(基础页):
             except Exception as 异常:
                 最后异常 = 异常
         raise RuntimeError(f"待商家处理卡片操作失败: {最后异常}")
+
+    async def 批量抓取当前页(self) -> list[dict]:
+        """一次 JS evaluate 批量抓取当前页所有售后单行。"""
+        await self.操作前延迟()
+
+        try:
+            await self.页面.wait_for_selector(
+                'div[class*="after-sales-table_order_item"]',
+                timeout=8000,
+            )
+        except Exception:
+            print("[售后页] 未检测到售后单行，当前页可能为空")
+            return []
+
+        await asyncio.sleep(0.5)
+
+        结果 = await self.页面.evaluate(
+            """
+            () => {
+                const 清洗 = (值) => String(值 || '').replace(/\\s+/g, ' ').trim();
+                const 所有行 = document.querySelectorAll(
+                    'div[class*="after-sales-table_order_item"]'
+                );
+                const 结果列表 = [];
+                for (let i = 0; i < 所有行.length; i++) {
+                    const 行 = 所有行[i];
+
+                    const 订单号节点 = 行.querySelector('[class*="table-item-header_sn__"]');
+                    const 订单号 = 清洗(订单号节点 ? 订单号节点.textContent : '');
+                    if (!订单号) continue;
+
+                    const 申请时间节点 = 行.querySelector(
+                        '[class*="table-item-header_apply_time"] span'
+                    );
+                    const 剩余时间节点 = 行.querySelector('[class*="table-item-header_time__"]');
+
+                    const 所有列 = 行.querySelectorAll('[class*="after-sales-table_item_cell"]');
+                    const 读列 = (索引) => {
+                        if (索引 >= 所有列.length) return '';
+                        return 清洗(所有列[索引].textContent);
+                    };
+
+                    const 商品名节点 = 所有列[0]
+                        ? 所有列[0].querySelector('[class*="order-info_main"]')
+                        : null;
+                    const 规格节点 = 所有列[0]
+                        ? 所有列[0].querySelector('[class*="order-info_sub"]')
+                        : null;
+                    const 实收节点 = 所有列[1]
+                        ? 所有列[1].querySelector('[class*="amount_dotted"]')
+                        : null;
+                    const 退款节点 = 所有列[1]
+                        ? 所有列[1].querySelector('[class*="amount_refund"]')
+                        : null;
+                    const 售后状态节点 = 所有列[4] ? 所有列[4].querySelector('div') : null;
+                    const 操作按钮 = 所有列[7]
+                        ? Array.from(所有列[7].querySelectorAll('a span, button span'))
+                              .map((节点) => 清洗(节点.textContent))
+                              .filter((文本) => 文本.length > 0)
+                        : [];
+
+                    结果列表.push({
+                        订单号: 订单号,
+                        申请时间: 清洗(申请时间节点 ? 申请时间节点.textContent : ''),
+                        剩余处理时间: 清洗(剩余时间节点 ? 剩余时间节点.textContent : ''),
+                        商品名称: 清洗(商品名节点 ? 商品名节点.textContent : ''),
+                        商品规格: 清洗(规格节点 ? 规格节点.textContent : ''),
+                        实收金额: 清洗(实收节点 ? 实收节点.textContent : ''),
+                        退款金额: 清洗(退款节点 ? 退款节点.textContent : ''),
+                        发货状态: 清洗(读列(2)),
+                        售后类型: 清洗(读列(3)),
+                        售后状态: 清洗(售后状态节点 ? 售后状态节点.textContent : ''),
+                        售后协商: 清洗(读列(5)),
+                        售后原因: 清洗(读列(6)),
+                        操作按钮: 操作按钮,
+                    });
+                }
+                return 结果列表;
+            }
+            """
+        )
+        await self.操作后延迟()
+
+        列表 = list(结果 or [])
+        print(f"[售后页] DOM批量抓取到 {len(列表)} 条售后单")
+        return 列表
 
     async def 搜索订单(self, 关键词: str) -> None:
         await self.操作前延迟()
@@ -730,17 +794,14 @@ class 售后页(基础页):
         return False
 
     async def 翻页并拦截(self) -> list[dict] | None:
-        """翻到下一页并优先通过 API 拦截获取下一页数据。"""
+        """翻到下一页并批量抓取。返回 None 表示没有下一页。"""
         if not await self._检查有下一页():
             return None
 
-        拦截任务 = asyncio.create_task(self.拦截售后列表API(超时秒=15))
-        await asyncio.sleep(0.1)
         翻页成功 = await self.翻页()
         if not 翻页成功:
-            拦截任务.cancel()
             return None
-        return await 拦截任务
+        return await self.批量抓取当前页()
 
     async def 扫描所有待处理(self) -> list[dict]:
         await self.确保待商家处理已选中()

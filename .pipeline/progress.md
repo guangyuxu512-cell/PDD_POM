@@ -3189,3 +3189,52 @@
 - 全量测试首次复跑仍可能命中既有抖动用例 `tests/单元测试/测试_反检测.py::测试_真人模拟器::test_随机延迟在范围内`，继续复跑后已通过
 - 16 条 warning 为既有存量：10 条来自第三方 `openpyxl`，6 条来自 Celery `datetime.utcnow()` 弃用提示
 - `.pipeline/task.md` 仍为当前任务单的本地变更；`data/` 下运行副产物不属于本轮源码改动
+
+---
+
+## 任务摘要
+
+将售后列表扫描彻底切回 DOM 批量抓取，并移除售后任务中的 API/DOM 双路径与 fallback 逻辑。
+
+## 改动文件列表
+
+- `pages/售后页.py`
+- `tasks/售后任务.py`
+- `tests/test_售后页.py`
+- `tests/test_售后任务.py`
+- `.pipeline/progress.md`
+- `PLAN.md`
+- `改造进度.md`
+
+## 改动说明
+
+- `pages/售后页.py`
+  - 新增 `批量抓取当前页()`，通过一次 `page.evaluate` 批量提取当前页所有售后单行
+  - `导航并拦截售后列表()` 改为导航后点击“待商家处理”，直接调用 `批量抓取当前页()`
+  - `翻页并拦截()` 改为翻页成功后直接调用 `批量抓取当前页()`
+  - 保留现有 API 拦截相关 helper，但列表扫描主链路已不再调用
+- `tasks/售后任务.py`
+  - 删除 `_收集当前页DOM摘要()` 旧 helper
+  - `执行()` 改为纯 DOM 分页扫描，不再区分 API/DOM 来源，也不再写 DOM fallback 日志
+  - 第一页为空时直接返回 `无待处理售后单`；后续页空列表则结束扫描并返回已累积汇总
+- `tests/test_售后页.py`
+  - 新增 DOM 批量抓取成功和空页用例
+  - 更新导航并拦截/翻页并拦截用例，断言批量抓取调用而不是 API 拦截调用
+- `tests/test_售后任务.py`
+  - 将旧 fallback 用例替换为“第一页为空返回无待处理售后单”
+  - 新增“下一页空列表时结束并返回已扫描汇总”的用例
+- `PLAN.md` / `改造进度.md`
+  - 同步记录本轮 DOM 批量抓取改造与验证结果
+
+## 影响范围
+
+- 售后列表扫描不再依赖任何 API 拦截时序，统一走 DOM 批量抓取
+- 每页只会输出一条 `DOM批量抓取到 N 条售后单` 日志，不再有列表扫描阶段的逐行日志
+- `售后任务` 现在不再进入 DOM fallback 分支，扫描总数与写入总数更直接对应分页结果
+
+## 注意事项
+
+- 已执行定向回归：`python -m pytest -c tests/pytest.ini -q tests/test_售后页.py tests/test_售后任务.py`，结果 `48 passed`
+- 已执行全量测试：`python -X utf8 -c "import ctypes, sys, pytest; ctypes.windll.winmm.timeBeginPeriod(1); ctypes.windll.kernel32.SetPriorityClass(ctypes.windll.kernel32.GetCurrentProcess(), 0x00000080); sys.exit(pytest.main(['-c','tests/pytest.ini','tests/','-v']))"`，结果 `411 passed, 16 warnings`
+- 16 条 warning 为既有存量：10 条来自第三方 `openpyxl`，6 条来自 Celery `datetime.utcnow()` 弃用提示
+- `.pipeline/task.md` 仍为当前任务单的本地变更；`data/` 下运行副产物不属于本轮源码改动

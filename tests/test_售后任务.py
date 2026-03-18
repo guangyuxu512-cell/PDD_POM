@@ -156,7 +156,7 @@ class 测试_售后任务:
         assert 第二页写入[0]["需要人工"] is True
 
     @pytest.mark.asyncio
-    async def test_执行_API为空时回退DOM扫描(self, 模拟页面):
+    async def test_执行_第一页为空时返回无待处理售后单(self, 模拟页面):
         模拟售后页 = 构造售后页(
             导航拦截结果=[],
             DOM摘要序列=[
@@ -182,18 +182,27 @@ class 测试_售后任务:
 
             结果 = await 任务.执行(模拟页面, {"shop_id": "shop-1", "shop_name": "店铺A"})
 
-        assert 结果 == "扫描1单, 写入1单"
-        模拟售后页.获取售后单数量.assert_awaited_once()
-        模拟售后页.获取第N行信息.assert_awaited_once_with(1)
-        assert any(
-            调用.args == ("[扫描] 当前页未拦截到数据，尝试 DOM fallback", "shop-1")
-            for 调用 in 模拟上报.await_args_list
-        )
+        assert 结果 == "无待处理售后单"
+        模拟队列服务.批量写入队列.assert_not_awaited()
+        模拟售后页.获取售后单数量.assert_not_awaited()
+        模拟售后页.获取第N行信息.assert_not_awaited()
+        assert any(调用.args == ("[完成] 无待处理售后单", "shop-1") for 调用 in 模拟上报.await_args_list)
 
     @pytest.mark.asyncio
-    async def test_执行_当前页无有效订单时返回无待处理售后单(self, 模拟页面):
-        模拟售后页 = 构造售后页(导航拦截结果=[], DOM摘要序列=[])
-        模拟队列服务 = 构造队列服务()
+    async def test_执行_下一页空列表时结束并返回已扫描汇总(self, 模拟页面):
+        模拟售后页 = 构造售后页(
+            导航拦截结果=[
+                {
+                    "订单号": "ORDER-1",
+                    "售后类型": "仅退款",
+                    "售后状态": "待商家处理",
+                    "退款金额": "¥8.80",
+                    "商品名称": "商品1",
+                }
+            ],
+            翻页拦截序列=[[], None],
+        )
+        模拟队列服务 = 构造队列服务(写入结果序列=[1])
 
         with patch("tasks.售后任务.上报", new_callable=AsyncMock), patch(
             "tasks.售后任务.售后页",
@@ -206,8 +215,8 @@ class 测试_售后任务:
 
             结果 = await 任务.执行(模拟页面, {"shop_id": "shop-1", "shop_name": "店铺A"})
 
-        assert 结果 == "无待处理售后单"
-        模拟队列服务.批量写入队列.assert_not_awaited()
+        assert 结果 == "扫描1单, 写入1单"
+        模拟队列服务.批量写入队列.assert_awaited_once()
 
     @pytest.mark.asyncio
     async def test_执行_当前页重复订单只保留最后一条(self, 模拟页面):

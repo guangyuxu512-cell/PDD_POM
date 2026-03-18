@@ -2284,3 +2284,16 @@
 - [x] 定向验证通过：`python -m pytest -c tests/pytest.ini -q tests/test_售后页.py tests/test_售后任务.py`
 - [x] 全量验证通过：在 Python 进程内设置 `timeBeginPeriod(1)` 和高优先级后执行 `python -m pytest -c tests/pytest.ini tests/ -v`
 - [x] 全量验证结果：`409 passed, 16 warnings`（10 条为第三方 `openpyxl` 警告，6 条为现有 Celery 警告）
+
+## Prompt 110：售后列表全部切回 DOM 批量抓取 ✅
+
+- [x] 更新 `pages/售后页.py`，新增 `批量抓取当前页()`，用一次 `page.evaluate` 批量提取当前页所有售后单
+- [x] 更新 `pages/售后页.py`，`导航并拦截售后列表()` 改为“导航 -> 点击待商家处理 -> DOM批量抓取第一页”
+- [x] 更新 `pages/售后页.py`，`翻页并拦截()` 改为“翻页 -> DOM批量抓取当前页”
+- [x] 保留 `拦截售后列表API()` 等旧方法定义，但列表扫描主链路已不再调用
+- [x] 更新 `tasks/售后任务.py`，移除 `_收集当前页DOM摘要()` 和 API/DOM fallback 双路径，统一按 DOM 分页扫描
+- [x] 更新 `tests/test_售后页.py`，覆盖 DOM 批量抓取、导航第一页抓取、空页返回空列表和翻页后批量抓取
+- [x] 更新 `tests/test_售后任务.py`，覆盖第一页为空直接返回、下一页空列表结束扫描，去掉旧 fallback 假设
+- [x] 定向验证通过：`python -m pytest -c tests/pytest.ini -q tests/test_售后页.py tests/test_售后任务.py`
+- [x] 全量验证通过：在 Python 进程内设置 `timeBeginPeriod(1)` 和高优先级后执行 `python -m pytest -c tests/pytest.ini tests/ -v`
+- [x] 全量验证结果：`411 passed, 16 warnings`（10 条为第三方 `openpyxl` 警告，6 条为现有 Celery 警告）
