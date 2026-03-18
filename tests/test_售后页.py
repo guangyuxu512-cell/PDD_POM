@@ -313,19 +313,24 @@ class 测试_售后页:
         页面对象.安全点击 = AsyncMock()
         页面对象.页面加载延迟 = AsyncMock()
         页面对象.拦截售后列表API = AsyncMock(
-            side_effect=[[], [{"订单号": "ORDER-2", "售后类型": "仅退款"}]]
+            side_effect=[
+                [{"订单号": "ORDER-ALL", "售后类型": "全部"}],
+                [],
+                [{"订单号": "ORDER-2", "售后类型": "仅退款"}],
+            ]
         )
 
         结果 = await 页面对象.导航并拦截售后列表()
 
         assert 结果 == [{"订单号": "ORDER-2", "售后类型": "仅退款"}]
         页面对象.导航到售后列表.assert_awaited_once()
-        页面对象.页面加载延迟.assert_awaited_once()
+        页面对象.页面加载延迟.assert_not_awaited()
         assert 页面对象.确保待商家处理已选中.await_count == 2
         assert 页面对象.确保待商家处理已选中.await_args_list[0].kwargs == {"强制点击": True}
         assert 页面对象.确保待商家处理已选中.await_args_list[1].kwargs == {"强制点击": True}
-        assert 页面对象.拦截售后列表API.await_args_list[0].kwargs == {"超时秒": 10, "仅待商家处理": True}
-        assert 页面对象.拦截售后列表API.await_args_list[1].kwargs == {"超时秒": 10, "仅待商家处理": True}
+        assert 页面对象.拦截售后列表API.await_args_list[0].kwargs == {"超时秒": 8}
+        assert 页面对象.拦截售后列表API.await_args_list[1].kwargs == {"超时秒": 15}
+        assert 页面对象.拦截售后列表API.await_args_list[2].kwargs == {"超时秒": 15}
         页面对象.安全点击.assert_not_awaited()
 
     @pytest.mark.asyncio
@@ -358,7 +363,7 @@ class 测试_售后页:
 
         assert 结果 == [{"订单号": "ORDER-3", "售后类型": "退货退款"}]
         页面对象.翻页.assert_awaited_once()
-        页面对象.拦截售后列表API.assert_awaited_once_with(超时秒=10, 仅待商家处理=True)
+        页面对象.拦截售后列表API.assert_awaited_once_with(超时秒=15)
 
     @pytest.mark.asyncio
     async def test_检查有下一页_BeastCore禁用态返回False(self, 模拟页面):

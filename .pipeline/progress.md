@@ -3104,3 +3104,46 @@
 - 已执行全量测试：PowerShell 临时设置 `timeBeginPeriod(1)` 并提升当前进程优先级后执行 `python -m pytest -c tests/pytest.ini tests/ -v`，结果 `408 passed, 16 warnings`
 - 16 条 warning 为既有存量：10 条来自第三方 `openpyxl`，6 条来自 Celery `datetime.utcnow()` 弃用提示
 - `.pipeline/task.md` 仍为当前任务单的本地变更；`data/` 下运行副产物不属于本轮源码改动
+
+---
+
+## 任务摘要
+
+将 `售后页` 的列表拦截改为“两阶段拦截”：先消耗导航默认请求，再注册真正的拦截器去抓“待商家处理”与翻页请求。
+
+## 改动文件列表
+
+- `pages/售后页.py`
+- `tests/test_售后页.py`
+- `.pipeline/progress.md`
+- `PLAN.md`
+- `改造进度.md`
+
+## 改动说明
+
+- `pages/售后页.py`
+  - `导航并拦截售后列表()` 改为先同步执行一次 `拦截售后列表API(超时秒=8)`，把导航触发的默认列表响应消耗掉
+  - 新增 `默认请求已消耗，开始真正的拦截` 日志
+  - 去掉该方法内额外的 `页面加载延迟()` 和 `asyncio.sleep(2)` 硬等待
+  - 首次和重试路径都改为 `create_task(self.拦截售后列表API(超时秒=15)) -> await asyncio.sleep(0.1) -> await self.确保待商家处理已选中(强制点击=True)`
+  - `翻页并拦截()` 同步改为 `create_task(拦截) -> sleep(0.1) -> 翻页` 的顺序
+  - 保留 `拦截售后列表API()` 现有结果串行化逻辑，继续避免并发响应竞态
+- `tests/test_售后页.py`
+  - 更新导航并拦截测试，断言先消耗默认请求，再执行两次正式拦截
+  - 更新翻页并拦截测试，断言新的超时参数和无筛选调用方式
+- `PLAN.md` / `改造进度.md`
+  - 同步记录本轮两阶段拦截改造与验证结果
+
+## 影响范围
+
+- 导航后的默认“全部”列表响应会先被单独消耗，不再与后续“待商家处理”请求共用同一个拦截生命周期
+- “待商家处理”首次请求与翻页请求的监听时机更明确，减少误抓和漏抓
+- `售后任务.py`、选择器层和队列服务未改动
+
+## 注意事项
+
+- 已执行定向回归：`python -m pytest -c tests/pytest.ini -q tests/test_售后页.py tests/test_售后任务.py`，结果 `45 passed`
+- 已执行单条抖动验证：通过 Python 进程内设置 `timeBeginPeriod(1)` 和高优先级后，`tests/单元测试/测试_反检测.py::测试_真人模拟器::test_随机延迟在范围内` 通过
+- 已执行全量测试：`python -X utf8 -c "import ctypes, sys, pytest; ctypes.windll.winmm.timeBeginPeriod(1); ctypes.windll.kernel32.SetPriorityClass(ctypes.windll.kernel32.GetCurrentProcess(), 0x00000080); sys.exit(pytest.main(['-c','tests/pytest.ini','tests/','-v']))"`，结果 `408 passed, 16 warnings`
+- 16 条 warning 为既有存量：10 条来自第三方 `openpyxl`，6 条来自 Celery `datetime.utcnow()` 弃用提示
+- `.pipeline/task.md` 仍为当前任务单的本地变更；`data/` 下运行副产物不属于本轮源码改动

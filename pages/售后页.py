@@ -252,21 +252,22 @@ class 售后页(基础页):
         return 结果容器
 
     async def 导航并拦截售后列表(self) -> list[dict]:
-        """先导航到列表页，再通过待商家处理卡片切换触发接口拦截。"""
+        """先导航到列表页，消耗掉默认请求，再通过待商家处理卡片切换触发接口拦截。"""
         await self.导航到售后列表()
-        await self.页面加载延迟()
-        print("[售后页] 等待默认请求完成")
-        await asyncio.sleep(2)
 
-        拦截任务 = asyncio.create_task(self.拦截售后列表API(超时秒=10, 仅待商家处理=True))
-        await asyncio.sleep(0)
+        print("[售后页] 等待默认请求完成")
+        await self.拦截售后列表API(超时秒=8)
+        print("[售后页] 默认请求已消耗，开始真正的拦截")
+
+        拦截任务 = asyncio.create_task(self.拦截售后列表API(超时秒=15))
+        await asyncio.sleep(0.1)
         await self.确保待商家处理已选中(强制点击=True)
         结果 = await 拦截任务
 
         if not 结果:
-            print("[售后页] 首次 API 拦截为空，重试触发待商家处理请求")
-            拦截任务 = asyncio.create_task(self.拦截售后列表API(超时秒=10, 仅待商家处理=True))
-            await asyncio.sleep(0)
+            print("[售后页] 首次 API 拦截为空，重试")
+            拦截任务 = asyncio.create_task(self.拦截售后列表API(超时秒=15))
+            await asyncio.sleep(0.1)
             await self.确保待商家处理已选中(强制点击=True)
             结果 = await 拦截任务
 
@@ -730,13 +731,12 @@ class 售后页(基础页):
         if not await self._检查有下一页():
             return None
 
-        拦截任务 = asyncio.create_task(self.拦截售后列表API(超时秒=10, 仅待商家处理=True))
-        await asyncio.sleep(0)
+        拦截任务 = asyncio.create_task(self.拦截售后列表API(超时秒=15))
+        await asyncio.sleep(0.1)
         翻页成功 = await self.翻页()
         if not 翻页成功:
             拦截任务.cancel()
             return None
-        await asyncio.sleep(0.5)
         return await 拦截任务
 
     async def 扫描所有待处理(self) -> list[dict]:

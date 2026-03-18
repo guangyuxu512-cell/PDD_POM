@@ -2261,3 +2261,15 @@
 - [x] 定向验证通过：`python -m pytest -c tests/pytest.ini -q tests/test_售后页.py tests/test_售后任务.py`
 - [x] 全量验证通过：PowerShell 临时设置 `timeBeginPeriod(1)` 并提升当前进程优先级后执行 `python -m pytest -c tests/pytest.ini tests/ -v`
 - [x] 全量验证结果：`408 passed, 16 warnings`（10 条为第三方 `openpyxl` 警告，6 条为现有 Celery 警告）
+
+## Prompt 108：售后页改为两阶段拦截默认请求 ✅
+
+- [x] 更新 `pages/售后页.py`，`导航并拦截售后列表()` 改为“两阶段拦截”：先同步消耗导航默认请求，再启动真正拦截并点击“待商家处理”
+- [x] 更新 `pages/售后页.py`，新增 `默认请求已消耗，开始真正的拦截` 日志
+- [x] 更新 `pages/售后页.py`，去掉 `导航并拦截售后列表()` 中的 `asyncio.sleep(2)` 与额外 `页面加载延迟()` 依赖
+- [x] 更新 `pages/售后页.py`，首次与重试链路均改为 `create_task(拦截) -> sleep(0.1) -> 强制点击待商家处理`
+- [x] 更新 `pages/售后页.py`，`翻页并拦截()` 改为 `create_task(拦截) -> sleep(0.1) -> 翻页`
+- [x] 更新 `tests/test_售后页.py`，对齐两阶段拦截后的调用顺序与参数断言
+- [x] 定向验证通过：`python -m pytest -c tests/pytest.ini -q tests/test_售后页.py tests/test_售后任务.py`
+- [x] 全量验证通过：在 Python 进程内设置 `timeBeginPeriod(1)` 和高优先级后执行 `python -m pytest -c tests/pytest.ini tests/ -v`
+- [x] 全量验证结果：`408 passed, 16 warnings`（10 条为第三方 `openpyxl` 警告，6 条为现有 Celery 警告）
