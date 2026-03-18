@@ -117,6 +117,34 @@ class 测试_售后队列服务:
             )
 
     @pytest.mark.asyncio
+    async def test_写入队列_订单已存在时直接跳过(self, 临时环境: Path):
+        服务 = 售后队列服务()
+
+        首次写入ID = await 服务.写入队列(
+            {
+                "batch_id": "AS-shop-1-old",
+                "shop_id": "shop-1",
+                "订单号": "ORDER-1002",
+                "售后类型": "仅退款",
+            }
+        )
+        再次写入ID = await 服务.写入队列(
+            {
+                "batch_id": "AS-shop-1-new",
+                "shop_id": "shop-1",
+                "订单号": "ORDER-1002",
+                "售后类型": "退货退款",
+            }
+        )
+
+        assert 首次写入ID > 0
+        assert 再次写入ID == 0
+        列表 = await 服务.获取待处理列表(shop_id="shop-1")
+        assert len(列表) == 1
+        assert 列表[0]["batch_id"] == "AS-shop-1-old"
+        assert 列表[0]["售后类型"] == "仅退款"
+
+    @pytest.mark.asyncio
     async def test_批量写入队列_同批次同订单去重(self, 临时环境: Path):
         服务 = 售后队列服务()
         批次ID = "AS-shop-2-20260316010101001"
@@ -149,7 +177,7 @@ class 测试_售后队列服务:
         assert [记录["订单号"] for 记录 in 列表] == ["ORDER-2001", "ORDER-2002"]
 
     @pytest.mark.asyncio
-    async def test_批量写入队列_已有活跃记录时跨批次跳过(self, 临时环境: Path):
+    async def test_批量写入队列_已有订单时跨批次跳过(self, 临时环境: Path):
         服务 = 售后队列服务()
 
         旧记录ID = await 服务.写入队列(
@@ -160,7 +188,7 @@ class 测试_售后队列服务:
                 "售后类型": "退货退款",
             }
         )
-        await 服务.更新阶段(旧记录ID, "等待验货")
+        await 服务.标记已完成(旧记录ID, "已处理")
 
         写入数量 = await 服务.批量写入队列(
             [
@@ -288,17 +316,13 @@ class 测试_售后队列服务:
         assert [记录["订单号"] for 记录 in 到期列表] == ["ORDER-5001", "ORDER-5002"]
 
     @pytest.mark.asyncio
-    async def test_查询拒绝次数_返回同订单最大值(self, 临时环境: Path):
+    async def test_查询拒绝次数_返回当前订单拒绝次数(self, 临时环境: Path):
         服务 = 售后队列服务()
-        记录1 = await 服务.写入队列(
+        记录ID = await 服务.写入队列(
             {"batch_id": "AS-shop-6-1", "shop_id": "shop-6", "订单号": "ORDER-6001"}
         )
-        记录2 = await 服务.写入队列(
-            {"batch_id": "AS-shop-6-2", "shop_id": "shop-6", "订单号": "ORDER-6001"}
-        )
 
-        await 服务.更新阶段(记录1, "等待退回", 拒绝次数=1)
-        await 服务.更新阶段(记录2, "等待验货", 拒绝次数=3)
+        await 服务.更新阶段(记录ID, "等待验货", 拒绝次数=3)
 
         assert await 服务.查询拒绝次数("ORDER-6001") == 3
 

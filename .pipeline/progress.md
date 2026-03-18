@@ -2966,3 +2966,52 @@
 - 已执行全量测试：`python -m pytest -c tests/pytest.ini -q`，结果 `400 passed, 16 warnings`
 - 16 条 warning 为既有存量：10 条来自第三方 `openpyxl`，6 条来自 Celery `datetime.utcnow()` 弃用提示
 - `.pipeline/task.md` 仍为当前任务单的本地变更；`data/` 下运行副产物不属于本轮源码改动
+
+---
+
+## 任务摘要
+
+将 `售后任务` 重构为仅做列表扫描和写入队列的最小闭环，并把队列写入去重收口为按订单号全表唯一。
+
+## 改动文件列表
+
+- `tasks/售后任务.py`
+- `backend/services/售后队列服务.py`
+- `tests/test_售后任务.py`
+- `tests/test_售后队列服务.py`
+- `.pipeline/progress.md`
+- `PLAN.md`
+- `改造进度.md`
+
+## 改动说明
+
+- `tasks/售后任务.py`
+  - 移除详情页处理、售后决策引擎、飞书通知、售后配置服务、`_执行结果`、`_售后配置缓存`
+  - 新增 `_判断售后类型()`，统一归类为 `退货退款 / 退款 / 补寄 / 换货 / 维修`
+  - 更新 `_构建队列记录()`，补充 `售后类型_原始` 和 `需要人工`
+  - `执行()` 简化为 `导航并拦截售后列表()` -> `API/DOM 抓取` -> `批量写入队列()` -> `翻页并拦截()`
+  - 文件末尾新增后续恢复路线图注释
+- `backend/services/售后队列服务.py`
+  - 新增按 `订单号` 查询已存在记录的逻辑
+  - `写入队列()` 和 `批量写入队列()` 统一改为“订单已存在则跳过”，不再区分批次
+- `tests/test_售后任务.py`
+  - 重写回归用例，覆盖类型标准化、多页扫描、DOM fallback、空页结束、页内去重和异常路径
+- `tests/test_售后队列服务.py`
+  - 新增单条写入重复订单跳过用例
+  - 调整跨批次去重和拒绝次数测试，使其符合“订单号全表唯一”的新约束
+- `PLAN.md` / `改造进度.md`
+  - 同步记录本轮最小闭环重构和验证结果
+
+## 影响范围
+
+- `售后任务` 当前只负责扫描待商家处理列表并写入 SQLite 队列，不再涉及详情页、决策、按钮点击、弹窗或飞书
+- 队列表中同一 `订单号` 只保留一条记录，重复运行和跨批次补扫都不会重复插入
+- 补寄、换货、维修会在任务侧被标准化并标记 `需要人工=True`，为后续恢复处理链路保留信号
+
+## 注意事项
+
+- 已执行定向回归：`python -m pytest -c tests/pytest.ini -q tests/test_售后任务.py tests/test_售后队列服务.py`，结果 `26 passed`
+- 已执行补充回归：`python -m pytest -c tests/pytest.ini -q tests/test_售后页.py tests/test_售后任务.py tests/test_售后队列服务.py`，结果 `54 passed`
+- 已执行全量测试：`python -m pytest -c tests/pytest.ini tests/ -v`，结果 `405 passed, 16 warnings`
+- 16 条 warning 为既有存量：10 条来自第三方 `openpyxl`，6 条来自 Celery `datetime.utcnow()` 弃用提示
+- `.pipeline/task.md` 仍为当前任务单的本地变更；`data/` 下运行副产物不属于本轮源码改动

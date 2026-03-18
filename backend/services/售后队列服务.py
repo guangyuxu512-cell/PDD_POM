@@ -14,7 +14,6 @@ class 售后队列服务:
     """售后工作队列 CRUD + 批次管理。"""
 
     待到期阶段集合 = ("待处理", "等待退回", "等待验货", "待退款")
-    活跃阶段集合 = ("待处理", "处理中", "等待退回", "等待验货", "待退款")
 
     @staticmethod
     def _解析JSON字段(原始值: Any, 默认值: Any) -> Any:
@@ -227,23 +226,20 @@ class 售后队列服务:
         数据 = self._校验基础记录(记录)
         return await self._执行标准化写入(连接, 数据)
 
-    async def _查询活跃记录(
+    async def _查询订单记录(
         self,
         连接: aiosqlite.Connection,
-        shop_id: str,
         订单号: str,
     ) -> aiosqlite.Row | None:
-        占位符 = ", ".join("?" for _ in self.活跃阶段集合)
         async with 连接.execute(
-            f"""
-            SELECT id, 当前阶段
+            """
+            SELECT id, batch_id, shop_id, 当前阶段
             FROM aftersale_queue
-            WHERE shop_id = ? AND 订单号 = ?
-              AND 当前阶段 IN ({占位符})
+            WHERE 订单号 = ?
             ORDER BY id DESC
             LIMIT 1
             """,
-            [shop_id, 订单号, *self.活跃阶段集合],
+            (订单号,),
         ) as 游标:
             return await 游标.fetchone()
 
@@ -258,8 +254,12 @@ class 售后队列服务:
     async def 写入队列(self, 记录: dict) -> int:
         """写入一条售后单到队列（从列表页扫描阶段调用）。"""
         async with 获取连接() as 连接:
+            数据 = self._校验基础记录(dict(记录 or {}))
+            已有记录 = await self._查询订单记录(连接, 数据["订单号"])
+            if 已有记录:
+                return 0
             try:
-                记录ID = await self._执行写入(连接, dict(记录 or {}))
+                记录ID = await self._执行标准化写入(连接, 数据)
             except aiosqlite.IntegrityError:
                 await 连接.rollback()
                 return 0
@@ -271,25 +271,18 @@ class 售后队列服务:
         if not 记录列表:
             return 0
 
-        已处理键集合: set[tuple[str, str]] = set()
+        已处理订单号集合: set[str] = set()
         写入数量 = 0
         async with 获取连接() as 连接:
             for 原始记录 in 记录列表:
                 记录 = dict(原始记录 or {})
                 数据 = self._校验基础记录(记录)
-                去重键 = (
-                    数据["batch_id"],
-                    数据["订单号"],
-                )
-                if 去重键 in 已处理键集合:
+                订单号 = 数据["订单号"]
+                if 订单号 in 已处理订单号集合:
                     continue
-                已处理键集合.add(去重键)
+                已处理订单号集合.add(订单号)
 
-                已有记录 = await self._查询活跃记录(
-                    连接,
-                    数据["shop_id"],
-                    数据["订单号"],
-                )
+                已有记录 = await self._查询订单记录(连接, 订单号)
                 if 已有记录:
                     continue
                 try:

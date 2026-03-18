@@ -2222,3 +2222,18 @@
 - [x] 定向验证结果：`38 passed`
 - [x] 验证通过：`python -m pytest -c tests/pytest.ini -q`
 - [x] 全量验证结果：`400 passed, 16 warnings`（10 条为第三方 `openpyxl` 警告，6 条为现有 Celery 警告）
+
+## Prompt 105：精简售后任务为扫描入队闭环 ✅
+
+- [x] 更新 `tasks/售后任务.py`，移除详情页、决策引擎、飞书通知、售后配置服务、`_执行结果` 和 `_售后配置缓存`
+- [x] 新增 `售后任务._判断售后类型()`，统一归类为 `退货退款 / 退款 / 补寄 / 换货 / 维修`
+- [x] 更新 `售后任务._构建队列记录()`，补充 `售后类型_原始` 和 `需要人工`
+- [x] `执行()` 简化为 `导航并拦截售后列表()` -> `API/DOM 抓取` -> `批量写入队列()` -> `翻页并拦截()`
+- [x] 在 `tasks/售后任务.py` 文件末尾补充五步恢复路线图注释
+- [x] 更新 `backend/services/售后队列服务.py`，单条/批量写入前统一按订单号全表去重，跨批次重复订单直接跳过
+- [x] 更新 `tests/test_售后任务.py`，覆盖类型标准化、多页扫描、DOM fallback、空页结束、页内去重和写队列异常
+- [x] 更新 `tests/test_售后队列服务.py`，覆盖单条写入重复订单跳过和跨批次重复订单跳过
+- [x] 定向验证通过：`python -m pytest -c tests/pytest.ini -q tests/test_售后任务.py tests/test_售后队列服务.py`
+- [x] 定向补充验证通过：`python -m pytest -c tests/pytest.ini -q tests/test_售后页.py tests/test_售后任务.py tests/test_售后队列服务.py`
+- [x] 全量验证通过：`python -m pytest -c tests/pytest.ini tests/ -v`
+- [x] 全量验证结果：`405 passed, 16 warnings`（10 条为第三方 `openpyxl` 警告，6 条为现有 Celery 警告）
