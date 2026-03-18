@@ -2168,3 +2168,17 @@
 - [x] 验证通过：`cd frontend && npx vue-tsc -b`
 - [x] 验证通过：`python -m pytest -c tests/pytest.ini -q`
 - [x] 全量验证结果：`390 passed, 16 warnings`（10 条为第三方 `openpyxl` 警告，6 条为现有 Celery 警告）
+
+## Prompt 101：修复多步流程下一步续投递缺失 ✅
+
+- [x] 更新 `tasks/执行任务.py`，新增 `同步读取批次状态`、`获取队列名称` 导入
+- [x] 在 `执行任务()` 内提取 `_投递下一步()`，统一完成下一步读取、取消判断、队列选择和签名投递
+- [x] `执行结果["status"] == "completed"` 且仍有后续步骤时自动投递 `step_index + 1`
+- [x] `on_fail in {"continue", "log_and_skip"}` 分支复用相同逻辑继续投递下一步
+- [x] 续投递时继承 `flow_param_id` / `flow_param_ids`，并沿用下一步骤的 `task` / `on_fail` / `merge`
+- [x] 若批次 `stopped=True` 或已写入取消标记，则跳过续投递
+- [x] 更新 `tests/单元测试/测试_执行任务.py`，覆盖成功续投递、continue 续投递和 stopped 不续投递
+- [x] 验证通过：`python -m pytest -c tests/pytest.ini -q tests/单元测试/测试_执行任务.py`
+- [x] 验证结果：`8 passed`
+- [x] 验证通过：PowerShell 临时设置 `timeBeginPeriod(1)` 并以高优先级独立 Python 进程执行 `python -m pytest -c tests/pytest.ini -q`
+- [x] 全量验证结果：`391 passed, 16 warnings`（10 条为第三方 `openpyxl` 警告，6 条为现有 Celery 警告）

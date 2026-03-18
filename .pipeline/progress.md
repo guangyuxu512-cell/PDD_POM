@@ -2785,3 +2785,46 @@
 - 已执行全量测试：`python -m pytest -c tests/pytest.ini -q`，结果 `390 passed, 16 warnings`
 - 16 条 warning 为既有存量：10 条来自第三方 `openpyxl`，6 条来自 Celery `datetime.utcnow()` 弃用提示
 - 工作区仍存在 `.pipeline/task.md`、`data/ecom.db` 和运行产生的 `__pycache__/` 本地变更，非本轮核心源码交付
+
+---
+
+## 任务摘要
+
+修复 `tasks/执行任务.py` 多步流程首步完成后不续投递下一步的问题，并补齐 `continue` / 取消场景回归测试。
+
+## 改动文件列表
+
+- `tasks/执行任务.py`
+- `tests/单元测试/测试_执行任务.py`
+- `.pipeline/progress.md`
+- `PLAN.md`
+- `改造进度.md`
+
+## 改动说明
+
+- `tasks/执行任务.py`
+  - 增加 `同步读取批次状态`、`获取队列名称` 导入
+  - 在 `执行任务()` 内提取 `_投递下一步()`，统一完成批次状态读取、取消判断、队列选择和 Celery 签名投递
+  - 在当前步骤执行成功且仍有后续步骤时自动投递 `step_index + 1`
+  - 在 `on_fail in {"continue", "log_and_skip"}` 分支复用同一 helper 继续投递下一步
+  - 续投递时继承 `flow_param_id` / `flow_param_ids`，并在批次已停止或已有取消标记时直接跳过
+- `tests/单元测试/测试_执行任务.py`
+  - 扩展 `continue` 分支用例，覆盖失败后继续执行时的下一步投递
+  - 扩展 `flow_param_ids` 用例，覆盖成功路径续投递和参数继承
+  - 新增批次已停止时不投递下一步的异常路径用例
+- `PLAN.md` / `改造进度.md`
+  - 同步记录本轮多步流程续投递修复与验证结果
+
+## 影响范围
+
+- 多步骤批次流程在首步成功或 `continue/log_and_skip` 后，后续步骤会被实际投递到目标 Worker 队列
+- 批次被手动停止或已有取消标记时，不会再继续派发后续步骤
+- 流程参数批次执行时，下一步会继续沿用当前步骤关联的 `flow_param_id` / `flow_param_ids`
+
+## 注意事项
+
+- 已执行 `python -m pytest -c tests/pytest.ini -q tests/单元测试/测试_执行任务.py`，结果 `8 passed`
+- 直接执行 `python -m pytest -c tests/pytest.ini -q` 会命中既有抖动用例 `tests/单元测试/测试_反检测.py::测试_真人模拟器::test_随机延迟在范围内`
+- 已通过 PowerShell 临时启用 `timeBeginPeriod(1)` 并以高优先级独立 Python 进程执行同一全量命令，结果 `391 passed, 16 warnings`
+- 16 条 warning 为既有存量：10 条来自第三方 `openpyxl`，6 条来自 Celery `datetime.utcnow()` 弃用提示
+- 工作区仍存在 `.pipeline/task.md`、`data/ecom.db` 与 `data/` 下若干本地运行副产物，非本轮源码改动

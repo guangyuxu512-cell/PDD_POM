@@ -13,7 +13,12 @@ import httpx
 
 from backend.配置 import 配置实例
 from tasks.celery应用 import celery应用, 初始化Worker环境
-from backend.services.执行服务 import 同步更新批次店铺状态, 同步检查取消标记
+from backend.services.执行服务 import (
+    同步更新批次店铺状态,
+    同步检查取消标记,
+    同步读取批次状态,
+    获取队列名称,
+)
 from tasks.注册表 import 获取任务类
 
 
@@ -133,6 +138,51 @@ def 执行任务(
     if flow_param_id is not None and not 显式传入多记录 and len(标准流程参数ID列表) == 1:
         请求体["flow_param_id"] = 标准流程参数ID列表[0]
 
+    def _投递下一步():
+        """当前步骤完成后，按批次状态投递下一步 Celery 任务。"""
+        if not batch_id or step_index >= total_steps:
+            return
+
+        批次数据 = 同步读取批次状态(batch_id)
+        if not 批次数据 or 批次数据.get("stopped") or 同步检查取消标记(batch_id):
+            return
+
+        店铺状态 = 批次数据.get("shops", {}).get(shop_id, {})
+        步骤列表 = 店铺状态.get("steps", [])
+        if step_index >= len(步骤列表):
+            return
+
+        下一步骤 = 步骤列表[step_index]
+        下一步任务名 = 下一步骤["task"]
+        下一步失败策略 = 下一步骤.get("on_fail", "abort")
+        下一步合并 = bool(下一步骤.get("merge", False))
+        队列名称 = 批次数据.get("queue_name") or 获取队列名称()
+
+        下一步参数 = {
+            "batch_id": batch_id,
+            "shop_id": shop_id,
+            "shop_name": shop_name,
+            "task_name": 下一步任务名,
+            "on_fail": 下一步失败策略,
+            "step_index": step_index + 1,
+            "total_steps": total_steps,
+            "merge": 下一步合并,
+        }
+        if flow_param_ids:
+            下一步参数["flow_param_ids"] = flow_param_ids
+        elif flow_param_id is not None:
+            下一步参数["flow_param_id"] = flow_param_id
+
+        下一步签名 = 执行任务.si(**下一步参数).set(
+            queue=队列名称,
+            routing_key=队列名称,
+        )
+        下一步签名.apply_async()
+        print(
+            f"[执行任务] 已投递下一步: shop_id={shop_id}, "
+            f"task={下一步任务名}, step={step_index + 1}/{total_steps}"
+        )
+
     基础地址 = str(配置实例.API_BASE_URL or "http://localhost:8000").rstrip("/")
     with httpx.Client(timeout=httpx.Timeout(1800.0, connect=10.0)) as 客户端:
         响应 = 客户端.post(f"{基础地址}/api/tasks/execute-internal", json=请求体)
@@ -177,6 +227,7 @@ def 执行任务(
                 shop_status="completed" if step_index >= total_steps else "running",
                 result=执行结果.get("result"),
             )
+            _投递下一步()
         return 执行结果
 
     错误信息 = 执行结果.get("error") or "任务执行失败"
@@ -207,6 +258,7 @@ def 执行任务(
                 shop_status="completed" if step_index >= total_steps else "running",
                 error=错误信息,
             )
+            _投递下一步()
         返回结果 = {
             "task_id": 执行结果["task_id"],
             "shop_id": shop_id,

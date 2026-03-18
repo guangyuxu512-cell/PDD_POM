@@ -1,18 +1,8 @@
-2026/03/16-14:09:13.166 9a58 Reusing MANIFEST E:\pdd_zd\data\profiles\8eec98e4-89b9-49d5-ab1f-c72be3c405f6\Default\Session Storage/MANIFEST-000001
-2026/03/16-14:09:13.167 9a58 Recovering log #99
-2026/03/16-14:09:13.170 9a58 Reusing old log E:\pdd_zd\data\profiles\8eec98e4-89b9-49d5-ab1f-c72be3c405f6\Default\Session Storage/000099.log 
-2026/03/16-14:09:30.691 8a58 Level-0 table #103: started
-2026/03/16-14:09:30.721 8a58 Level-0 table #103: 14309 bytes OK
-2026/03/16-14:09:30.746 8a58 Delete type=0 #99
-2026/03/16-14:12:14.441 8a58 Level-0 table #105: started
-2026/03/16-14:12:14.482 8a58 Level-0 table #105: 13032 bytes OK
-2026/03/16-14:12:14.502 8a58 Delete type=0 #102
-2026/03/16-14:12:14.502 8a58 Compacting 4@0 + 1@1 files
-2026/03/16-14:12:14.525 8a58 Generated table #106@0: 102 keys, 9456 bytes
-2026/03/16-14:12:14.525 8a58 Compacted 4@0 + 1@1 files => 9456 bytes
-2026/03/16-14:12:14.552 8a58 compacted to: files[ 0 1 0 0 0 0 0 ]
-2026/03/16-14:12:14.552 8a58 Delete type=2 #95
-2026/03/16-14:12:14.552 8a58 Delete type=2 #97
-2026/03/16-14:12:14.552 8a58 Delete type=2 #100
-2026/03/16-14:12:14.552 8a58 Delete type=2 #103
-2026/03/16-14:12:14.552 8a58 Delete type=2 #105
+2026/03/18-23:50:14.276 a258 Reusing MANIFEST E:\pdd_zd\data\profiles\8eec98e4-89b9-49d5-ab1f-c72be3c405f6\Default\Session Storage/MANIFEST-000001
+2026/03/18-23:50:14.277 a258 Recovering log #104
+2026/03/18-23:50:14.278 a258 Level-0 table #108: started
+2026/03/18-23:50:14.310 a258 Level-0 table #108: 14482 bytes OK
+2026/03/18-23:50:14.311 a258 Recovering log #108
+2026/03/18-23:50:14.313 a258 Reusing old log E:\pdd_zd\data\profiles\8eec98e4-89b9-49d5-ab1f-c72be3c405f6\Default\Session Storage/000108.log 
+2026/03/18-23:50:14.346 a258 Delete type=0 #104
+2026/03/18-23:50:14.347 a258 Delete type=2 #109
