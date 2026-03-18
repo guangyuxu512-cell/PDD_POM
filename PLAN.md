@@ -2331,3 +2331,14 @@
 - [x] 定向验证结果：`65 passed`
 - [x] 全量验证通过：`python -m pytest -c tests/pytest.ini -q`
 - [x] 全量验证结果：`416 passed, 16 warnings`（10 条为第三方 `openpyxl` 警告，6 条为现有 Celery 警告）
+
+## Prompt 114：售后页订单号选择器排除 label 误匹配 ✅
+
+- [x] 更新 `pages/售后页.py`，`批量抓取当前页()` 中的订单号提取改为 `span[class*="table-item-header_sn__"]`
+- [x] 更新 `pages/售后页.py`，`翻页并抓取()` 翻页前后的首行订单号对比统一改为 `span[class*="table-item-header_sn__"]`
+- [x] 保持 `获取第N行信息()` 现有精确选择器不变，不扩散无关修改
+- [x] 更新 `tests/test_售后页.py`，在批量抓取成功路径和翻页成功/超时路径中断言 JS 脚本使用精确订单号选择器
+- [x] 定向验证通过：`python -m pytest -c tests/pytest.ini tests/test_售后页.py -v`
+- [x] 定向验证结果：`37 passed`
+- [x] 全量验证通过：`python -m pytest -c tests/pytest.ini tests/ -v`
+- [x] 全量验证结果：`416 passed, 16 warnings`（10 条为第三方 `openpyxl` 警告，6 条为现有 Celery 警告）

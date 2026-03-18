@@ -426,7 +426,7 @@ class 售后页(基础页):
                 for (let i = 0; i < 所有行.length; i++) {
                     const 行 = 所有行[i];
 
-                    const 订单号节点 = 行.querySelector('[class*="table-item-header_sn"]');
+                    const 订单号节点 = 行.querySelector('span[class*="table-item-header_sn__"]');
                     const 订单号 = 清洗(订单号节点 ? 订单号节点.textContent : '');
                     if (!订单号) continue;
 
@@ -919,7 +919,7 @@ class 售后页(基础页):
             () => {
                 const row = document.querySelector('div[class*="after-sales-table_order_item"]');
                 if (!row) return '';
-                const sn = row.querySelector('[class*="table-item-header_sn"]');
+                const sn = row.querySelector('span[class*="table-item-header_sn__"]');
                 return sn ? sn.textContent.trim() : '';
             }
             """
@@ -936,7 +936,7 @@ class 售后页(基础页):
                 () => {
                     const row = document.querySelector('div[class*="after-sales-table_order_item"]');
                     if (!row) return '';
-                    const sn = row.querySelector('[class*="table-item-header_sn"]');
+                    const sn = row.querySelector('span[class*="table-item-header_sn__"]');
                     return sn ? sn.textContent.trim() : '';
                 }
                 """

@@ -140,6 +140,8 @@ class 测试_售后页:
             timeout=8000,
         )
         模拟页面.evaluate.assert_awaited_once()
+        批量抓取脚本 = 模拟页面.evaluate.await_args.args[0]
+        assert 'span[class*="table-item-header_sn__"]' in 批量抓取脚本
         页面对象.操作后延迟.assert_awaited_once()
 
     @pytest.mark.asyncio
@@ -439,6 +441,12 @@ class 测试_售后页:
         assert 结果 == [{"订单号": "ORDER-3", "售后类型": "退货退款"}]
         页面对象.翻页.assert_awaited_once()
         页面对象.批量抓取当前页.assert_awaited_once()
+        订单号对比脚本列表 = [调用.args[0] for 调用 in 模拟页面.evaluate.await_args_list]
+        assert len(订单号对比脚本列表) == 2
+        assert all(
+            'span[class*="table-item-header_sn__"]' in 脚本
+            for 脚本 in 订单号对比脚本列表
+        )
 
     @pytest.mark.asyncio
     async def test_翻页并抓取_DOM刷新超时时继续抓取(self, 模拟页面):
@@ -458,6 +466,12 @@ class 测试_售后页:
         assert 结果 == [{"订单号": "ORDER-4", "售后类型": "仅退款"}]
         页面对象.翻页.assert_awaited_once()
         页面对象.批量抓取当前页.assert_awaited_once()
+        订单号对比脚本列表 = [调用.args[0] for 调用 in 模拟页面.evaluate.await_args_list]
+        assert len(订单号对比脚本列表) == 41
+        assert all(
+            'span[class*="table-item-header_sn__"]' in 脚本
+            for 脚本 in 订单号对比脚本列表
+        )
 
     @pytest.mark.asyncio
     async def test_检查有下一页_BeastCore禁用态返回False(self, 模拟页面):

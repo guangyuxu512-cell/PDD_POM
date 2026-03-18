@@ -3388,3 +3388,43 @@
 - 已执行全量测试：`python -m pytest -c tests/pytest.ini -q`，结果 `416 passed, 16 warnings`
 - 16 条 warning 为既有存量：10 条来自第三方 `openpyxl`，6 条来自 Celery `datetime.utcnow()` 弃用提示
 - `.pipeline/task.md` 为当前任务单的既有本地变更，未在本轮修改
+
+---
+
+## 任务摘要
+
+修正售后页订单号 DOM 选择器，排除 `table-item-header_sn_label__*` 误匹配，并补齐对应脚本断言测试。
+
+## 改动文件列表
+
+- `pages/售后页.py`
+- `tests/test_售后页.py`
+- `PLAN.md`
+- `改造进度.md`
+- `.pipeline/progress.md`
+
+## 改动说明
+
+- `pages/售后页.py`
+  - 将 `批量抓取当前页()` 中的订单号查询改为 `span[class*="table-item-header_sn__"]`
+  - 将 `翻页并抓取()` 翻页前后的首行订单号对比查询同步改为 `span[class*="table-item-header_sn__"]`
+  - 这样可以精确命中真实订单号节点，避开 `table-item-header_sn_label__*` 标签文本
+- `tests/test_售后页.py`
+  - 在 `批量抓取当前页` 成功路径中新增对 `evaluate` 脚本的断言
+  - 在 `翻页并抓取` 成功路径和 DOM 刷新超时路径中新增对全部 `evaluate` 脚本的断言
+  - 正常路径和异常路径都锁定为同一精确选择器，避免后续回归
+- `PLAN.md` / `改造进度.md`
+  - 同步记录本轮选择器修复、测试命令和验证结果
+
+## 影响范围
+
+- 售后列表 DOM 抓取和翻页首行比对都会改用精确订单号节点，不再把 label 文本误当订单号
+- `获取第N行信息()` 原本已使用正确选择器，本轮不受影响
+- 业务流程、分页逻辑、任务服务和数据写入逻辑均未改动
+
+## 注意事项
+
+- 已执行定向回归：`python -m pytest -c tests/pytest.ini tests/test_售后页.py -v`，结果 `37 passed`
+- 已执行全量测试：`python -m pytest -c tests/pytest.ini tests/ -v`，结果 `416 passed, 16 warnings`
+- 16 条 warning 为既有存量：10 条来自第三方 `openpyxl`，6 条来自 Celery `datetime.utcnow()` 弃用提示
+- 本轮没有临时方案，也未发现新的已知问题
