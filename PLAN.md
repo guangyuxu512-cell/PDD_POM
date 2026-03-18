@@ -2250,3 +2250,14 @@
 - [x] 定向补充验证通过：`python -m pytest -c tests/pytest.ini -q tests/test_售后页.py tests/test_售后任务.py`
 - [x] 全量验证通过：PowerShell 临时设置 `timeBeginPeriod(1)` 并提升当前进程优先级后执行 `python -m pytest -c tests/pytest.ini tests/ -v`
 - [x] 全量验证结果：`408 passed, 16 warnings`（10 条为第三方 `openpyxl` 警告，6 条为现有 Celery 警告）
+
+## Prompt 107：收紧售后页拦截时序与响应竞态 ✅
+
+- [x] 更新 `pages/售后页.py`，`导航并拦截售后列表()` 在导航后输出“等待默认请求完成”并显式 `await asyncio.sleep(2)`
+- [x] 更新 `pages/售后页.py`，确保首次与重试路径都保持“先注册拦截，再点击待商家处理”的顺序
+- [x] 更新 `pages/售后页.py`，`拦截售后列表API()` 引入局部 `asyncio.Lock()` 串行化结果写入，避免多响应并发时 `结果容器.clear()` / `Event.set()` 竞态
+- [x] 更新 `pages/售后页.py`，先构建 `本次结果列表`，仅在拿到非空结果后才更新容器并 `set()` 事件
+- [x] 更新 `pages/售后页.py`，`翻页并拦截()` 在翻页成功后增加短暂缓冲等待，给下一页网络请求留出触发时间
+- [x] 定向验证通过：`python -m pytest -c tests/pytest.ini -q tests/test_售后页.py tests/test_售后任务.py`
+- [x] 全量验证通过：PowerShell 临时设置 `timeBeginPeriod(1)` 并提升当前进程优先级后执行 `python -m pytest -c tests/pytest.ini tests/ -v`
+- [x] 全量验证结果：`408 passed, 16 warnings`（10 条为第三方 `openpyxl` 警告，6 条为现有 Celery 警告）

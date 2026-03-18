@@ -168,6 +168,7 @@ class 售后页(基础页):
         结果容器: list[dict[str, Any]] = []
         捕获事件 = asyncio.Event()
         后台任务列表: list[asyncio.Task[Any]] = []
+        响应处理锁 = asyncio.Lock()
 
         async def _处理响应(response) -> None:
             try:
@@ -195,7 +196,7 @@ class 售后页(基础页):
                         print(f"[售后页] 已忽略非待商家处理响应: {响应地址}")
                         return
 
-                结果容器.clear()
+                本次结果列表: list[dict[str, Any]] = []
                 已捕获订单号集合: set[str] = set()
                 for 项 in 列表数据:
                     if not isinstance(项, dict):
@@ -204,7 +205,7 @@ class 售后页(基础页):
                     if not 订单号 or 订单号 in 已捕获订单号集合:
                         continue
                     已捕获订单号集合.add(订单号)
-                    结果容器.append(
+                    本次结果列表.append(
                         {
                             "订单号": 订单号,
                             "售后单ID": str(项.get("id") or ""),
@@ -221,7 +222,12 @@ class 售后页(基础页):
                             "剩余处理秒数": self._转换整数(项.get("expireRemainTime")),
                         }
                     )
-                if 结果容器:
+                if not 本次结果列表:
+                    return
+
+                async with 响应处理锁:
+                    结果容器.clear()
+                    结果容器.extend(本次结果列表)
                     捕获事件.set()
             except Exception:
                 return
@@ -249,6 +255,8 @@ class 售后页(基础页):
         """先导航到列表页，再通过待商家处理卡片切换触发接口拦截。"""
         await self.导航到售后列表()
         await self.页面加载延迟()
+        print("[售后页] 等待默认请求完成")
+        await asyncio.sleep(2)
 
         拦截任务 = asyncio.create_task(self.拦截售后列表API(超时秒=10, 仅待商家处理=True))
         await asyncio.sleep(0)
@@ -728,6 +736,7 @@ class 售后页(基础页):
         if not 翻页成功:
             拦截任务.cancel()
             return None
+        await asyncio.sleep(0.5)
         return await 拦截任务
 
     async def 扫描所有待处理(self) -> list[dict]:

@@ -3065,3 +3065,42 @@
 - 已通过 PowerShell 临时设置 `timeBeginPeriod(1)` 并提升当前进程优先级后再次执行全量测试，结果 `408 passed, 16 warnings`
 - 16 条 warning 为既有存量：10 条来自第三方 `openpyxl`，6 条来自 Celery `datetime.utcnow()` 弃用提示
 - `.pipeline/task.md` 仍为当前任务单的本地变更；`data/` 下运行副产物不属于本轮源码改动
+
+---
+
+## 任务摘要
+
+收紧 `售后页` 的 API 拦截时序与响应竞态处理，确保导航默认请求收尾后再监听并触发“待商家处理”请求。
+
+## 改动文件列表
+
+- `pages/售后页.py`
+- `.pipeline/progress.md`
+- `PLAN.md`
+- `改造进度.md`
+
+## 改动说明
+
+- `pages/售后页.py`
+  - `导航并拦截售后列表()` 在导航和页面加载延迟之后新增 `等待默认请求完成` 日志
+  - 增加 `await asyncio.sleep(2)`，让导航阶段默认列表请求先结束，再注册 `response` 监听器
+  - 首次与重试链路都保持“先创建拦截任务，再点击待商家处理”的顺序
+  - `拦截售后列表API()` 内新增局部 `asyncio.Lock()`，把结果写入串行化
+  - 每个响应先独立构建 `本次结果列表`，仅在非空时才覆盖 `结果容器` 并触发 `捕获事件.set()`
+  - `翻页并拦截()` 在翻页成功后增加 `0.5` 秒缓冲，提升下一页请求被监听到的稳定性
+- `PLAN.md` / `改造进度.md`
+  - 同步记录本轮仅修改 `pages/售后页.py` 的时序修复与验证结果
+
+## 影响范围
+
+- 售后列表导航后更不容易误捕获默认“全部”列表响应
+- 同一次拦截调用内，多条响应并发到达时对结果容器的覆盖更稳定
+- 翻页后拿到下一页 API 数据的命中率更高，减少 DOM fallback 频率
+
+## 注意事项
+
+- 本轮源码改动仅落在 `pages/售后页.py`
+- 已执行定向回归：`python -m pytest -c tests/pytest.ini -q tests/test_售后页.py tests/test_售后任务.py`，结果 `45 passed`
+- 已执行全量测试：PowerShell 临时设置 `timeBeginPeriod(1)` 并提升当前进程优先级后执行 `python -m pytest -c tests/pytest.ini tests/ -v`，结果 `408 passed, 16 warnings`
+- 16 条 warning 为既有存量：10 条来自第三方 `openpyxl`，6 条来自 Celery `datetime.utcnow()` 弃用提示
+- `.pipeline/task.md` 仍为当前任务单的本地变更；`data/` 下运行副产物不属于本轮源码改动
