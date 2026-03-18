@@ -2828,3 +2828,56 @@
 - 已通过 PowerShell 临时启用 `timeBeginPeriod(1)` 并以高优先级独立 Python 进程执行同一全量命令，结果 `391 passed, 16 warnings`
 - 16 条 warning 为既有存量：10 条来自第三方 `openpyxl`，6 条来自 Celery `datetime.utcnow()` 弃用提示
 - 工作区仍存在 `.pipeline/task.md`、`data/ecom.db` 与 `data/` 下若干本地运行副产物，非本轮源码改动
+
+---
+
+## 任务摘要
+
+将售后列表扫描改为 API 拦截优先，并在拦截失败时回退到原有 DOM 逐行扫描路径。
+
+## 改动文件列表
+
+- `pages/售后页.py`
+- `tasks/售后任务.py`
+- `tests/test_售后页.py`
+- `tests/test_售后任务.py`
+- `.pipeline/progress.md`
+- `PLAN.md`
+- `改造进度.md`
+
+## 改动说明
+
+- `pages/售后页.py`
+  - 新增 `拦截售后列表API()`，通过 `page.on("response")` 监听售后列表接口响应并直接提取 `result.list/pageItems`
+  - 新增 `导航并拦截售后列表()`，在列表页导航后优先拿当前页 API 数据，首次为空时重试触发待商家处理请求
+  - 新增 `_检查有下一页()`，从原 `翻页()` 中拆出分页可用性判断
+  - 新增 `翻页并拦截()`，翻页前注册接口拦截，翻页后直接返回下一页 API 数据
+  - 保留原 `获取售后单数量()` / `获取第N行信息()` / `翻页()`，作为 API 失败时的 DOM fallback
+- `tasks/售后任务.py`
+  - 新增 `_处理扫描结果页()`，统一处理当前页摘要写队列、人工分流、详情处理和异常回写
+  - 新增 `_收集当前页DOM摘要()` 与 `_执行DOM扫描回退()`，用于 API 拦截失败时回退到旧路径
+  - `执行()` 的扫描阶段改为先调用 `导航并拦截售后列表()`，后续使用 `翻页并拦截()` 推进分页
+  - 当当前页未拦截到数据时增加 `[扫描] 当前页未拦截到数据，尝试 JS fallback` 日志，并切回 DOM 逐行扫描
+- `tests/test_售后页.py`
+  - 新增 API 拦截抓取与清洗用例
+  - 新增导航后首次拦截为空时重试用例
+  - 新增翻页拦截的正常与无下一页分支用例
+- `tests/test_售后任务.py`
+  - 新增 API 拦截多页时不走 DOM 逐行扫描的用例
+  - 新增 API 拦截为空时回退到 DOM 扫描的用例
+- `PLAN.md` / `改造进度.md`
+  - 同步记录本轮售后列表 API 拦截改造与验证结果
+
+## 影响范围
+
+- 售后任务扫描列表时优先读取接口返回的结构化数据，不再依赖逐行读取 DOM 文本
+- 当拼多多列表接口变更或拦截失败时，任务会自动回退到旧的 DOM 扫描链路
+- API 路径下日志应以 `[售后页] API拦截抓取到 N 条售后单` 为主，只有 fallback 时才会出现逐行 `第X行` 日志
+
+## 注意事项
+
+- 已执行定向回归：`python -m pytest -c tests/pytest.ini -q tests/test_售后页.py tests/test_售后任务.py tests/单元测试/测试_执行任务.py`，结果 `43 passed`
+- 直接执行 `python -m pytest -c tests/pytest.ini -q` 仍会命中既有抖动用例 `tests/单元测试/测试_反检测.py::测试_真人模拟器::test_随机延迟在范围内`
+- 已通过 PowerShell 临时启用 `timeBeginPeriod(1)` 并以高优先级独立 Python 进程执行同一全量命令，结果 `397 passed, 16 warnings`
+- 16 条 warning 为既有存量：10 条来自第三方 `openpyxl`，6 条来自 Celery `datetime.utcnow()` 弃用提示
+- `.pipeline/task.md` 仍为当前任务单的本地变更；`data/` 下运行副产物不属于本轮源码改动

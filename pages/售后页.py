@@ -4,6 +4,7 @@ from __future__ import annotations
 import asyncio
 import inspect
 from pathlib import Path
+from typing import Any
 
 from backend.配置 import 配置实例
 from pages.基础页 import 基础页
@@ -104,6 +105,118 @@ class 售后页(基础页):
         await self.页面.goto(self.售后列表地址, wait_until="domcontentloaded")
         await self.页面加载延迟()
         print(f"[售后页] 售后列表页加载完成: {self.页面.url}")
+
+    @staticmethod
+    def _转换分转元(值: Any) -> float:
+        try:
+            return round(float(值 or 0) / 100, 2)
+        except Exception:
+            return 0.0
+
+    @staticmethod
+    def _转换整数(值: Any) -> int:
+        try:
+            return int(值 or 0)
+        except Exception:
+            return 0
+
+    async def 拦截售后列表API(self, 超时秒: int = 15) -> list[dict]:
+        """拦截售后列表接口响应并直接返回结构化摘要。"""
+        结果容器: list[dict[str, Any]] = []
+        捕获事件 = asyncio.Event()
+        后台任务列表: list[asyncio.Task[Any]] = []
+
+        async def _处理响应(response) -> None:
+            try:
+                响应地址 = str(getattr(response, "url", "") or "")
+                if (
+                    "/afterSales" not in 响应地址
+                    and "/after-sales" not in 响应地址
+                    and "/refund" not in 响应地址
+                ):
+                    return
+                if int(getattr(response, "status", 0) or 0) != 200:
+                    return
+                try:
+                    数据 = await response.json()
+                except Exception:
+                    return
+                if not isinstance(数据, dict):
+                    return
+                result = 数据.get("result") or {}
+                列表数据 = result.get("list") or result.get("pageItems") or []
+                if not isinstance(列表数据, list) or not 列表数据:
+                    return
+
+                for 项 in 列表数据:
+                    if not isinstance(项, dict):
+                        continue
+                    订单号 = str(项.get("orderSn") or "").strip()
+                    if not 订单号:
+                        continue
+                    结果容器.append(
+                        {
+                            "订单号": 订单号,
+                            "售后单ID": str(项.get("id") or ""),
+                            "退款金额": self._转换分转元(项.get("refundAmount")),
+                            "实收金额": self._转换分转元(项.get("receiveAmount")),
+                            "售后类型": str(项.get("afterSalesTypeName") or ""),
+                            "售后类型码": self._转换整数(项.get("afterSalesType")),
+                            "售后状态": str(项.get("afterSalesTitle") or ""),
+                            "售后状态码": self._转换整数(项.get("afterSalesStatus")),
+                            "申请原因": str(项.get("afterSalesReasonDesc") or ""),
+                            "商品名称": str(项.get("goodsName") or ""),
+                            "发货状态": str(项.get("sellerAfterSalesShippingStatusDesc") or ""),
+                            "操作码列表": list(项.get("actions") or []),
+                            "剩余处理秒数": self._转换整数(项.get("expireRemainTime")),
+                        }
+                    )
+                if 结果容器:
+                    捕获事件.set()
+            except Exception:
+                return
+
+        def _响应处理(response) -> None:
+            try:
+                后台任务列表.append(asyncio.create_task(_处理响应(response)))
+            except Exception:
+                return
+
+        self.页面.on("response", _响应处理)
+        try:
+            await asyncio.wait_for(捕获事件.wait(), timeout=超时秒)
+        except asyncio.TimeoutError:
+            pass
+        finally:
+            self.页面.remove_listener("response", _响应处理)
+            if 后台任务列表:
+                await asyncio.gather(*后台任务列表, return_exceptions=True)
+
+        print(f"[售后页] API拦截抓取到 {len(结果容器)} 条售后单")
+        return 结果容器
+
+    async def 导航并拦截售后列表(self) -> list[dict]:
+        """导航到售后列表页并优先通过 API 拦截获取当前页数据。"""
+        拦截任务 = asyncio.create_task(self.拦截售后列表API(超时秒=15))
+        await self.导航到售后列表()
+        await self.确保待商家处理已选中()
+        结果 = await 拦截任务
+
+        if not 结果:
+            print("[售后页] 首次 API 拦截为空，重试触发待商家处理请求")
+            拦截任务 = asyncio.create_task(self.拦截售后列表API(超时秒=10))
+            for 选择器 in 售后页选择器.待商家处理卡片.所有选择器():
+                try:
+                    await self.安全点击(选择器)
+                    await self.页面加载延迟()
+                    break
+                except Exception:
+                    continue
+            else:
+                await self.确保待商家处理已选中()
+            结果 = await 拦截任务
+
+        return 结果
 
     async def 切换待处理(self) -> None:
         await self.确保待商家处理已选中()
@@ -515,8 +628,7 @@ class 售后页(基础页):
         操作关键词 = ["同意退款", "同意退货", "拒绝", "拒收后退款", "快递拦截"]
         return any(关键词 in 按钮文本 for 按钮文本 in 按钮列表 for 关键词 in 操作关键词)
 
-    async def 翻页(self) -> bool:
-        await self.操作前延迟()
+    async def _检查有下一页(self) -> bool:
         for 选择器 in 售后页选择器.下一页按钮.所有选择器():
             try:
                 下一页按钮 = self.页面.locator(选择器).first
@@ -528,12 +640,35 @@ class 售后页(基础页):
                     class_name = await class_name
                 if str(aria_disabled or "").lower() == "true" or "disabled" in str(class_name or "").lower():
                     return False
+                return True
+            except Exception:
+                continue
+        return False
+
+    async def 翻页(self) -> bool:
+        await self.操作前延迟()
+        if not await self._检查有下一页():
+            return False
+        for 选择器 in 售后页选择器.下一页按钮.所有选择器():
+            try:
                 await self.安全点击(选择器)
                 await self.操作后延迟()
                 return True
             except Exception:
                 continue
         return False
+
+    async def 翻页并拦截(self) -> list[dict] | None:
+        """翻到下一页并优先通过 API 拦截获取下一页数据。"""
+        if not await self._检查有下一页():
+            return None
+
+        拦截任务 = asyncio.create_task(self.拦截售后列表API(超时秒=10))
+        翻页成功 = await self.翻页()
+        if not 翻页成功:
+            拦截任务.cancel()
+            return None
+        return await 拦截任务
 
     async def 扫描所有待处理(self) -> list[dict]:
         await self.确保待商家处理已选中()

@@ -62,6 +62,8 @@ def 构造售后页(
     详情: dict | None = None,
     退货物流: dict | None = None,
     翻页序列: list[bool] | None = None,
+    导航拦截结果: list[dict] | None = None,
+    翻页拦截序列: list[list[dict] | None] | None = None,
 ):
     摘要序列 = 页面摘要序列 or [
         {
@@ -75,6 +77,8 @@ def 构造售后页(
     页面对象 = MagicMock()
     页面对象.导航到售后列表 = AsyncMock()
     页面对象.确保待商家处理已选中 = AsyncMock()
+    页面对象.导航并拦截售后列表 = AsyncMock(return_value=导航拦截结果 if 导航拦截结果 is not None else 摘要序列)
+    页面对象.翻页并拦截 = AsyncMock(side_effect=翻页拦截序列 or [None])
     页面对象.获取售后单数量 = AsyncMock(side_effect=[len(摘要序列)])
     页面对象.获取第N行信息 = AsyncMock(side_effect=摘要序列)
     页面对象.翻页 = AsyncMock(side_effect=翻页序列 or [False])
@@ -144,6 +148,7 @@ class 测试_售后任务:
             结果 = await 任务.执行(模拟页面, {"shop_id": "shop-1", "shop_name": "店铺A"})
 
         assert 结果 == "售后自动处理已关闭"
+        模拟售后页.导航并拦截售后列表.assert_not_awaited()
         模拟售后页.导航到售后列表.assert_not_awaited()
 
     @pytest.mark.asyncio
@@ -186,6 +191,105 @@ class 测试_售后任务:
         模拟售后页.列表页添加备注.assert_awaited_once()
         模拟队列服务.标记人工.assert_awaited_once_with(1, "补寄不支持自动处理")
         任务._处理单条.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_执行_API拦截多页时不走逐行DOM扫描(self, 模拟页面):
+        模拟售后页 = 构造售后页(
+            页面摘要序列=[
+                {
+                    "订单号": "DOM-ONLY",
+                    "售后类型": "退货退款",
+                    "售后状态": "待商家处理",
+                    "退款金额": "¥1.00",
+                    "商品名称": "不应进入DOM路径",
+                }
+            ],
+            导航拦截结果=[
+                {
+                    "订单号": "ORDER-1",
+                    "售后类型": "退货退款",
+                    "售后状态": "待商家处理",
+                    "退款金额": 8.0,
+                    "商品名称": "商品1",
+                }
+            ],
+            翻页拦截序列=[
+                [
+                    {
+                        "订单号": "ORDER-2",
+                        "售后类型": "退货退款",
+                        "售后状态": "待商家处理",
+                        "退款金额": 9.0,
+                        "商品名称": "商品2",
+                    }
+                ],
+                None,
+            ],
+        )
+        模拟队列服务 = 构造队列服务(
+            [
+                [{"id": 1, "订单号": "ORDER-1", "售后类型": "退货退款", "拒绝次数": 0}],
+                [{"id": 2, "订单号": "ORDER-2", "售后类型": "退货退款", "拒绝次数": 0}],
+            ]
+        )
+        模拟配置服务 = MagicMock()
+        模拟配置服务.获取配置 = AsyncMock(return_value=构造售后配置())
+
+        with patch("tasks.售后任务.上报", new_callable=AsyncMock), patch(
+            "tasks.售后任务.售后页", return_value=模拟售后页
+        ):
+            from tasks.售后任务 import 售后任务
+
+            任务 = 售后任务()
+            任务._队列服务 = 模拟队列服务
+            任务._配置服务 = 模拟配置服务
+            任务._处理单条 = AsyncMock(side_effect=["已处理", "跳过"])
+
+            结果 = await 任务.执行(模拟页面, {"shop_id": "shop-1", "shop_name": "店铺A"})
+
+        assert 结果 == "处理1单, 人工0单, 跳过1单"
+        模拟售后页.导航并拦截售后列表.assert_awaited_once()
+        assert 模拟售后页.翻页并拦截.await_count == 2
+        模拟售后页.获取售后单数量.assert_not_awaited()
+        模拟售后页.获取第N行信息.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_执行_API拦截为空时回退JS扫描(self, 模拟页面):
+        模拟售后页 = 构造售后页(
+            页面摘要序列=[
+                {
+                    "订单号": "ORDER-1",
+                    "售后类型": "退货退款",
+                    "售后状态": "待商家处理",
+                    "退款金额": "¥8.00",
+                    "商品名称": "测试商品",
+                }
+            ],
+            导航拦截结果=[],
+        )
+        模拟队列服务 = 构造队列服务()
+        模拟配置服务 = MagicMock()
+        模拟配置服务.获取配置 = AsyncMock(return_value=构造售后配置())
+
+        with patch("tasks.售后任务.上报", new_callable=AsyncMock) as 模拟上报, patch(
+            "tasks.售后任务.售后页", return_value=模拟售后页
+        ):
+            from tasks.售后任务 import 售后任务
+
+            任务 = 售后任务()
+            任务._队列服务 = 模拟队列服务
+            任务._配置服务 = 模拟配置服务
+            任务._处理单条 = AsyncMock(return_value="已处理")
+
+            结果 = await 任务.执行(模拟页面, {"shop_id": "shop-1", "shop_name": "店铺A"})
+
+        assert 结果 == "处理1单, 人工0单, 跳过0单"
+        assert any(
+            调用.args == ("[扫描] 当前页未拦截到数据，尝试 JS fallback", "shop-1")
+            for 调用 in 模拟上报.await_args_list
+        )
+        模拟售后页.获取售后单数量.assert_awaited()
+        模拟售后页.获取第N行信息.assert_awaited()
 
     @pytest.mark.asyncio
     async def test_执行_每批最大处理数限制总处理量(self, 模拟页面):

@@ -61,6 +61,123 @@ class 售后任务(基础任务):
             "商品名称": 摘要.get("商品名称", ""),
         }
 
+    async def _处理扫描结果页(
+        self,
+        摘要列表: list[dict[str, Any]],
+        批次ID: str,
+        店铺ID: str,
+        店铺名称: str,
+        店铺配置: dict[str, Any],
+        售后配置: dict[str, Any],
+        不支持自动处理类型: list[str],
+        每批最大处理数: int,
+        统计: dict[str, int],
+    ) -> bool:
+        当前页记录: list[dict[str, Any]] = []
+        当前页订单号集合: set[str] = set()
+
+        for 信息 in 摘要列表:
+            if not 信息 or not 信息.get("订单号"):
+                continue
+            队列记录 = self._构建队列记录(信息, 批次ID, 店铺ID, 店铺名称)
+            当前页记录.append(队列记录)
+            当前页订单号集合.add(str(队列记录["订单号"]))
+
+        if not 当前页记录:
+            await 上报("[扫描] 当前页未发现有效售后单", 店铺ID)
+            return False
+
+        写入数 = await self._队列服务.批量写入队列(当前页记录)
+        await 上报(
+            f"[扫描] 当前页扫描 {len(当前页记录)} 单，写入 {写入数} 单",
+            店铺ID,
+        )
+
+        待处理列表 = await self._队列服务.获取待处理列表(batch_id=批次ID)
+        当前页待处理列表 = [
+            记录
+            for 记录 in 待处理列表
+            if str(记录.get("订单号", "")) in 当前页订单号集合
+        ]
+
+        for 记录 in 当前页待处理列表:
+            if 统计["已处理总数"] >= 每批最大处理数:
+                return True
+
+            售后类型 = str(记录.get("售后类型", ""))
+            if any(类型 in 售后类型 for 类型 in 不支持自动处理类型):
+                订单号 = str(记录.get("订单号", ""))
+                备注内容 = f"【系统】{售后类型}暂不支持自动处理，转人工"
+                try:
+                    await self._售后页.列表页添加备注(订单号, 备注内容)
+                except Exception:
+                    pass
+                if bool(售后配置.get("飞书通知_启用", True)):
+                    通知店铺配置 = dict(店铺配置)
+                    通知店铺配置["飞书通知_webhook"] = 售后配置.get("飞书通知_webhook", "")
+                    await self._发送飞书通知(记录, 通知店铺配置, f"{售后类型}转人工处理")
+                await self._队列服务.标记人工(记录["id"], f"{售后类型}不支持自动处理")
+                统计["人工数"] += 1
+                统计["已处理总数"] += 1
+                continue
+
+            try:
+                结果 = await self._处理单条(记录, 店铺配置)
+                if 结果 == "已处理":
+                    统计["已处理数"] += 1
+                elif 结果 == "人工":
+                    统计["人工数"] += 1
+                else:
+                    统计["跳过数"] += 1
+                统计["已处理总数"] += 1
+            except Exception as 异常:
+                await 上报(f"[失败] 订单{记录.get('订单号')} 异常: {异常}", 店铺ID)
+                await self._队列服务.更新阶段(记录["id"], "失败", 错误信息=str(异常))
+                统计["已处理总数"] += 1
+                if self._售后页 and self._售后页._详情页:
+                    await self._售后页.详情页截图(f"异常{记录.get('订单号')}")
+                    await self._售后页.关闭详情标签()
+
+        return 统计["已处理总数"] >= 每批最大处理数
+
+    async def _收集当前页DOM摘要(self) -> list[dict[str, Any]]:
+        数量 = await self._售后页.获取售后单数量()
+        当前页数据: list[dict[str, Any]] = []
+        for 行号 in range(1, 数量 + 1):
+            信息 = await self._售后页.获取第N行信息(行号)
+            if 信息 and 信息.get("订单号"):
+                当前页数据.append(信息)
+        return 当前页数据
+
+    async def _执行DOM扫描回退(
+        self,
+        批次ID: str,
+        店铺ID: str,
+        店铺名称: str,
+        店铺配置: dict[str, Any],
+        售后配置: dict[str, Any],
+        不支持自动处理类型: list[str],
+        每批最大处理数: int,
+        统计: dict[str, int],
+    ) -> bool:
+        while True:
+            当前页数据 = await self._收集当前页DOM摘要()
+            达到处理上限 = await self._处理扫描结果页(
+                当前页数据,
+                批次ID,
+                店铺ID,
+                店铺名称,
+                店铺配置,
+                售后配置,
+                不支持自动处理类型,
+                每批最大处理数,
+                统计,
+            )
+            if 达到处理上限:
+                return True
+            if not await self._售后页.翻页():
+                return False
+
     async def _发送飞书通知(self, 详情: dict, 店铺配置: dict, 通知内容: str) -> None:
         数据 = dict(详情 or {})
         数据["shop_name"] = 店铺配置.get("shop_name", "")
@@ -264,9 +381,6 @@ class 售后任务(基础任务):
             )
             每批最大处理数 = max(int(售后配置.get("每批最大处理数", 50) or 50), 1)
 
-            await self._售后页.导航到售后列表()
-            await self._售后页.确保待商家处理已选中()
-
             当前店铺到期记录 = [
                 记录
                 for 记录 in await self._队列服务.获取到期记录()
@@ -278,91 +392,58 @@ class 售后任务(基础任务):
                     店铺ID,
                 )
 
-            已处理数 = 0
-            人工数 = 0
-            跳过数 = 0
-            已处理总数 = 0
+            统计 = {
+                "已处理数": 0,
+                "人工数": 0,
+                "跳过数": 0,
+                "已处理总数": 0,
+            }
             达到处理上限 = False
 
+            当前页数据 = await self._售后页.导航并拦截售后列表()
+
             while not 达到处理上限:
-                数量 = await self._售后页.获取售后单数量()
-                当前页记录: list[dict[str, Any]] = []
-                当前页订单号集合: set[str] = set()
-
-                for 行号 in range(1, 数量 + 1):
-                    信息 = await self._售后页.获取第N行信息(行号)
-                    if not 信息 or not 信息.get("订单号"):
-                        continue
-                    队列记录 = self._构建队列记录(信息, 批次ID, 店铺ID, 店铺名称)
-                    当前页记录.append(队列记录)
-                    当前页订单号集合.add(str(队列记录["订单号"]))
-
-                if 当前页记录:
-                    写入数 = await self._队列服务.批量写入队列(当前页记录)
-                    await 上报(
-                        f"[扫描] 当前页扫描 {len(当前页记录)} 单，写入 {写入数} 单",
+                if not 当前页数据:
+                    await 上报("[扫描] 当前页未拦截到数据，尝试 JS fallback", 店铺ID)
+                    达到处理上限 = await self._执行DOM扫描回退(
+                        批次ID,
                         店铺ID,
+                        店铺名称,
+                        店铺配置,
+                        售后配置,
+                        不支持自动处理类型,
+                        每批最大处理数,
+                        统计,
                     )
+                    break
 
-                    待处理列表 = await self._队列服务.获取待处理列表(batch_id=批次ID)
-                    当前页待处理列表 = [
-                        记录
-                        for 记录 in 待处理列表
-                        if str(记录.get("订单号", "")) in 当前页订单号集合
-                    ]
-
-                    for 记录 in 当前页待处理列表:
-                        if 已处理总数 >= 每批最大处理数:
-                            达到处理上限 = True
-                            break
-                        售后类型 = str(记录.get("售后类型", ""))
-                        if any(类型 in 售后类型 for 类型 in 不支持自动处理类型):
-                            订单号 = str(记录.get("订单号", ""))
-                            备注内容 = f"【系统】{售后类型}暂不支持自动处理，转人工"
-                            try:
-                                await self._售后页.列表页添加备注(订单号, 备注内容)
-                            except Exception:
-                                pass
-                            if bool(售后配置.get("飞书通知_启用", True)):
-                                通知店铺配置 = dict(店铺配置)
-                                通知店铺配置["飞书通知_webhook"] = 售后配置.get("飞书通知_webhook", "")
-                                await self._发送飞书通知(记录, 通知店铺配置, f"{售后类型}转人工处理")
-                            await self._队列服务.标记人工(记录["id"], f"{售后类型}不支持自动处理")
-                            人工数 += 1
-                            已处理总数 += 1
-                            continue
-
-                        try:
-                            结果 = await self._处理单条(记录, 店铺配置)
-                            if 结果 == "已处理":
-                                已处理数 += 1
-                            elif 结果 == "人工":
-                                人工数 += 1
-                            else:
-                                跳过数 += 1
-                            已处理总数 += 1
-                        except Exception as 异常:
-                            await 上报(f"[失败] 订单{记录.get('订单号')} 异常: {异常}", 店铺ID)
-                            await self._队列服务.更新阶段(记录["id"], "失败", 错误信息=str(异常))
-                            已处理总数 += 1
-                            if self._售后页 and self._售后页._详情页:
-                                await self._售后页.详情页截图(f"异常{记录.get('订单号')}")
-                                await self._售后页.关闭详情标签()
-                else:
-                    await 上报("[扫描] 当前页未发现有效售后单", 店铺ID)
+                达到处理上限 = await self._处理扫描结果页(
+                    当前页数据,
+                    批次ID,
+                    店铺ID,
+                    店铺名称,
+                    店铺配置,
+                    售后配置,
+                    不支持自动处理类型,
+                    每批最大处理数,
+                    统计,
+                )
 
                 if 达到处理上限:
                     await 上报(f"[扫描] 已达到每批最大处理数 {每批最大处理数}", 店铺ID)
                     break
-                if not await self._售后页.翻页():
-                    break
 
-            if 已处理数 == 人工数 == 跳过数 == 0:
+                下一页数据 = await self._售后页.翻页并拦截()
+                if 下一页数据 is None:
+                    break
+                当前页数据 = 下一页数据
+
+            if 统计["已处理数"] == 统计["人工数"] == 统计["跳过数"] == 0:
                 await 上报("[完成] 无待处理售后单", 店铺ID)
                 self._执行结果 = {"总数": 0, "已完成": 0, "失败": 0, "人工": 0, "待处理": 0}
                 return "无待处理售后单"
 
-            汇总 = f"处理{已处理数}单, 人工{人工数}单, 跳过{跳过数}单"
+            汇总 = f"处理{统计['已处理数']}单, 人工{统计['人工数']}单, 跳过{统计['跳过数']}单"
             await 上报(f"[完成] {汇总}", 店铺ID)
             self._执行结果 = await self._队列服务.获取批次统计(批次ID)
             return 汇总

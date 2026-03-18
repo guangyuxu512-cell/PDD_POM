@@ -1,6 +1,7 @@
 """售后页单元测试。"""
 from __future__ import annotations
 
+import asyncio
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -23,6 +24,8 @@ class 测试_售后页:
         页面.locator = MagicMock()
         页面.mouse = MagicMock()
         页面.keyboard = MagicMock()
+        页面.on = MagicMock()
+        页面.remove_listener = MagicMock()
         页面.get_by_text = MagicMock()
         页面.get_by_placeholder = MagicMock()
         return 页面
@@ -71,6 +74,116 @@ class 测试_售后页:
 
         页面对象.安全点击.assert_awaited_once_with(售后页选择器.待商家处理卡片.主选择器)
         页面对象.页面加载延迟.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_拦截售后列表API_抓取并清洗接口响应(self, 模拟页面):
+        from pages.售后页 import 售后页
+
+        class 假响应:
+            url = "https://mms.pinduoduo.com/mangkhut/afterSales/list"
+            status = 200
+
+            async def json(self):
+                return {
+                    "result": {
+                        "list": [
+                            {
+                                "orderSn": "ORDER-1",
+                                "id": 1001,
+                                "refundAmount": 460,
+                                "receiveAmount": 1299,
+                                "afterSalesTypeName": "退货退款",
+                                "afterSalesType": 2,
+                                "afterSalesTitle": "待商家处理",
+                                "afterSalesStatus": 10,
+                                "afterSalesReasonDesc": "不想要了",
+                                "goodsName": "测试商品",
+                                "sellerAfterSalesShippingStatusDesc": "已发货",
+                                "actions": ["agree_refund", "reject_refund"],
+                                "expireRemainTime": 7200,
+                            }
+                        ]
+                    }
+                }
+
+        def 注册监听(_事件, 回调):
+            asyncio.get_running_loop().call_soon(回调, 假响应())
+
+        模拟页面.on.side_effect = 注册监听
+        页面对象 = 售后页(模拟页面)
+
+        结果 = await 页面对象.拦截售后列表API(超时秒=1)
+
+        assert 结果 == [
+            {
+                "订单号": "ORDER-1",
+                "售后单ID": "1001",
+                "退款金额": 4.6,
+                "实收金额": 12.99,
+                "售后类型": "退货退款",
+                "售后类型码": 2,
+                "售后状态": "待商家处理",
+                "售后状态码": 10,
+                "申请原因": "不想要了",
+                "商品名称": "测试商品",
+                "发货状态": "已发货",
+                "操作码列表": ["agree_refund", "reject_refund"],
+                "剩余处理秒数": 7200,
+            }
+        ]
+        模拟页面.remove_listener.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_导航并拦截售后列表_首次为空时重试(self, 模拟页面):
+        from pages.售后页 import 售后页
+
+        页面对象 = 售后页(模拟页面)
+        页面对象.导航到售后列表 = AsyncMock()
+        页面对象.确保待商家处理已选中 = AsyncMock()
+        页面对象.安全点击 = AsyncMock()
+        页面对象.页面加载延迟 = AsyncMock()
+        页面对象.拦截售后列表API = AsyncMock(
+            side_effect=[[], [{"订单号": "ORDER-2", "售后类型": "仅退款"}]]
+        )
+
+        结果 = await 页面对象.导航并拦截售后列表()
+
+        assert 结果 == [{"订单号": "ORDER-2", "售后类型": "仅退款"}]
+        页面对象.导航到售后列表.assert_awaited_once()
+        页面对象.确保待商家处理已选中.assert_awaited_once()
+        页面对象.安全点击.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_翻页并拦截_无下一页直接返回None(self, 模拟页面):
+        from pages.售后页 import 售后页
+
+        页面对象 = 售后页(模拟页面)
+        页面对象._检查有下一页 = AsyncMock(return_value=False)
+        页面对象.翻页 = AsyncMock()
+        页面对象.拦截售后列表API = AsyncMock()
+
+        结果 = await 页面对象.翻页并拦截()
+
+        assert 结果 is None
+        页面对象.翻页.assert_not_awaited()
+        页面对象.拦截售后列表API.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_翻页并拦截_成功返回下一页数据(self, 模拟页面):
+        from pages.售后页 import 售后页
+
+        页面对象 = 售后页(模拟页面)
+        页面对象._检查有下一页 = AsyncMock(return_value=True)
+        页面对象.翻页 = AsyncMock(return_value=True)
+        页面对象.拦截售后列表API = AsyncMock(
+            return_value=[{"订单号": "ORDER-3", "售后类型": "退货退款"}]
+        )
+
+        结果 = await 页面对象.翻页并拦截()
+
+        assert 结果 == [{"订单号": "ORDER-3", "售后类型": "退货退款"}]
+        页面对象.翻页.assert_awaited_once()
+        页面对象.拦截售后列表API.assert_awaited_once_with(超时秒=10)
 
     @pytest.mark.asyncio
     async def test_获取售后单数量_通过JS读取真实列表行数量(self, 模拟页面):

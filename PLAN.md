@@ -2182,3 +2182,18 @@
 - [x] 验证结果：`8 passed`
 - [x] 验证通过：PowerShell 临时设置 `timeBeginPeriod(1)` 并以高优先级独立 Python 进程执行 `python -m pytest -c tests/pytest.ini -q`
 - [x] 全量验证结果：`391 passed, 16 warnings`（10 条为第三方 `openpyxl` 警告，6 条为现有 Celery 警告）
+
+## Prompt 102：售后列表改为 API 拦截优先 ✅
+
+- [x] 更新 `pages/售后页.py`，新增 `拦截售后列表API()`
+- [x] 更新 `pages/售后页.py`，新增 `导航并拦截售后列表()` 和 `翻页并拦截()`
+- [x] 更新 `pages/售后页.py`，从 `翻页()` 拆出 `_检查有下一页()`
+- [x] 更新 `tasks/售后任务.py`，扫描阶段改为 API 拦截优先
+- [x] 更新 `tasks/售后任务.py`，新增 DOM fallback 路径，拦截失败时回退到旧的逐行扫描
+- [x] 更新 `tests/test_售后页.py`，覆盖 API 拦截、重试和翻页拦截场景
+- [x] 更新 `tests/test_售后任务.py`，覆盖 API 多页扫描与 fallback 场景
+- [x] 定向验证通过：`python -m pytest -c tests/pytest.ini -q tests/test_售后页.py tests/test_售后任务.py tests/单元测试/测试_执行任务.py`
+- [x] 定向验证结果：`43 passed`
+- [x] 已尝试：`python -m pytest -c tests/pytest.ini -q`，失败项仍为既有抖动用例 `tests/单元测试/测试_反检测.py::测试_真人模拟器::test_随机延迟在范围内`
+- [x] 全量验证通过：PowerShell 临时设置 `timeBeginPeriod(1)` 并以高优先级独立 Python 进程执行 `python -m pytest -c tests/pytest.ini -q`
+- [x] 全量验证结果：`397 passed, 16 warnings`（10 条为第三方 `openpyxl` 警告，6 条为现有 Celery 警告）
