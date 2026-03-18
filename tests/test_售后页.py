@@ -403,6 +403,7 @@ class 测试_售后页:
         页面对象 = 售后页(模拟页面)
         页面对象._检查有下一页 = AsyncMock(return_value=True)
         页面对象.翻页 = AsyncMock(return_value=True)
+        模拟页面.evaluate = AsyncMock(side_effect=["ORDER-OLD", "ORDER-NEW"])
         页面对象.批量抓取当前页 = AsyncMock(
             return_value=[{"订单号": "ORDER-3", "售后类型": "退货退款"}]
         )
@@ -412,6 +413,22 @@ class 测试_售后页:
         assert 结果 == [{"订单号": "ORDER-3", "售后类型": "退货退款"}]
         页面对象.翻页.assert_awaited_once()
         页面对象.批量抓取当前页.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_翻页并拦截_DOM刷新超时返回None(self, 模拟页面):
+        from pages.售后页 import 售后页
+
+        页面对象 = 售后页(模拟页面)
+        页面对象._检查有下一页 = AsyncMock(return_value=True)
+        页面对象.翻页 = AsyncMock(return_value=True)
+        模拟页面.evaluate = AsyncMock(side_effect=["ORDER-OLD"] + ["ORDER-OLD"] * 25)
+        页面对象.批量抓取当前页 = AsyncMock()
+
+        结果 = await 页面对象.翻页并拦截()
+
+        assert 结果 is None
+        页面对象.翻页.assert_awaited_once()
+        页面对象.批量抓取当前页.assert_not_awaited()
 
     @pytest.mark.asyncio
     async def test_检查有下一页_BeastCore禁用态返回False(self, 模拟页面):

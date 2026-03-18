@@ -3279,3 +3279,43 @@
 - 16 条 warning 为既有存量：10 条来自第三方 `openpyxl`，6 条来自 Celery `datetime.utcnow()` 弃用提示
 - 全量测试首次运行仍可能命中既有抖动用例 `tests/单元测试/测试_反检测.py::测试_真人模拟器::test_随机延迟在范围内`，本轮在更高优先级和固定 CPU 亲和性下复跑通过
 - `.pipeline/task.md` 仍为当前任务单的本地变更；`data/` 下运行副产物不属于本轮源码改动
+
+---
+
+## 任务摘要
+
+为售后页翻页后的 DOM 批量抓取增加“首行订单号变化”等待，避免翻页后立即抓到上一页残留 DOM。
+
+## 改动文件列表
+
+- `pages/售后页.py`
+- `tests/test_售后页.py`
+- `.pipeline/progress.md`
+- `PLAN.md`
+- `改造进度.md`
+
+## 改动说明
+
+- `pages/售后页.py`
+  - `翻页并拦截()` 在翻页前先读取当前首行订单号
+  - 翻页成功后每 `0.2` 秒轮询一次首行订单号，最多等待 `25` 次
+  - 当首行订单号变化时输出 `翻页DOM已刷新: 旧订单号 → 新订单号`，随后执行 `批量抓取当前页()`
+  - 若 5 秒内首行订单号没有变化，则输出 `翻页DOM刷新超时，可能已到最后一页` 并返回 `None`
+- `tests/test_售后页.py`
+  - 更新翻页成功用例，补充旧首行 / 新首行的 `evaluate` 返回值
+  - 新增翻页后 DOM 刷新超时返回 `None` 的异常路径用例
+- `PLAN.md` / `改造进度.md`
+  - 同步记录本轮翻页 DOM 刷新等待与验证结果
+
+## 影响范围
+
+- 翻页后不再立即抓取旧页残留 DOM，降低重复抓到上一页数据的概率
+- 日志会明确显示翻页前后首行订单号变化，便于定位页面刷新状态
+- 若最后一页或 DOM 未刷新，会以超时日志结束，不再误抓旧数据
+
+## 注意事项
+
+- 已执行定向回归：`python -m pytest -c tests/pytest.ini -q tests/test_售后页.py tests/test_售后任务.py`，结果 `50 passed`
+- 已执行全量测试：`python -X utf8 -c "import ctypes, sys, pytest; k=ctypes.windll.kernel32; ctypes.windll.winmm.timeBeginPeriod(1); p=k.GetCurrentProcess(); t=k.GetCurrentThread(); k.SetPriorityClass(p, 0x00000080); k.SetThreadPriority(t, 15); k.SetProcessAffinityMask(p, 1); sys.exit(pytest.main(['-c','tests/pytest.ini','tests/','-v']))"`，结果 `413 passed, 16 warnings`
+- 16 条 warning 为既有存量：10 条来自第三方 `openpyxl`，6 条来自 Celery `datetime.utcnow()` 弃用提示
+- `.pipeline/task.md` 仍为当前任务单的本地变更；`data/` 下运行副产物不属于本轮源码改动

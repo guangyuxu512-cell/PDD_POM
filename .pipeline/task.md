@@ -1,98 +1,83 @@
-## Codex 任务：售后扫描循环加去重终止保护
-
 ### 问题
 
-分页组件是全局共享的（不区分"全部"和"待商家处理"），导致 `_检查有下一页` 在待商家处理只有 14 条（2 页）的情况下仍然返回 True，代码翻了 8 页抓了 74 条。
+`翻页并拦截` 点击下一页按钮后，`批量抓取当前页` 立即执行 `wait_for_selector('div[class*="after-sales-table_order_item"]')`，但旧页面的行还在 DOM 里，所以 `wait_for_selector` 立刻通过，`sleep(0.5)` 不够等新数据渲染，导致抓到的仍然是上一页的数据。
 
 ### 修改文件
 
-仅修改 `tasks/售后任务.py`
+仅修改 `pages/售后页.py`
 
-### 修改 `执行` 方法
+### 修改方法：`翻页并拦截`
 
-在 while 循环中加入**已扫描订单号集合**，每页抓取后检查：如果当前页的所有订单号都已经在集合里（100% 重复），立即停止翻页。
+翻页前先记录当前页第一行的订单号，翻页后轮询等待第一行订单号变化（说明新数据已渲染），再调用批量抓取：
 
 ```python
-@自动回调("售后处理")
-async def 执行(self, 页面, 店铺配置: dict) -> str:
-    店铺ID = str(店铺配置.get("shop_id", "") or "").strip()
-    店铺名称 = str(店铺配置.get("shop_name", "") or "").strip()
-    self._售后页 = 售后页(页面)
+async def 翻页并拦截(self) -> list[dict] | None:
+    """翻到下一页，等待DOM刷新，再批量抓取。返回 None 表示没有下一页。"""
+    if not await self._检查有下一页():
+        return None
 
-    try:
-        await 上报("[扫描] 开始扫描售后列表", 店铺ID)
-        批次ID = await self._队列服务.创建批次(店铺ID)
-        当前页数据 = await self._售后页.导航并拦截售后列表()
+    # 记录翻页前第一行的订单号
+    旧首行订单号 = await self.页面.evaluate(
+        """
+        () => {
+            const 首行 = document.querySelector('div[class*="after-sales-table_order_item"]');
+            if (!首行) return '';
+            const 订单节点 = 首行.querySelector('[class*="table-item-header_sn__"]');
+            return 订单节点 ? 订单节点.textContent.trim() : '';
+        }
+        """
+    )
 
-        页码 = 1
-        总扫描数 = 0
-        总写入数 = 0
-        已扫描订单号集合: set[str] = set()
+    翻页成功 = await self.翻页()
+    if not 翻页成功:
+        return None
 
-        while True:
-            队列记录列表 = self._构建当前页队列记录列表(
-                当前页数据,
-                批次ID,
-                店铺ID,
-                店铺名称,
-            )
-            if not 队列记录列表:
-                if 页码 == 1:
-                    await 上报("[完成] 无待处理售后单", 店铺ID)
-                    return "无待处理售后单"
-                break
+    # 等待DOM刷新：轮询直到第一行订单号变化，或超时5秒
+    for _ in range(25):  # 25次 × 0.2秒 = 5秒
+        await asyncio.sleep(0.2)
+        当前首行订单号 = await self.页面.evaluate(
+            """
+            () => {
+                const 首行 = document.querySelector('div[class*="after-sales-table_order_item"]');
+                if (!首行) return '';
+                const 订单节点 = 首行.querySelector('[class*="table-item-header_sn__"]');
+                return 订单节点 ? 订单节点.textContent.trim() : '';
+            }
+            """
+        )
+        if 当前首行订单号 and 当前首行订单号 != 旧首行订单号:
+            print(f"[售后页] 翻页DOM已刷新: {旧首行订单号} → {当前首行订单号}")
+            break
+    else:
+        print("[售后页] 翻页DOM刷新超时，可能已到最后一页")
+        return None
 
-            # 去重终止检查：当前页订单号是否全部已扫描过
-            当前页订单号集合 = {str(r.get("订单号", "")) for r in 队列记录列表}
-            新订单数 = len(当前页订单号集合 - 已扫描订单号集合)
-            if 新订单数 == 0:
-                await 上报(f"[扫描] 第{页码}页全部为已扫描订单，停止翻页", 店铺ID)
-                break
-            已扫描订单号集合.update(当前页订单号集合)
-
-            写入数 = await self._队列服务.批量写入队列(队列记录列表)
-            总扫描数 += len(队列记录列表)
-            总写入数 += 写入数
-            await 上报(
-                f"[扫描] 第{页码}页 扫描{len(队列记录列表)}单(新{新订单数}单)，写入{写入数}单",
-                店铺ID,
-            )
-
-            下一页数据 = await self._售后页.翻页并拦截()
-            if 下一页数据 is None:
-                break
-            当前页数据 = 下一页数据
-            页码 += 1
-
-        汇总 = f"扫描{总扫描数}单, 写入{总写入数}单"
-        await 上报(f"[完成] {汇总}", 店铺ID)
-        return 汇总
-    except Exception as 异常:
-        await 上报(f"[失败] 售后任务异常: {异常}", 店铺ID)
-        return f"失败: {异常}"
+    return await self.批量抓取当前页()
 ```
 
 ### 不要修改
 
-- `pages/售后页.py`
-- `selectors/售后页选择器.py`
-- `backend/` 下所有文件
+- `导航并拦截售后列表` 方法 — 不改（第一页不需要等刷新）
+- `批量抓取当前页` 方法 — 不改
+- `tasks/售后任务.py` — 不改
+- `selectors/售后页选择器.py` — 不改
+- `backend/` 下所有文件 — 不改
 
 ### 预期日志
 
 ```
 [售后页] 已点击待商家处理卡片
 [售后页] DOM批量抓取到 10 条售后单
-[扫描] 第1页 扫描10单(新10单)，写入10单
+[售后页] 翻页DOM已刷新: 260315-201662164532207 → 260319-xxxxxxxxx
 [售后页] DOM批量抓取到 4 条售后单
-[扫描] 第2页 扫描4单(新4单)，写入4单
-[售后页] DOM批量抓取到 10 条售后单
-[扫描] 第3页全部为已扫描订单，停止翻页       ← 发现重复，立即停止
-[完成] 扫描14单, 写入14单
+[任务服务] 任务执行完成，结果: 扫描14单, 写入14单
 ```
+
+如果待商家处理只有 1 页（≤10条），翻页后 DOM 不会变化，5 秒超时后返回 None，循环正常结束。
 
 ### 验收标准
 
-- [ ] 当一页数据全部为已扫描订单时，立即停止翻页
-- [ ] 总扫描数 = 14（不是 74）
-- [ ] 日志显示每页的"新订单数"便于调试
+- [ ] 翻页后不再抓到与上一页相同的数据
+- [ ] 日志显示 "翻页DOM已刷新" 及新旧订单号变化
+- [ ] 如果是最后一页，显示 "翻页DOM刷新超时" 并正常结束
+- [ ] 总扫描数 = 实际待处理售后单数

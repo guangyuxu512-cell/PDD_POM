@@ -794,13 +794,44 @@ class 售后页(基础页):
         return False
 
     async def 翻页并拦截(self) -> list[dict] | None:
-        """翻到下一页并批量抓取。返回 None 表示没有下一页。"""
+        """翻到下一页，等待DOM刷新，再批量抓取。返回 None 表示没有下一页。"""
         if not await self._检查有下一页():
             return None
+
+        旧首行订单号 = await self.页面.evaluate(
+            """
+            () => {
+                const 首行 = document.querySelector('div[class*="after-sales-table_order_item"]');
+                if (!首行) return '';
+                const 订单节点 = 首行.querySelector('[class*="table-item-header_sn__"]');
+                return 订单节点 ? 订单节点.textContent.trim() : '';
+            }
+            """
+        )
 
         翻页成功 = await self.翻页()
         if not 翻页成功:
             return None
+
+        for _ in range(25):
+            await asyncio.sleep(0.2)
+            当前首行订单号 = await self.页面.evaluate(
+                """
+                () => {
+                    const 首行 = document.querySelector('div[class*="after-sales-table_order_item"]');
+                    if (!首行) return '';
+                    const 订单节点 = 首行.querySelector('[class*="table-item-header_sn__"]');
+                    return 订单节点 ? 订单节点.textContent.trim() : '';
+                }
+                """
+            )
+            if 当前首行订单号 and 当前首行订单号 != 旧首行订单号:
+                print(f"[售后页] 翻页DOM已刷新: {旧首行订单号} → {当前首行订单号}")
+                break
+        else:
+            print("[售后页] 翻页DOM刷新超时，可能已到最后一页")
+            return None
+
         return await self.批量抓取当前页()
 
     async def 扫描所有待处理(self) -> list[dict]:

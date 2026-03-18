@@ -2307,3 +2307,13 @@
 - [x] 定向验证通过：`python -m pytest -c tests/pytest.ini -q tests/test_售后任务.py`
 - [x] 全量验证通过：在 Python 进程内设置 `timeBeginPeriod(1)`、高优先级和固定亲和性后执行 `python -m pytest -c tests/pytest.ini tests/ -v`
 - [x] 全量验证结果：`412 passed, 16 warnings`（10 条为第三方 `openpyxl` 警告，6 条为现有 Celery 警告）
+
+## Prompt 112：翻页后等待 DOM 首行变化再抓取 ✅
+
+- [x] 更新 `pages/售后页.py`，`翻页并拦截()` 翻页前先读取当前首行订单号
+- [x] 更新 `pages/售后页.py`，翻页成功后轮询等待首行订单号变化，命中后输出 `翻页DOM已刷新: 旧 → 新`
+- [x] 更新 `pages/售后页.py`，5 秒内首行未变化时输出 `翻页DOM刷新超时，可能已到最后一页` 并返回 `None`
+- [x] 更新 `tests/test_售后页.py`，对齐翻页成功用例的 `evaluate` mock，并新增 DOM 刷新超时返回 `None` 的异常路径用例
+- [x] 定向验证通过：`python -m pytest -c tests/pytest.ini -q tests/test_售后页.py tests/test_售后任务.py`
+- [x] 全量验证通过：在 Python 进程内设置 `timeBeginPeriod(1)`、高优先级、线程高优先级和固定亲和性后执行 `python -m pytest -c tests/pytest.ini tests/ -v`
+- [x] 全量验证结果：`413 passed, 16 warnings`（10 条为第三方 `openpyxl` 警告，6 条为现有 Celery 警告）
