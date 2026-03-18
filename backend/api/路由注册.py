@@ -18,6 +18,7 @@ from backend.api.日志接口 import 路由 as 日志路由
 from backend.api.系统接口 import 路由 as 系统路由
 from backend.api.飞书接口 import 路由 as 飞书路由
 from backend.api.规则接口 import 路由 as 规则路由
+from backend.api.售后配置接口 import 路由 as 售后配置路由
 
 
 # 所有路由列表
@@ -35,6 +36,7 @@ from backend.api.规则接口 import 路由 as 规则路由
     系统路由,
     飞书路由,
     规则路由,
+    售后配置路由,
 ]
 
 

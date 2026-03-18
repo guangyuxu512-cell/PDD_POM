@@ -323,6 +323,28 @@ class 测试_售后页:
         assert await 页面对象.点击指定按钮("不存在按钮") is False
         页面对象.操作后延迟.assert_not_awaited()
 
+        首次调用参数 = 详情页.evaluate.await_args_list[0].args[1]
+        assert 'a[data-testid="beast-core-button-link"]' in 首次调用参数["按钮选择器"]
+        assert 'a[data-testid="beast-core-button"]' in 首次调用参数["按钮选择器"]
+
+    @pytest.mark.asyncio
+    async def test_读取当前所有按钮_JS参数覆盖新版data_testid选择器(self, 模拟页面):
+        from pages.售后页 import 售后页
+
+        详情页 = MagicMock()
+        详情页.evaluate = AsyncMock(return_value=["同意退款", "驳回退款"])
+
+        页面对象 = 售后页(模拟页面)
+        页面对象._详情页 = 详情页
+        页面对象.操作前延迟 = AsyncMock()
+        页面对象.操作后延迟 = AsyncMock()
+
+        结果 = await 页面对象.读取当前所有按钮()
+
+        assert 结果 == ["同意退款", "驳回退款"]
+        assert 'a[data-testid="beast-core-button-link"]' in 详情页.evaluate.await_args.args[1]
+        assert 'a[data-testid="beast-core-button"]' in 详情页.evaluate.await_args.args[1]
+
     @pytest.mark.asyncio
     async def test_详情页截图_保存到截图目录(self, 模拟页面, tmp_path):
         from pages.售后页 import 售后页
@@ -425,3 +447,23 @@ class 测试_售后页:
         结果 = await 页面对象.抓取退货物流信息()
 
         assert 结果 == {"有退货物流": False}
+
+    @pytest.mark.asyncio
+    async def test_抓取详情页完整信息_JS参数覆盖新版data_testid选择器(self, 模拟页面):
+        from pages.售后页 import 售后页
+
+        详情页 = MagicMock()
+        详情页.evaluate = AsyncMock(return_value={"订单编号": "ORDER-3001", "可用按钮列表": ["同意退款"]})
+        详情页.wait_for_selector = AsyncMock()
+
+        页面对象 = 售后页(模拟页面)
+        页面对象._详情页 = 详情页
+        页面对象.操作前延迟 = AsyncMock()
+        页面对象.操作后延迟 = AsyncMock()
+        页面对象._等待详情页区域 = AsyncMock(return_value=True)
+
+        结果 = await 页面对象.抓取详情页完整信息()
+
+        assert 结果["订单编号"] == "ORDER-3001"
+        assert 'a[data-testid="beast-core-button-link"]' in 详情页.evaluate.await_args.args[1]
+        assert 'a[data-testid="beast-core-button"]' in 详情页.evaluate.await_args.args[1]

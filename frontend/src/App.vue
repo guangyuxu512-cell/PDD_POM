@@ -15,6 +15,10 @@ import Toast from './components/Toast.vue'
           <span class="icon">📋</span>
           <span>业务管理</span>
         </router-link>
+        <router-link to="/aftersale-config" class="nav-item">
+          <span class="icon">🛡️</span>
+          <span>售后配置</span>
+        </router-link>
         <router-link to="/data" class="nav-item">
           <span class="icon">📁</span>
           <span>数据管理</span>

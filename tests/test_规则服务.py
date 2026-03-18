@@ -212,17 +212,17 @@ class 测试_规则服务:
         assert await 服务.获取规则(规则ID) is None
 
     @pytest.mark.asyncio
-    async def test_初始化默认售后规则_仅在空表时插入(self, 临时环境: Path):
+    async def test_初始化默认售后规则_现已为空实现(self, 临时环境: Path):
         服务 = 规则服务()
         await 清空规则表()
 
         await 服务.初始化默认售后规则()
         第一次列表 = await 服务.获取规则列表(platform="pdd", business="售后")
-        assert len(第一次列表) == 5
+        assert 第一次列表 == []
 
         await 服务.初始化默认售后规则()
         第二次列表 = await 服务.获取规则列表(platform="pdd", business="售后")
-        assert len(第二次列表) == 5
+        assert 第二次列表 == []
 
     @pytest.mark.asyncio
     async def test_初始化数据库_创建_rules_表(self, 临时环境: Path):

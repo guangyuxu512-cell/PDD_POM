@@ -2121,3 +2121,50 @@
 - [x] 邻近回归验证结果：`10 passed`
 - [x] 全量验证通过：`python -m pytest -c tests/pytest.ini tests/ -v`
 - [x] 全量验证结果：`386 passed, 16 warnings`（10 条为第三方 `openpyxl` 警告，6 条为现有 Celery 警告）
+
+## Prompt 99：售后退货退款流程重构 ✅
+
+- [x] 更新 `backend/models/数据库.py`，新增 `aftersale_config` 表、售后队列店铺订单索引和旧表迁移逻辑
+- [x] 新建 `backend/services/售后配置服务.py`，提供店铺级售后配置读取与更新能力
+- [x] 更新 `backend/services/售后队列服务.py`，批量写入前按 `shop_id + 订单号 + 活跃阶段` 跳过重复活跃记录
+- [x] 更新 `pages/售后页.py`，统一按钮 JS 选择器，覆盖 `data-testid` 链接按钮和“其他操作”区域
+- [x] 重写 `backend/services/售后决策引擎.py`，按“同意拒收退款 / 同意退货 / 同意退款”按钮分流决策
+- [x] 重写 `tasks/售后任务.py`，接入售后配置服务并改为“扫一页处理一页”的处理链路
+- [x] 新建 `tests/test_售后配置服务.py`
+- [x] 更新 `tests/test_售后队列服务.py`
+- [x] 更新 `tests/test_售后决策引擎.py`
+- [x] 更新 `tests/test_售后任务.py`
+- [x] 更新 `tests/test_售后页.py`
+- [x] 针对性验证通过：`python -m pytest -c tests/pytest.ini -q tests/test_售后配置服务.py tests/test_售后队列服务.py tests/test_售后决策引擎.py tests/test_售后任务.py tests/test_售后页.py`
+- [x] 针对性验证结果：`66 passed`
+- [x] 验证通过：`python -m pytest -c tests/pytest.ini -q`
+- [x] 全量验证结果：`381 passed, 16 warnings`（10 条为第三方 `openpyxl` 警告，6 条为现有 Celery 警告）
+
+## Prompt 100：售后配置系统重构 ✅
+
+- [x] 新建 `backend/models/售后配置模型.py`，定义完整 `aftersale_config` 表与字段补齐逻辑
+- [x] 更新 `backend/models/数据库.py`，接入售后配置模型初始化与规则迁移调用
+- [x] 重写 `backend/services/售后配置服务.py`，补齐默认值、CRUD、白名单校验和从规则服务迁移
+- [x] 新建 `backend/api/售后配置接口.py`
+- [x] 更新 `backend/api/路由注册.py`，注册售后配置路由
+- [x] 更新 `backend/services/售后决策引擎.py`，对齐新配置字段并恢复仅退款配置驱动分支
+- [x] 更新 `tasks/售后任务.py`，改为 `_配置服务`，接入自动售后总开关、每批最大处理数和店铺级飞书 webhook
+- [x] 更新 `backend/services/规则服务.py`，移除默认售后规则并将 `初始化默认售后规则()` 置为空实现
+- [x] 新建 `frontend/src/api/aftersaleConfig.ts`
+- [x] 新建 `frontend/src/views/AftersaleConfig.vue`
+- [x] 更新 `frontend/src/router/index.ts`，新增 `/aftersale-config` 路由
+- [x] 更新 `frontend/src/App.vue`，新增“售后配置”导航入口
+- [x] 更新 `frontend/src/views/DataManage.vue`，移除旧“规则配置”选项卡
+- [x] 更新 `tests/test_售后配置服务.py`
+- [x] 新建 `tests/test_售后配置接口.py`
+- [x] 更新 `tests/test_售后决策引擎.py`
+- [x] 更新 `tests/test_售后任务.py`
+- [x] 更新 `tests/test_规则服务.py`
+- [x] 更新 `tests/单元测试/测试_前端管理页.py`
+- [x] 更新 `tests/单元测试/测试_规则配置页.py`
+- [x] 新建 `tests/单元测试/测试_售后配置页.py`
+- [x] 针对性验证通过：`python -m pytest -c tests/pytest.ini -q tests/test_售后配置服务.py tests/test_售后配置接口.py tests/test_售后决策引擎.py tests/test_售后任务.py tests/test_规则服务.py tests/单元测试/测试_前端管理页.py tests/单元测试/测试_规则配置页.py tests/单元测试/测试_售后配置页.py`
+- [x] 针对性验证结果：`56 passed`
+- [x] 验证通过：`cd frontend && npx vue-tsc -b`
+- [x] 验证通过：`python -m pytest -c tests/pytest.ini -q`
+- [x] 全量验证结果：`390 passed, 16 warnings`（10 条为第三方 `openpyxl` 警告，6 条为现有 Celery 警告）

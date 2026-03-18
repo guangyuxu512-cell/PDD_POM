@@ -9,6 +9,14 @@ from backend.配置 import 配置实例
 from pages.基础页 import 基础页
 from selectors.售后页选择器 import 售后页选择器
 
+详情按钮查询选择器 = (
+    'button:not(:disabled), '
+    'a[data-testid="beast-core-button-link"], '
+    'a[data-testid="beast-core-button"], '
+    'a.ant-btn:not(.ant-btn-disabled), '
+    'a[role="button"]:not([aria-disabled="true"])'
+)
+
 
 class 售后页(基础页):
     """售后管理页 POM。"""
@@ -447,10 +455,19 @@ class 售后页(基础页):
         目标页面 = await self._获取目标页面()
         结果 = await 目标页面.evaluate(
             """
-            (按钮文本) => {
+            ({ 按钮文本, 按钮选择器 }) => {
                 const 清洗 = (值) => String(值 || '').replace(/\\s+/g, ' ').trim();
-                const 按钮列表 = document.querySelectorAll(
-                    'button:not(:disabled), a.ant-btn:not(.ant-btn-disabled), a[role="button"]:not([aria-disabled="true"])'
+                const 收集按钮 = (根节点) => Array.from(
+                    根节点.querySelectorAll(按钮选择器)
+                );
+                const 其他操作区域 = Array.from(
+                    document.querySelectorAll('div, section, footer, aside')
+                ).filter((节点) => 清洗(节点.textContent).includes('其他操作'));
+                const 按钮列表 = Array.from(
+                    new Set([
+                        ...收集按钮(document),
+                        ...其他操作区域.flatMap((节点) => 收集按钮(节点)),
+                    ])
                 );
                 for (const 按钮 of 按钮列表) {
                     if (清洗(按钮.textContent).includes(按钮文本)) {
@@ -461,7 +478,7 @@ class 售后页(基础页):
                 return false;
             }
             """,
-            按钮文本,
+            {"按钮文本": 按钮文本, "按钮选择器": 详情按钮查询选择器},
         )
         if 结果:
             await self.操作后延迟()
@@ -472,18 +489,23 @@ class 售后页(基础页):
         目标页面 = await self._获取目标页面()
         结果 = await 目标页面.evaluate(
             """
-            () => {
+            (按钮选择器) => {
                 const 清洗 = (值) => String(值 || '').replace(/\\s+/g, ' ').trim();
-                const 按钮列表 = document.querySelectorAll(
-                    'button:not(:disabled), a.ant-btn:not(.ant-btn-disabled), a[role="button"]:not([aria-disabled="true"])'
-                );
+                const 收集文本 = (根节点) => Array.from(根节点.querySelectorAll(按钮选择器))
+                    .map((按钮) => 清洗(按钮.textContent))
+                    .filter((文本) => 文本 && 文本.length < 30);
+                const 其他操作区域 = Array.from(
+                    document.querySelectorAll('div, section, footer, aside')
+                ).filter((节点) => 清洗(节点.textContent).includes('其他操作'));
                 return Array.from(new Set(
-                    Array.from(按钮列表)
-                        .map((按钮) => 清洗(按钮.textContent))
-                        .filter((文本) => 文本 && 文本.length < 30)
+                    [
+                        ...收集文本(document),
+                        ...其他操作区域.flatMap((节点) => 收集文本(节点)),
+                    ]
                 ));
             }
             """,
+            详情按钮查询选择器,
         )
         await self.操作后延迟()
         return list(结果 or [])
@@ -538,7 +560,7 @@ class 售后页(基础页):
         await self._等待详情页区域(目标页面)
         结果 = await 目标页面.evaluate(
             """
-            () => {
+            (按钮选择器) => {
                 const 清洗 = (值) => String(值 || '').replace(/\\s+/g, ' ').trim();
                 const 全文 = 清洗(document.body ? document.body.innerText : '');
                 const 全元素 = Array.from(document.querySelectorAll('td, div, span, p, label, li, strong, a'));
@@ -605,13 +627,16 @@ class 售后页(基础页):
                     return 提取字段('物流轨迹') || 提取字段('物流信息') || '';
                 })();
 
-                const 按钮列表 = Array.from(new Set(
-                    Array.from(document.querySelectorAll(
-                        'button:not(:disabled), a.ant-btn:not(.ant-btn-disabled), a[role="button"]:not([aria-disabled="true"])'
-                    ))
-                        .map((节点) => 取文本(节点))
-                        .filter((文本) => 文本 && 文本.length < 30)
-                ));
+                const 读取按钮文本 = (根节点) => Array.from(根节点.querySelectorAll(按钮选择器))
+                    .map((节点) => 取文本(节点))
+                    .filter((文本) => 文本 && 文本.length < 30);
+                const 其他操作区域 = Array.from(
+                    document.querySelectorAll('div, section, footer, aside')
+                ).filter((节点) => 清洗(节点.textContent).includes('其他操作'));
+                const 按钮列表 = Array.from(new Set([
+                    ...读取按钮文本(document),
+                    ...其他操作区域.flatMap((节点) => 读取按钮文本(节点)),
+                ]));
                 const 售后编码 = 提取字段('售后编码') || 提取字段('售后编号');
                 const 退款金额文本 = 提取字段('退款金额');
                 const 实收金额文本 = 提取字段('实收');
@@ -654,6 +679,7 @@ class 售后页(基础页):
                 };
             }
             """,
+            详情按钮查询选择器,
         )
         await self.操作后延迟()
         return dict(结果 or {})

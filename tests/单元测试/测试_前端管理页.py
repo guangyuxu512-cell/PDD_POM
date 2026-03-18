@@ -36,18 +36,19 @@ class 测试_前端管理页:
             for 导出名称 in 导出名称列表:
                 assert 导出名称 in 文件内容, f"{相对路径} 缺少 {导出名称}"
 
-    def test_路由和侧边栏_重组为五个主菜单(self):
-        """router 和 App 导航应切换到 shops/business/data/monitor/settings 五个主菜单。"""
+    def test_路由和侧边栏_包含售后配置入口(self):
+        """router 和 App 导航应包含售后配置独立入口。"""
         路由文件 = 读取文件("frontend/src/router/index.ts")
         入口文件 = 读取文件("frontend/src/App.vue")
 
-        for 路径 in ["/shops", "/business", "/data", "/monitor", "/settings"]:
+        for 路径 in ["/shops", "/business", "/aftersale-config", "/data", "/monitor", "/settings"]:
             assert f"path: '{路径}'" in 路由文件
             assert f'to="{路径}"' in 入口文件
 
         for 视图文件 in [
             "ShopManage.vue",
             "BusinessManage.vue",
+            "AftersaleConfig.vue",
             "DataManage.vue",
             "MonitorManage.vue",
             "Settings.vue",
@@ -93,12 +94,11 @@ class 测试_前端管理页:
         for 关键字 in [
             "数据管理",
             "TaskParamsManage",
-            "RuleManage",
-            "CSV导入 / 执行结果",
-            "规则配置",
             ":show-title=\"false\"",
         ]:
             assert 关键字 in 数据页
+        for 已移除关键字 in ["RuleManage", "规则配置", "CSV导入 / 执行结果"]:
+            assert 已移除关键字 not in 数据页
 
         for 关键字 in [
             "运行监控",

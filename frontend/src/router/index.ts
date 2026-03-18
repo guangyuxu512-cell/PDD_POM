@@ -23,6 +23,11 @@ const router = createRouter({
       component: () => import('../views/DataManage.vue')
     },
     {
+      path: '/aftersale-config',
+      name: 'AftersaleConfig',
+      component: () => import('../views/AftersaleConfig.vue')
+    },
+    {
       path: '/monitor',
       name: 'MonitorManage',
       component: () => import('../views/MonitorManage.vue')

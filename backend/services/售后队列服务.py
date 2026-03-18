@@ -14,6 +14,7 @@ class 售后队列服务:
     """售后工作队列 CRUD + 批次管理。"""
 
     待到期阶段集合 = ("待处理", "等待退回", "等待验货", "待退款")
+    活跃阶段集合 = ("待处理", "处理中", "等待退回", "等待验货", "待退款")
 
     @staticmethod
     def _解析JSON字段(原始值: Any, 默认值: Any) -> Any:
@@ -163,8 +164,11 @@ class 售后队列服务:
             "商家已回复": 1 if bool(详情数据.get("商家已回复")) else 0,
         }
 
-    async def _执行写入(self, 连接: aiosqlite.Connection, 记录: dict[str, Any]) -> int:
-        数据 = self._校验基础记录(记录)
+    async def _执行标准化写入(
+        self,
+        连接: aiosqlite.Connection,
+        数据: dict[str, Any],
+    ) -> int:
         游标 = await 连接.execute(
             """
             INSERT INTO aftersale_queue (
@@ -219,6 +223,30 @@ class 售后队列服务:
         )
         return int(游标.lastrowid or 0)
 
+    async def _执行写入(self, 连接: aiosqlite.Connection, 记录: dict[str, Any]) -> int:
+        数据 = self._校验基础记录(记录)
+        return await self._执行标准化写入(连接, 数据)
+
+    async def _查询活跃记录(
+        self,
+        连接: aiosqlite.Connection,
+        shop_id: str,
+        订单号: str,
+    ) -> aiosqlite.Row | None:
+        占位符 = ", ".join("?" for _ in self.活跃阶段集合)
+        async with 连接.execute(
+            f"""
+            SELECT id, 当前阶段
+            FROM aftersale_queue
+            WHERE shop_id = ? AND 订单号 = ?
+              AND 当前阶段 IN ({占位符})
+            ORDER BY id DESC
+            LIMIT 1
+            """,
+            [shop_id, 订单号, *self.活跃阶段集合],
+        ) as 游标:
+            return await 游标.fetchone()
+
     async def 创建批次(self, shop_id: str) -> str:
         """生成新的 batch_id（格式: AS-{shop_id}-{时间戳}）。"""
         店铺ID = self._标准化文本(shop_id)
@@ -239,7 +267,7 @@ class 售后队列服务:
             return 记录ID
 
     async def 批量写入队列(self, 记录列表: list[dict]) -> int:
-        """批量写入。返回实际写入条数（去重：同 batch_id + 同订单号不重复写）。"""
+        """批量写入。返回实际写入条数。"""
         if not 记录列表:
             return 0
 
@@ -248,17 +276,24 @@ class 售后队列服务:
         async with 获取连接() as 连接:
             for 原始记录 in 记录列表:
                 记录 = dict(原始记录 or {})
+                数据 = self._校验基础记录(记录)
                 去重键 = (
-                    self._标准化文本(记录.get("batch_id")),
-                    self._标准化文本(记录.get("订单号")),
+                    数据["batch_id"],
+                    数据["订单号"],
                 )
-                if not all(去重键):
-                    self._校验基础记录(记录)
                 if 去重键 in 已处理键集合:
                     continue
                 已处理键集合.add(去重键)
+
+                已有记录 = await self._查询活跃记录(
+                    连接,
+                    数据["shop_id"],
+                    数据["订单号"],
+                )
+                if 已有记录:
+                    continue
                 try:
-                    记录ID = await self._执行写入(连接, 记录)
+                    记录ID = await self._执行标准化写入(连接, 数据)
                 except aiosqlite.IntegrityError:
                     continue
                 if 记录ID > 0:

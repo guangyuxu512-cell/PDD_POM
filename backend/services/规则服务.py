@@ -9,92 +9,7 @@ from backend.models.规则模型 import 规则模型
 
 
 默认动作列表 = [{"type": "默认", "action": "人工处理"}]
-默认售后规则 = [
-    {
-        "name": "小额自动退款",
-        "platform": "pdd",
-        "business": "售后",
-        "shop_id": "*",
-        "priority": 100,
-        "conditions": {
-            "operator": "and",
-            "rules": [
-                {"field": "售后类型", "op": "==", "value": "仅退款"},
-                {"field": "退款金额", "op": "<=", "value": 10},
-            ],
-        },
-        "actions": [{"type": "页面操作", "action": "同意退款"}],
-    },
-    {
-        "name": "中额退款+微信通知",
-        "platform": "pdd",
-        "business": "售后",
-        "shop_id": "*",
-        "priority": 90,
-        "conditions": {
-            "operator": "and",
-            "rules": [
-                {"field": "售后类型", "op": "==", "value": "仅退款"},
-                {"field": "退款金额", "op": "<=", "value": 50},
-            ],
-        },
-        "actions": [
-            {"type": "页面操作", "action": "同意退款"},
-            {"type": "微信通知", "action": "发消息", "template": "亲，您的退款 {退款金额} 元已处理~"},
-        ],
-    },
-    {
-        "name": "大额人工审核",
-        "platform": "pdd",
-        "business": "售后",
-        "shop_id": "*",
-        "priority": 80,
-        "conditions": {
-            "operator": "and",
-            "rules": [
-                {"field": "售后类型", "op": "==", "value": "仅退款"},
-                {"field": "退款金额", "op": ">", "value": 50},
-            ],
-        },
-        "actions": [
-            {"type": "飞书通知", "action": "发工单"},
-            {"type": "标记", "action": "人工审核"},
-        ],
-    },
-    {
-        "name": "退货退款-已发货",
-        "platform": "pdd",
-        "business": "售后",
-        "shop_id": "*",
-        "priority": 70,
-        "conditions": {
-            "operator": "and",
-            "rules": [
-                {"field": "售后类型", "op": "==", "value": "退货退款"},
-                {"field": "发货状态", "op": "==", "value": "已发货"},
-            ],
-        },
-        "actions": [
-            {"type": "页面操作", "action": "同意退货"},
-            {"type": "微信通知", "action": "发消息", "template": "亲，退货已同意，请尽快寄回~"},
-        ],
-    },
-    {
-        "name": "退货退款-未发货",
-        "platform": "pdd",
-        "business": "售后",
-        "shop_id": "*",
-        "priority": 60,
-        "conditions": {
-            "operator": "and",
-            "rules": [
-                {"field": "售后类型", "op": "==", "value": "退货退款"},
-                {"field": "发货状态", "op": "==", "value": "未发货"},
-            ],
-        },
-        "actions": [{"type": "页面操作", "action": "同意退款"}],
-    },
-]
+默认售后规则: list[dict[str, Any]] = []
 
 
 class 规则服务:
@@ -444,17 +359,8 @@ class 规则服务:
         return list(默认动作列表)
 
     async def 初始化默认售后规则(self) -> None:
-        """仅当 rules 表为空时插入默认售后规则。"""
-        async with 获取连接() as 连接:
-            async with 连接.execute("SELECT COUNT(*) FROM rules") as 游标:
-                结果 = await 游标.fetchone()
-                总数 = int(结果[0] if 结果 else 0)
-
-        if 总数 > 0:
-            return
-
-        for 规则数据 in 默认售后规则:
-            await self.创建规则(规则数据)
+        """保留方法签名，售后默认规则已废弃。"""
+        return None
 
 
 规则服务实例 = 规则服务()

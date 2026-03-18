@@ -58,7 +58,6 @@ class 测试_规则配置页:
 
     def test_规则配置页_调用规则与店铺接口(self):
         页面文件 = 读取文件("frontend/src/views/RuleManage.vue")
-        数据页文件 = 读取文件("frontend/src/views/DataManage.vue")
 
         for 关键字 in [
             "listShops",
@@ -75,5 +74,8 @@ class 测试_规则配置页:
         ]:
             assert 关键字 in 页面文件
 
-        assert "import RuleManage from './RuleManage.vue'" in 数据页文件
-        assert '<RuleManage v-else :show-title="false" />' in 数据页文件
+    def test_规则配置页_不再出现在数据管理页(self):
+        数据页文件 = 读取文件("frontend/src/views/DataManage.vue")
+
+        assert "RuleManage" not in 数据页文件
+        assert "规则配置" not in 数据页文件

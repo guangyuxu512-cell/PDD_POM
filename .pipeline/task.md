@@ -1,628 +1,423 @@
-Task 46B：售后决策引擎重构 + 退货物流判断 + 列表页分流 + 备注操作
-一、做什么
-列表页分流：扫描写入 SQLite 时，根据列表页的「售后状态」字段提前判断——补寄/维修/换货直接标转人工，在列表页加备注 + 发飞书，不进详情页
-去掉搜索步骤：_处理单条 不再调用 搜索订单，直接按订单号点列表上的"查看详情"
-退货物流抓取：详情页新增「退货物流」Tab 切换 + 「查看全部」展开 + 物流轨迹 JS 抓取
-退货物流决策：决策引擎重构退货退款分支——刚发出等 2-3 天 / 中途等 1 天 / 到达目的市等 6 小时 / 派送中匹配白名单 / 入库校验 / 金额上限
-列表页备注操作：新增按订单号定位的列表页添加备注 + 输入 + 保存
-详情页备注操作：新增详情页添加备注（选择器不同）
-aftersale_queue 加字段：shop_name、退货快递公司、退货快递单号、退货物流状态、退货物流全文
-统一转人工流程：备注 + 飞书 + SQLite 三步联动
-二、涉及文件
-文件
+售后配置系统重构
+背景
+当前售后决策引擎的配置通过旧的规则服务（通用条件匹配引擎）确定，存在以下问题：
+1. 规则服务的条件匹配在售后决策中未使用——决策引擎已完全硬编码全部业务逻辑
+2. _组装规则配置()只要把规则的actions当配置存储用，而不是当规则引擎用
+3. 默认售后规则和实际决策逻辑完全不对应
+4. 配置无法按店铺隔离，无专用UI，编辑体验差
+5. 上次 Codex 任务声称创建了售后配置服务.py但实际尚未实现
+目标
+1. 新建aftersale_config表（按shop_id隔离）
+2. 新建售后配置服务.py（CRUD + 默认值 + 校验）
+3. 新建REST API接口
+4. 新建前端「售后配置」页面（表单化UI，非JSON编辑）
+5. 改造售后任务.py从配置服务读取，不再依赖规则服务
+6. 清理规则服务中的售后默认规则
+7. 前置隐藏旧的「规则配置」选项卡
+￼
+一、数据库：aftersale_config表
+文件：backend/models/售后配置模型.py（新建）
+CREATE TABLE IF
+ NOT EXISTS aftersale_config (
+    id                          
+INTEGER PRIMARY KEY
+ AUTOINCREMENT,
+    shop_id                     
+TEXT NOT NULL
+ UNIQUE,
+
+    -- ═══ 全局开关 ═══
+    启用自动售后                 
+INTEGER DEFAULT 1
+,
+    不支持自动处理类型           
+TEXT DEFAULT '["补寄","维修","换货"]'
+,
+
+    -- ═══ 退货退款配置 ═══
+    退货物流白名单               
+TEXT DEFAULT '[]'
+,
+    退货等待时间                 
+TEXT DEFAULT '{"刚发出":3,"中途运输":1,"到达目的市":0.25}'
+,
+    需要入库校验                 
+INTEGER DEFAULT 0
+,
+    自动退款金额上限             
+REAL DEFAULT 50.0
+,
+
+    -- ═══ 仅退款配置 ═══
+    仅退款_启用                  
+INTEGER DEFAULT 0
+,
+    仅退款_自动同意金额上限      
+REAL DEFAULT 10.0
+,
+    仅退款_需要拒绝              
+INTEGER DEFAULT 0
+,
+    仅退款_最大拒绝次数          
+INTEGER DEFAULT 3
+,
+    仅退款_拒绝后等待分钟        
+INTEGER DEFAULT 30
+,
+    仅退款_有图片转人工          
+INTEGER DEFAULT 1
+,
+    仅退款_拒收退回自动同意      
+INTEGER DEFAULT 1
+,
+
+    -- ═══ 拒收退款配置 ═══
+    拒收退款_启用                
+INTEGER DEFAULT 1
+,
+    拒收退款_需要检查物流        
+INTEGER DEFAULT 1
+,
+
+    -- ═══ 通知配置 ═══
+    飞书通知_启用                
+INTEGER DEFAULT 1
+,
+    飞书通知_webhook             
+TEXT DEFAULT ''
+,
+    微信通知_启用                
+INTEGER DEFAULT 0
+,
+    微信通知_群ID                
+TEXT DEFAULT ''
+,
+    通知场景                     
+TEXT DEFAULT '["人工审核","金额超限","派件人不匹配","入库校验"]'
+,
+
+    -- ═══ 弹窗与备注 ═══
+    弹窗偏好                     
+TEXT DEFAULT '{}'
+,
+    备注模板                     
+TEXT DEFAULT '{"退货匹配":"退回物流匹配，自动退款","人工":"转人工处理","拒绝":"系统拒绝第{n}次"}'
+,
+
+    -- ═══ 扫描与执行策略 ═══
+    每批最大处理数               
+INTEGER DEFAULT 50
+,
+    单条超时秒数                 
+INTEGER DEFAULT 60
+,
+    失败重试次数                 
+INTEGER DEFAULT 3
+,
+    扫描间隔分钟                 
+INTEGER DEFAULT 30
+,
+    优先处理类型                 
+TEXT DEFAULT '["退货退款","仅退款"]'
+,
+
+    -- ═══ 飞书多维表 ═══
+    飞书多维表_启用              
+INTEGER DEFAULT 0
+,
+    飞书多维表_app_token         
+TEXT DEFAULT ''
+,
+    飞书多维表_table_id          
+TEXT DEFAULT ''
+,
+    飞书多维表_写入场景          
+TEXT DEFAULT '["已签收","入库校验"]'
+,
+
+    -- ═══ 时间戳 ═══
+    created_at                  
+TEXT DEFAULT (datetime('now','localtime'
+)),
+    updated_at                  
+TEXT DEFAULT (datetime('now','localtime'
+))
+);
+Copy
+白名单字段格式
+退货物流白名单存储 JSON 仓库，每条：
+[
+  {
+    "名称": "杭州仓-韵达"
+,
+    "快递公司": "韵达"
+,
+    "地区关键词": ["杭州", "萧山", "余杭"
+],
+    "派件人": ["张三", "李四"
+],
+    "启用": true
+  }
+]
+Copy
+• 快递公司：精确匹配，"*"表示不限
+• 地区关键词：地图形状到达{词}/ 到{词}/{词}市
+• 派件人：派送中/已签收阶段在账单+派件人+网点文本中匹配
+文件：backend/models/数据库.py（修改）
+• 在获取建表语句列表()中添加售后配置建表SQL
+• 在初始化数据库()中调用初始化售后配置表(连接)
+• 添加_补齐旧版表结构()中对aftersale_config表的旧字段补齐逻辑
+￼
+二、实验室服务：售后配置服务.py（新建）
+文件：backend/services/售后配置服务.py
+提供以下方法：
+class 售后配置服务
+:
+    # 默认配置常量（所有字段的默认值，和建表 DEFAULT 保持一致）
+    默认配置: ClassVar[dict
+]
+
+    async def 获取配置(self, shop_id: str) -> dict
+:
+        """读取指定店铺配置，不存在则自动插入默认配置并返回"""
+
+    async def 更新配置(self, shop_id: str, data: dict) -> dict
+:
+        """部分更新配置，自动处理 JSON 字段序列化，更新 updated_at"""
+
+    async def 获取所有配置(self) -> list[dict
+]:
+        """返回所有店铺配置列表"""
+
+    async def 删除配置(self, shop_id: str) -> bool
+:
+        """删除指定店铺配置"""
+
+    async def 初始化默认配置(self, shop_id: str) -> dict
+:
+        """为新店铺创建默认配置"""
+
+    def _反序列化(self, row: dict) -> dict
+:
+        """将 SQLite 行转为 Python dict，JSON 字段自动 parse"""
+
+    def _校验白名单(self, 白名单: list) -> list
+:
+        """校验白名单格式，每条必须有 快递公司/地区关键词/派件人"""
+Copy
+关键要求：
+• JSON字段（进口物流白名单、进口等待时间、不支持自动处理类型、通知场景、弹窗偏好、备注模板、优先处理类型、飞书多维表_写入场景）读取时自动json.loads，读取时自动json.dumps
+• 获取配置()在记录不存在时自动INSERT默认配置（upsert 语义）
+• 所有写操作自动更新updated_at
+￼
+三、云端API：售后配置接口.py（新建）
+文件：backend/api/售后配置接口.py
+GET    /api/aftersale-config/{shop_id}   → 获取配置
+PUT    /api/aftersale-config/{shop_id}   → 更新配置（部分更新）
+GET    /api/aftersale-config             → 获取所有店铺配置列表
+DELETE /api/aftersale-config/{shop_id}   → 删除配置
+Copy
+文件：backend/api/路由注册.py（修改）
+添加：
+from backend.api.售后配置接口 import 路由 as 售后配置路由
+Copy
+在所有路由列表中加入售后配置路由。
+￼
+四、售后任务改造
+文件：tasks/售后任务.py（修改）
+删除：
+• from backend.services.规则服务 import 规则服务导入
+• self._规则服务 = 规则服务()初始化
+• _组装规则配置()方法
+• 执行()和_处理单条()中对规则服务.匹配规则()的呼吁
+新增：
+• from backend.services.售后配置服务 import 售后配置服务导入
+• self._配置服务 = 售后配置服务()初始化
+• 在执行()引用中配置 = await self._配置服务.获取配置(店铺ID)
+• 将配置 dict 直接传给self._决策引擎.决策(详情, 配置, 记录)
+改造执行()方法：
+• 读取配置后检查启用自动售后，如果为False直接返回“售后自动处理已关闭”
+• 不支持自动处理类型从配置读取，替代硬编码的["补寄", "维修", "换货"]
+• 每批最大处理数从配置读取，限制单次处理数量
+文件：backend/services/售后决策引擎.py（修改）
+参数对齐。决策()方法的规则配置参数改名为配置，内部字段名新配置表字段名：
+• 退货物流白名单→ 不变
+• 退货等待时间→ 不变
+• 需要入库校验→ 不变
+• 自动退款金额上限→ 不变
+• 自动同意金额上限→仅退款_自动同意金额上限
+• 需要拒绝→仅退款_需要拒绝
+• 弹窗偏好→ 不变
+在_决策_退款()中增加读取：
+• 仅退款_最大拒绝次数（替代硬编码3）
+• 仅退款_有图片转人工（替代硬编码True）
+• 仅退款_拒收退回自动同意
+在_决策_退货退款()底层增加读取：
+• 拒收退款_启用、拒收退款_需要检查物流
+￼
+五、清理规则服务售后部分
+文件：backend/services/规则服务.py（修改）
+• 删除默认售后规则列表（5条规则默认全部删除）
+• 初始化默认售后规则()方法体改为pass（保留方法签名，避免调用方报错）
+• 保留规则服务类本身和通用CRUD/匹配逻辑（未来其他业务可能用）
+文件：backend/models/数据库.py（修改）
+• 初始化数据库()中初始化默认售后规则()的try- except 块占有，但不会再插入售后规则
+￼
+六、前端：售后配置页面（新建）
+文件：frontend/src/views/AftersaleConfig.vue（新建）
+页面结构（使用已有的 Element Plus / 或项目已有的 UI 风格）：
+顶部：店铺选择器（下拉，复用 /api/shops 接口）
+       ↓ 切换后自动加载该店铺配置
+
+卡片 1：全局设置
+├── 启用自动售后（Switch 开关）
+└── 不支持自动处理类型（Tag 多选：补寄/维修/换货/自定义输入）
+
+卡片 2：退货退款
+├── 白名单表格（可增删改行）
+│   每行：名称(input) / 快递公司(input,默认*) / 地区关键词(tag输入) / 派件人(tag输入) / 启用(switch)
+├── 等待时间
+│   三个数字输入框：刚发出(天) / 中途运输(天) / 到达目的市(小时，显示时转为天)
+├── 入库校验（Switch）
+└── 自动退款金额上限（InputNumber，单位元）
+
+卡片 3：仅退款
+├── 启用开关
+├── 自动同意金额上限（InputNumber）
+├── 拒绝策略：启用开关 + 最大拒绝次数(InputNumber) + 拒绝后等待(InputNumber,分钟)
+├── 有图片转人工（Switch）
+└── 拒收退回自动同意（Switch）
+
+卡片 4：通知配置
+├── 飞书通知：启用开关 + webhook输入框
+├── 微信通知：启用开关 + 群ID输入框
+└── 通知场景（Checkbox 多选：人工审核/金额超限/派件人不匹配/入库校验）
+
+卡片 5：执行策略
+├── 每批最大处理数（InputNumber）
+├── 单条超时秒数（InputNumber）
+├── 失败重试次数（InputNumber）
+└── 扫描间隔分钟（InputNumber）
+
+卡片 6：飞书多维表
+├── 启用开关
+├── app_token 输入框
+├── table_id 输入框
+└── 写入场景（Checkbox 多选）
+
+底部：保存按钮 + 重置为默认按钮
+Copy
+关键UI要求：
+• 风格页面和现有页面（ShopManage.vue、TaskParamsManage.vue）保持一致
+• 白色名单表格支持行内编辑、添加行、删除行
+• 地区关键词和派件人使用标签输入（输入后回车添加，支持删除）
+• 修改保存时调用PUT /api/aftersale-config/{shop_id}，只发送过的字段
+• 加载时调用GET /api/aftersale-config/{shop_id}
+• 页面初始加载默认时选中第一个店铺
+文件：frontend/src/api/aftersaleConfig.ts（新建）
+export const getAftersaleConfig = (shopId: string) =>
+  request.get(`/api/aftersale-config/${shopId}`)
+
+export const updateAftersaleConfig = (shopId: string, data: Record<string, any>) =>
+  request.put(`/api/aftersale-config/${shopId}`, data)
+
+export const getAllAftersaleConfigs = () =>
+  request.get('/api/aftersale-config')
+
+export const deleteAftersaleConfig = (shopId: string) =>
+  request.delete(`/api/aftersale-config/${shopId}`)
+Copy
+文件：frontend/src/router/index.ts（修改）
+添加路由：
+{
+  path: '/aftersale-config',
+  name: 'AftersaleConfig',
+  component: () => import('../views/AftersaleConfig.vue')
+}
+Copy
+文件：frontend/src/App.vue（修改）
+在侧边栏nav中添加导航项（置于“业务管理”下方）：
+<router-link to="/aftersale-config" class="nav-item">
+  <span class="icon">🛡️</span>
+  <span>售后配置</span>
+</router-link>
+Copy
+文件：frontend/src/views/DataManage.vue（修改）
+删除隐藏或「规则配置」选项卡。RuleManage.vue 本身保留文件不删除（其他业务可能用），但从 DataManage 的选项卡列表中去掉。
+￼
+七、迁移策略
+在backend/services/售后配置服务.py中添加迁移方法：
+async def 从规则服务迁移(self) -> int
+:
+    """
+    检查 rules 表中 business='售后' 的启用规则，
+    提取 actions 中的配置字段写入 aftersale_config，
+    然后将这些规则标记为 enabled=0。
+    返回迁移的规则数量。
+    """
+Copy
+在backend/models/数据库.py的初始化数据库()调用此迁移方法（try- except 包裹，失败不停止启动）。
+￼
+八、测试
+新增测试文件：tests/test_售后配置服务.py
+覆盖：
+1. 获取配置 - 不存在时自动创建默认配置
+2. 获取配置 - 已存在时返回现有配置
+3. 更新配置 - 部分更新（只改白名单）
+4. 更新配置 - JSON 字段序列化/反序列化正确
+5. 白名单审核 - 格式正确通过
+6. 白名单校验 - 缺少必填字段报错
+7. 删除配置
+8. 迁移方法 - 从旧规则迁移到新配置表
+新增测试文件：tests/test_售后配置接口.py
+覆盖：
+1. GET 配置 - 200 + 默认值
+2. PUT 配置 - 部分更新 + 验证返回
+3. 获取所有配置 - 多店铺
+4. 删除配置
+修改测试文件：已有售后测试
+确保在新配置路径下的现有测试仍然通过售后决策引擎。售后任务
+￼
+九、文件清单
 操作
-selectors/售后页选择器.py
-修改：新增列表备注选择器、退货物流选择器、查看全部按钮
-pages/售后页.py
-修改：新增退货物流抓取、列表备注操作、详情备注操作、去掉搜索依赖
-backend/services/售后决策引擎.py
-重写：退货物流决策 + 白名单匹配 + 入库校验 + 等待时间
-backend/models/售后队列模型.py
-修改：加字段
-backend/services/售后队列服务.py
-修改：适配新字段
-tasks/售后任务.py
-重写：列表页分流 + 去掉搜索 + 退货物流流程 + 统一转人工
-tests/test_售后决策引擎.py
-修改：补退货物流测试
-tests/test_售后任务.py
-修改：补列表分流测试
-tests/test_售后页.py
-修改：补退货物流 + 备注测试
-三、选择器新增
-在 selectors/售后页选择器.py 新增（不删已有）：
-# ========== 列表页 - 按订单号绑定的添加备注 ==========
-
-@staticmethod
-def 获取订单备注按钮(订单号: str) -> 选择器配置:
-    """列表页按订单号定位的添加备注链接（a 标签）。"""
-    return 选择器配置(
-        主选择器=(
-            f'//span[text()="{订单号}"]/ancestor::div[contains(@class, "order_item")]'
-            '//a[span[text()="添加备注"]]'
-        ),
-    )
-
-# 列表页备注弹窗
-列表备注输入框 = 选择器配置(
-    主选择器='//textarea[@data-testid="beast-core-textArea-htmlInput"]',
-    备选选择器=['//div[@data-testid="beast-core-textArea"]//textarea'],
-)
-
-列表备注保存按钮 = 选择器配置(
-    主选择器='//button[@data-tracking="85986"]',
-    备选选择器=['//button[@data-testid="beast-core-button" and span[text()="保存"]]'],
-)
-
-# ========== 详情页 - 添加备注（button 标签，和列表页不同） ==========
-
-详情备注按钮 = 选择器配置(
-    主选择器='//button[@data-testid="beast-core-button" and span[text()="添加备注"]]',
-    备选选择器=['//span[text()="添加备注"]/parent::button[@data-testid="beast-core-button"]'],
-)
-
-详情备注输入框 = 选择器配置(
-    主选择器='//textarea[@maxlength="300"]',
-    备选选择器=['//div[@class="Beast__1lcg8"]//textarea'],
-)
-
-详情备注保存按钮 = 选择器配置(
-    主选择器='//button[@data-tracking="85986" and span[text()="保存"]]',
-    备选选择器=['//button[@data-testid="beast-core-button" and span[text()="保存"]]'],
-)
-
-# ========== 详情页 - 退货物流 ==========
-
-退货物流Tab = 选择器配置(
-    主选择器='//button[text()="退货物流"] | //div[text()="退货物流"]',
-    备选选择器=['//span[text()="退货物流"]/parent::*'],
-)
-
-查看全部按钮 = 选择器配置(
-    主选择器='//div[@class="mui-steps-item-title" and text()="查看全部"]',
-    备选选择器=['//div[text()="查看全部"]/parent::div[@class="mui-steps-item-content"]'],
-)
-​
-四、售后页 POM 新增方法
-在 pages/售后页.py 新增（不删已有）：
-4.1 列表页添加备注
-async def 列表页添加备注(self, 订单号: str, 内容: str) -> bool:
-    """在列表页按订单号添加备注（不进详情页）。"""
-    try:
-        # 点击该订单的"添加备注"
-        选择器 = 售后页选择器.获取订单备注按钮(订单号).主选择器
-        await self.安全点击(选择器)
-        await self.随机延迟(0.5, 1)
-
-        # 填写备注
-        for 输入选择器 in 售后页选择器.列表备注输入框.所有选择器():
-            try:
-                await self.安全填写(输入选择器, 内容)
-                break
-            except Exception:
-                continue
-        else:
-            return False
-
-        await self.随机延迟(0.3, 0.8)
-
-        # 点击保存
-        for 保存选择器 in 售后页选择器.列表备注保存按钮.所有选择器():
-            try:
-                await self.安全点击(保存选择器)
-                await self.操作后延迟()
-                print(f"[售后页] 列表备注已保存: {订单号} -> {内容[:30]}")
-                return True
-            except Exception:
-                continue
-        return False
-    except Exception as 异常:
-        print(f"[售后页] 列表添加备注失败: {异常}")
-        return False
-​
-4.2 详情页添加备注
-async def 详情页添加备注(self, 内容: str) -> bool:
-    """在详情页添加备注。"""
-    目标页面 = await self._获取目标页面()
-    try:
-        for 选择器 in 售后页选择器.详情备注按钮.所有选择器():
-            try:
-                await self.安全点击(选择器, 页面=目标页面)
-                break
-            except Exception:
-                continue
-        else:
-            return False
-
-        await self.随机延迟(0.5, 1)
-
-        for 选择器 in 售后页选择器.详情备注输入框.所有选择器():
-            try:
-                await self.安全填写(选择器, 内容, 页面=目标页面)
-                break
-            except Exception:
-                continue
-        else:
-            return False
-
-        await self.随机延迟(0.3, 0.8)
-
-        for 选择器 in 售后页选择器.详情备注保存按钮.所有选择器():
-            try:
-                await self.安全点击(选择器, 页面=目标页面)
-                await self.操作后延迟()
-                print(f"[售后页] 详情备注已保存: {内容[:30]}")
-                return True
-            except Exception:
-                continue
-        return False
-    except Exception as 异常:
-        print(f"[售后页] 详情添加备注失败: {异常}")
-        return False
-​
-4.3 退货物流抓取
-async def 抓取退货物流信息(self) -> dict:
-    """切换退货物流Tab → 点查看全部 → 抓取轨迹信息。"""
-    目标页面 = await self._获取目标页面()
-
-    # 点击"退货物流"Tab
-    退货Tab点击成功 = False
-    for 选择器 in 售后页选择器.退货物流Tab.所有选择器():
-        try:
-            await self.安全点击(选择器, 页面=目标页面)
-            await self.随机延迟(0.5, 1)
-            退货Tab点击成功 = True
-            break
-        except Exception:
-            continue
-
-    if not 退货Tab点击成功:
-        print("[售后页] 未找到退货物流Tab，可能没有退货物流")
-        return {"有退货物流": False}
-
-    # 尝试点击"查看全部"展开完整轨迹
-    for 选择器 in 售后页选择器.查看全部按钮.所有选择器():
-        try:
-            await self.安全点击(选择器, 页面=目标页面)
-            await self.随机延迟(0.5, 1)
-            break
-        except Exception:
-            continue
-
-    # JS 抓取退货物流信息
-    结果 = await 目标页面.evaluate("""
-        () => {
-            const 清洗 = (s) => String(s || '').replace(/\\s+/g, ' ').trim();
-            const body = document.body ? document.body.innerText : '';
-
-            // 提取退货快递公司和单号
-            // 格式："快递公司：极兔速递" 和 "快递单号：JT5466202256807"
-            const 公司匹配 = body.match(/快递公司[：:]\s*([^\n]+)/);
-            const 单号匹配 = body.match(/快递单号[：:]\s*([A-Za-z0-9]+)/);
-
-            // 提取所有时间戳+描述的轨迹记录
-            const 轨迹列表 = [];
-            const 轨迹正则 = /(\\d{4}-\\d{2}-\\d{2}\\s+\\d{2}:\\d{2}(?::\\d{2})?)\\s*\\n?\\s*(.+?)(?=\\d{4}-\\d{2}-\\d{2}|$)/gs;
-            let 匹配;
-            while ((匹配 = 轨迹正则.exec(body)) !== null) {
-                轨迹列表.push({
-                    时间: 清洗(匹配[1]),
-                    描述: 清洗(匹配[2]),
-                });
-            }
-
-            // 最新一条轨迹
-            const 最新 = 轨迹列表.length > 0 ? 轨迹列表[0] : null;
-
-            // 提取派件人：匹配"快递员：XXX"或"快递员XXX(手机号)"
-            const 派件人匹配 = body.match(/快递员[：:]\s*([^\s(（]+)/);
-            // 备选：从"的兔兔快递员：榕东陈喜德"这种格式提取
-            const 派件人备选 = body.match(/快递员[：:]\s*\S+?([\\u4e00-\\u9fa5]{2,4})\s*[（(]/);
-
-            // 网点/城市
-            const 网点匹配 = body.match(/【([^】]+)】/);
-
-            return {
-                有退货物流: true,
-                退货快递公司: 公司匹配 ? 清洗(公司匹配[1]) : '',
-                退货快递单号: 单号匹配 ? 清洗(单号匹配[1]) : '',
-                轨迹全文: 清洗(body.substring(
-                    body.indexOf('退货物流') >= 0 ? body.indexOf('退货物流') : 0,
-                    body.indexOf('备注') >= 0 ? body.indexOf('备注') : body.length
-                )).substring(0, 2000),
-                轨迹列表: 轨迹列表.slice(0, 20),
-                最新轨迹: 最新,
-                派件人: 派件人匹配 ? 清洗(派件人匹配[1]) : (派件人备选 ? 清洗(派件人备选[1]) : ''),
-                网点: 网点匹配 ? 清洗(网点匹配[1]) : '',
-            };
-        }
-    """)
-    return dict(结果 or {"有退货物流": False})
-​
-五、aftersale_queue 加字段
-在 backend/models/售后队列模型.py 的建表 SQL 中加入：
-shop_name           TEXT,
-退货快递公司         TEXT,
-退货快递单号         TEXT,
-退货物流状态         TEXT,
-退货物流全文         TEXT,
-​
-位置：放在 shop_id 之后。同时在 售后队列服务.py 的 _校验基础记录、_执行写入、_构建详情更新字段 中适配这些新字段。
-注意：因为 SQLite 不支持 ALTER TABLE ADD COLUMN IF NOT EXISTS，需要在 初始化售后队列表 中加一段检测逻辑——如果表已存在但缺少新字段，执行 ALTER TABLE ADD COLUMN。
-六、售后决策引擎重写
-backend/services/售后决策引擎.py 完整重写：
-"""售后决策引擎 — 退货物流判断 + 白名单匹配 + 入库校验 + 金额分级。"""
-from __future__ import annotations
-
-import re
-from typing import Any
-​
-class 售后决策引擎:
-def init(self):
-pass  # 不再依赖其他服务实例，纯逻辑
-@staticmethod
-def _提取金额(值: Any) -> float:
-if isinstance(值, (int, float)):
-return float(值)
-匹配 = re.search(r"(d+(?:.d+)?)", str(值 or ""))
-return float(匹配.group(1)) if 匹配 else 0.0
-def _有操作按钮(self, 可用按钮: list[str]) -> bool:
-操作词 = ["同意退款", "同意退货", "拒绝", "拒收后退款", "快递拦截"]
-return any(关键词 in 按钮 for 按钮 in 可用按钮 for 关键词 in 操作词)
-def _找按钮(self, 可用按钮: list[str], 优先级列表: list[str]) -> str:
-for 关键词 in 优先级列表:
-for 按钮 in 可用按钮:
-if 关键词 in 按钮:
-return 按钮
-return ""
----- 核心入口 ----
-async def 决策(self, 详情: dict, 规则配置: dict, 队列记录: dict) -> dict:
-售后类型 = str(详情.get("售后类型", "")).strip()
-可用按钮 = list(详情.get("可用按钮列表") or [])
-结果 = {
-"操作": "人工处理",
-"目标按钮": "",
-"备选按钮": [],
-"弹窗偏好": dict(规则配置.get("弹窗偏好") or {}),
-"需要备注": False,
-"备注内容": "",
-"需要飞书通知": True,
-"飞书通知内容": "",
-"人工原因": "",
-"下次处理天数": None,  # 新增：等待时用
-}
-if not self._有操作按钮(可用按钮):
-结果["操作"] = "跳过"
-结果["人工原因"] = "详情页无操作按钮，可能已被人工处理"
-结果["需要飞书通知"] = False
-return 结果
-if "退货退款" in 售后类型:
-return self._决策_退货退款(详情, 可用按钮, 规则配置, 队列记录, 结果)
-if "退款" in 售后类型 and "退货" not in 售后类型:
-return self._决策_退款(详情, 可用按钮, 规则配置, 队列记录, 结果)
-结果["人工原因"] = f"{售后类型 or '未知类型'}暂不支持自动处理"
-return 结果
----- 退货退款（核心重构） ----
-def _决策_退货退款(self, 详情, 可用按钮, 规则配置, 队列记录, 结果) -> dict:
-退货物流 = dict(详情.get("退货物流信息") or {})
-有退货物流 = bool(退货物流.get("有退货物流"))
-金额 = self._提取金额(详情.get("退款金额", 0))
----- 没有退货物流：买家还没寄回 ----
-if not 有退货物流:
-if any("同意退货" in b for b in 可用按钮):
-结果["操作"] = "同意退货"
-结果["目标按钮"] = "同意退货"
-结果["需要飞书通知"] = False
-return 结果
-结果["操作"] = "等待"
-结果["下次处理天数"] = 3
-结果["人工原因"] = "等待买家寄回"
-结果["需要飞书通知"] = False
-return 结果
----- 有退货物流 → 判断物流阶段 ----
-白名单 = list(规则配置.get("退货物流白名单") or [])
-等待时间配置 = dict(规则配置.get("退货等待时间") or {"刚发出": 3, "中途运输": 1, "到达目的市": 0.25})
-需要入库校验 = bool(规则配置.get("需要入库校验", False))
-自动退款上限 = self._提取金额(规则配置.get("自动退款金额上限", 50))
-所有地区词 = []
-for 规则 in 白名单:
-所有地区词.extend(规则.get("地区关键词", []))
-轨迹全文 = str(退货物流.get("轨迹全文", ""))
-物流阶段 = self._判断物流阶段(轨迹全文, 所有地区词)
-A/B/C: 还在路上
-if 物流阶段 == "刚发出":
-结果["操作"] = "等待"
-结果["下次处理天数"] = 等待时间配置.get("刚发出", 3)
-结果["需要飞书通知"] = False
-return 结果
-if 物流阶段 == "中途运输":
-结果["操作"] = "等待"
-结果["下次处理天数"] = 等待时间配置.get("中途运输", 1)
-结果["需要飞书通知"] = False
-return 结果
-if 物流阶段 == "到达目的市":
-结果["操作"] = "等待"
-结果["下次处理天数"] = 等待时间配置.get("到达目的市", 0.25)
-结果["需要飞书通知"] = False
-return 结果
-D/E: 派送中或已签收 → 匹配白名单
-if 物流阶段 in ("派送中", "已签收"):
-匹配结果 = self._匹配白名单(退货物流, 白名单)
-if not 匹配结果["派件人匹配"]:
-订单号 = 详情.get("订单编号") or 详情.get("订单号") or ""
-结果["操作"] = "人工处理"
-结果["人工原因"] = f"派件人不在白名单"
-结果["需要备注"] = True
-结果["备注内容"] = "退回派件人不匹配，转人工"
-结果["飞书通知内容"] = f"订单{订单号} 退回派件人不匹配，请人工处理"
-return 结果
-派件人匹配 → 退款判断
-return self._退款判断(详情, 可用按钮, 需要入库校验, 自动退款上限, 金额, 结果)
-未知
-结果["人工原因"] = f"物流状态未知: {轨迹全文[:80]}"
-return 结果
-def _退款判断(self, 详情, 可用按钮, 需要入库校验, 自动退款上限, 金额, 结果) -> dict:
-"""派件人匹配后的退款决策。"""
-订单号 = 详情.get("订单编号") or 详情.get("订单号") or ""
-开关1：需要入库校验
-if 需要入库校验:
-结果["操作"] = "等待验货"
-结果["需要备注"] = True
-结果["备注内容"] = "退回件已到，待入库校验"
-结果["需要飞书通知"] = True
-结果["飞书通知内容"] = f"订单{订单号} 退回件到达，请入库校验后在前端确认"
-return 结果
-开关2：金额在自动退款上限内
-if 金额 <= 自动退款上限:
-目标 = self._找按钮(可用按钮, ["同意退款"])
-if 目标:
-结果["操作"] = "同意退款"
-结果["目标按钮"] = 目标
-结果["需要备注"] = True
-结果["备注内容"] = "退回物流匹配，自动退款"
-结果["需要飞书通知"] = False
-return 结果
-金额超限 → 等待验货
-结果["操作"] = "等待验货"
-结果["需要备注"] = True
-结果["备注内容"] = f"退回件已到，金额{金额}元超限{自动退款上限}，待验货"
-结果["需要飞书通知"] = True
-结果["飞书通知内容"] = f"订单{订单号} 金额{金额}超限，请验货后确认"
-return 结果
----- 仅退款（保持现有逻辑，微调） ----
-def _决策_退款(self, 详情, 可用按钮, 规则配置, 队列记录, 结果) -> dict:
-金额 = self._提取金额(详情.get("退款金额", 0))
-物流状态 = str(详情.get("物流最新状态", "")).strip()
-拒绝次数 = int(队列记录.get("拒绝次数", 0) or 0)
-自动同意上限 = self._提取金额(规则配置.get("自动同意金额上限", 10))
-需要拒绝 = bool(规则配置.get("需要拒绝", False))
-订单号 = 详情.get("订单编号") or 详情.get("订单号") or ""
-if 金额 <= 自动同意上限:
-目标 = self._找按钮(可用按钮, ["同意退款", "同意拒收后退款"])
-if 目标:
-结果["操作"] = "同意退款"
-结果["目标按钮"] = 目标
-结果["需要备注"] = True
-结果["备注内容"] = "小额自动退款"
-结果["需要飞书通知"] = False
-return 结果
-if bool(详情.get("有售后图片", False)):
-结果["人工原因"] = "有售后图片需人工查看"
-结果["需要备注"] = True
-结果["备注内容"] = "有售后图片，转人工审核"
-结果["飞书通知内容"] = f"订单{订单号}有售后图片，请人工审核"
-return 结果
-if "拒收" in 物流状态 or "退回" in 物流状态:
-目标 = self._找按钮(可用按钮, ["同意拒收后退款", "同意退款"])
-if 目标:
-结果["操作"] = "同意拒收退款"
-结果["目标按钮"] = 目标
-结果["需要飞书通知"] = False
-return 结果
-if 需要拒绝 and 拒绝次数 < 3:
-目标 = self._找按钮(可用按钮, ["拒绝"])
-if 目标:
-结果["操作"] = "拒绝"
-结果["目标按钮"] = 目标
-结果["需要备注"] = True
-结果["备注内容"] = f"系统拒绝第{拒绝次数 + 1}次"
-结果["需要飞书通知"] = False
-return 结果
-if 需要拒绝 and 拒绝次数 >= 3:
-结果["操作"] = "跳过"
-结果["人工原因"] = "已拒绝3次，不再自动处理"
-结果["飞书通知内容"] = f"订单{订单号}已拒绝3次，请人工跟进"
-return 结果
-结果["人工原因"] = f"退款场景未匹配到规则，金额={金额}"
-结果["需要备注"] = True
-结果["备注内容"] = f"金额{金额}元未匹配规则，转人工"
-结果["飞书通知内容"] = f"订单{订单号}需人工处理，金额{金额}"
-return 结果
----- 物流阶段判断 ----
-@staticmethod
-def _判断物流阶段(轨迹全文: str, 目的市关键词: list[str]) -> str:
-if not 轨迹全文:
-return "未知"
-if "签收" in 轨迹全文 or "已签收" in 轨迹全文:
-return "已签收"
-if "派件" in 轨迹全文 or "派送" in 轨迹全文 or "正在为您" in 轨迹全文:
-return "派送中"
-for 关键词 in 目的市关键词:
-if f"到达{关键词}" in 轨迹全文 or f"到{关键词}" in 轨迹全文 or f"{关键词}市" in 轨迹全文:
-return "到达目的市"
-if "运输" in 轨迹全文 or "转运" in 轨迹全文 or "发往" in 轨迹全文:
-return "中途运输"
-if "揽收" in 轨迹全文 or "已发出" in 轨迹全文 or "已揽件" in 轨迹全文:
-return "刚发出"
-return "未知"
----- 白名单匹配 ----
-@staticmethod
-def _匹配白名单(退货物流: dict, 白名单: list[dict]) -> dict:
-"""匹配退货物流是否在白名单内。"""
-快递公司 = str(退货物流.get("退货快递公司", ""))
-轨迹全文 = str(退货物流.get("轨迹全文", ""))
-派件人 = str(退货物流.get("派件人", ""))
-网点 = str(退货物流.get("网点", ""))
-合并文本 = f"{轨迹全文} {派件人} {网点}"
-for 规则 in 白名单:
-规则快递 = str(规则.get("快递公司", "*"))
-if 规则快递 != "*" and 规则快递 not in 快递公司:
-continue
-地区ok = any(关键词 in 合并文本 for 关键词 in 规则.get("地区关键词", []))
-派件人ok = any(名字 in 合并文本 for 名字 in 规则.get("派件人", []))
-if 地区ok or 派件人ok:
-return {
-"地区匹配": 地区ok,
-"派件人匹配": 派件人ok,
-"匹配的规则": 规则,
-}
-return {"地区匹配": False, "派件人匹配": False, "匹配的规则": None}
-
----
-
-**七、售后任务重写**
-
-核心改动：
-
-### 7.1 列表页分流
-
-在 `执行` 方法中，扫描完写入 SQLite 后，增加分流逻辑：
-
-​
-扫描写入后，立即分流
-不需要进详情的类型 = ["补寄", "维修", "换货"]
-for 记录 in 记录列表:
-售后类型 = str(记录.get("售后类型", ""))
-检查列表页的售后状态
-售后状态 = str(记录.get("售后状态", ""))
-if any(类型 in 售后类型 for 类型 in 不需要进详情的类型):
-直接在列表页处理
-订单号 = 记录.get("订单号", "")
-备注内容 = f"【系统】{售后类型}暂不支持自动处理，转人工"
-await self._售后页.列表页添加备注(订单号, 备注内容)
-await self._发送飞书通知(记录, 店铺配置, f"{售后类型}转人工处理")
-await self._队列服务.标记人工(记录["id"], f"{售后类型}不支持自动处理")
-人工数 += 1
-continue
-退款/退货退款 → 放入待处理列表
-需要详情的.append(记录)
-
-### 7.2 去掉搜索步骤
-
-`_处理单条` 中删除 `await self._售后页.搜索订单(订单号)` 和其后的 `await self._售后页.随机延迟(1, 2)`。直接调用 `await self._售后页.点击订单详情并切换标签(订单号)`。
-
-### 7.3 退货退款增加物流抓取
-
-在 `_处理单条` 中，抓取详情后、决策前，如果售后类型是退货退款且详情页有退货物流Tab，额外调用：
-
-​
-if "退货退款" in str(详情.get("售后类型", "")):
-退货物流 = await self._售后页.抓取退货物流信息()
-详情["退货物流信息"] = 退货物流
-更新到 SQLite
-if 退货物流.get("有退货物流"):
-await self._队列服务.更新退货物流(
-记录["id"],
-退货物流.get("退货快递公司", ""),
-退货物流.get("退货快递单号", ""),
-退货物流.get("轨迹全文", "")[:2000],
-)
-
-### 7.4 "等待"操作处理
-
-决策返回 `操作="等待"` 时：
-
-​
-if 决策["操作"] == "等待":
-天数 = 决策.get("下次处理天数", 1)
-下次时间 = (datetime.now() + timedelta(days=天数)).strftime("%Y-%m-%d %H:%M:%S")
-await self._队列服务.更新阶段(
-记录["id"], "等待退回", 下次处理时间=下次时间,
-处理结果=f"等待{天数}天后复查"
-)
-await self._售后页.关闭详情标签()
-跳过数 += 1
-continue
-
-### 7.5 "等待验货"操作处理
-
-​
-if 决策["操作"] == "等待验货":
-await self._队列服务.更新阶段(
-记录["id"], "等待验货",
-处理结果="待入库校验"
-)
-if 决策.get("需要备注"):
-await self._售后页.详情页添加备注(决策["备注内容"])
-if 决策.get("需要飞书通知"):
-await self._发送飞书通知(详情, 店铺配置, 决策["飞书通知内容"])
-await self._售后页.关闭详情标签()
-人工数 += 1
-continue
-
-### 7.6 统一转人工流程
-
-所有 `操作="人工处理"` 的地方，统一执行：
-
-​
-if 决策["操作"] == "人工处理":
-await self.售后页.详情页截图(f"人工{订单号}")
-详情页添加备注
-if 决策.get("需要备注") and 决策.get("备注内容"):
-await self._售后页.详情页添加备注(决策["备注内容"])
-飞书通知
-if 决策.get("需要飞书通知"):
-await self._发送飞书通知(详情, 店铺配置, 决策.get("飞书通知内容", "需人工处理"))
-SQLite 标记
-await self._队列服务.标记人工(记录["id"], 决策.get("人工原因", "需人工处理"))
-await self._售后页.关闭详情标签()
-return "人工"
-
----
-
-**八、测试**
-
-### test_售后决策引擎.py（修改扩展，目标 30+ 用例）
-
-1. 退货退款 + 无退货物流 + 有"同意退货"按钮 → 同意退货
-2. 退货退款 + 无退货物流 + 无按钮 → 等待 3 天
-3. 退货退款 + 退货物流刚发出 → 等待 3 天
-4. 退货退款 + 退货物流中途运输 → 等待 1 天
-5. 退货退款 + 到达目的市 → 等待 6 小时 (0.25 天)
-6. 退货退款 + 派送中 + 派件人在白名单 + 不需要入库 + 金额≤上限 → 同意退款
-7. 退货退款 + 派送中 + 派件人在白名单 + 不需要入库 + 金额>上限 → 等待验货
-8. 退货退款 + 派送中 + 派件人在白名单 + 需要入库校验 → 等待验货
-9. 退货退款 + 派送中 + 派件人不在白名单 → 人工处理
-10. 退货退款 + 已签收 + 派件人匹配 → 同意退款
-11. 退货退款 + 未知物流状态 → 人工处理
-12. `_判断物流阶段` 各分支独立测试 × 6
-13. `_匹配白名单` 匹配/不匹配 × 4
-14. `_退款判断` 入库校验优先级测试
-15. 仅退款原有用例保持不变
-
-### test_售后任务.py（修改扩展）
-
-16. mock 列表分流：售后类型=补寄 → 标转人工 + 列表备注 + 飞书
-17. mock 列表分流：售后类型=退货退款 → 不分流，进详情
-18. mock 去掉搜索：验证 `搜索订单` 不被调用
-19. mock 退货物流抓取 → 决策=等待 → 写下次处理时间
-20. mock 退货物流派件人匹配 → 同意退款
-21. mock 等待验货 → 详情备注 + 飞书 + SQLite
-
-### test_售后页.py（修改扩展）
-
-22. 测试 `列表页添加备注`
-23. 测试 `详情页添加备注`
-24. 测试 `抓取退货物流信息`：有退货物流 / 无退货物流
-
----
-
-**九、约束**
-
-1. `_处理单条` 不再调用 `搜索订单`，直接按订单号点列表的查看详情
-2. 列表页备注用 `获取订单备注按钮(订单号)` + `列表备注输入框` + `列表备注保存按钮`
-3. 详情页备注用 `详情备注按钮` + `详情备注输入框` + `详情备注保存按钮`
-4. 决策引擎的 `_决策_退货退款` 不再使用 `async`（纯逻辑，不访问数据库）
-5. 所有转人工统一三步联动：备注 + 飞书 + SQLite
-6. `aftersale_queue` 新字段通过 `ALTER TABLE ADD COLUMN` 向后兼容
-7. pytest 全量通过
+文件路径
+新建
+backend/models/售后配置模型.py
+新建
+backend/services/售后配置服务.py
+新建
+backend/api/售后配置接口.py
+新建
+frontend/src/views/AftersaleConfig.vue
+新建
+frontend/src/api/aftersaleConfig.ts
+新建
+tests/test_售后配置服务.py
+新建
+tests/test_售后配置接口.py
+修改
+backend/models/数据库.py— 导入售后配置建表 + 迁移调用
+修改
+backend/api/路由注册.py— 添加售后配置路由
+修改
+tasks/售后任务.py— 删除规则服务依赖，改用售后配置服务
+修改
+backend/services/售后决策引擎.py— 参数名对齐新配置字段
+修改
+backend/services/规则服务.py— 删除默认售后规则，迁移方法清空
+修改
+frontend/src/router/index.ts—添加/aftersale-config 路由
+修改
+frontend/src/App.vue— 侧边栏添加“售后配置”导航
+修改
+frontend/src/views/DataManage.vue— 隐藏“规则配置”选项卡
+十、验收标准
+1. 启动后aftersale_config表自动创建
+2. 旧规则 表中business='售后' 的规则自动迁移到新表并标记已禁用
+3. GET /api/aftersale-config/{shop_id}对新店返回默认配置
+4. PUT /api/aftersale-config/{shop_id}部分更新生效
+5. 前置「售后配置」页面可正常加载、编辑、保存白名单及所有参数
+6. 白色名单表格支持增删改行，标签输入正常
+7. 售后任务从配置服务读取配置，不再调用规则服务
+8. 数据管理页面不再显示「规则配置」选项卡
+9. 全部量回归测试通过（现有381个测试 + 新增测试）

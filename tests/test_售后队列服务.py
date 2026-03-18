@@ -62,6 +62,14 @@ class 测试_售后队列服务:
                 "当前阶段",
             }.issubset(字段集合)
 
+            索引集合 = {
+                行[0]
+                for 行 in 连接.execute(
+                    "SELECT name FROM sqlite_master WHERE type = 'index' AND tbl_name = 'aftersale_queue'"
+                )
+            }
+            assert "idx_aftersale_queue_shop_order" in 索引集合
+
     @pytest.mark.asyncio
     async def test_创建批次_格式正确(self, 临时环境: Path):
         服务 = 售后队列服务()
@@ -139,6 +147,41 @@ class 测试_售后队列服务:
         assert 写入数量 == 2
         列表 = await 服务.获取待处理列表(batch_id=批次ID, shop_id="shop-2")
         assert [记录["订单号"] for 记录 in 列表] == ["ORDER-2001", "ORDER-2002"]
+
+    @pytest.mark.asyncio
+    async def test_批量写入队列_已有活跃记录时跨批次跳过(self, 临时环境: Path):
+        服务 = 售后队列服务()
+
+        旧记录ID = await 服务.写入队列(
+            {
+                "batch_id": "AS-shop-2-old",
+                "shop_id": "shop-2",
+                "订单号": "ORDER-2003",
+                "售后类型": "退货退款",
+            }
+        )
+        await 服务.更新阶段(旧记录ID, "等待验货")
+
+        写入数量 = await 服务.批量写入队列(
+            [
+                {
+                    "batch_id": "AS-shop-2-new",
+                    "shop_id": "shop-2",
+                    "订单号": "ORDER-2003",
+                    "售后类型": "退货退款",
+                },
+                {
+                    "batch_id": "AS-shop-2-new",
+                    "shop_id": "shop-2",
+                    "订单号": "ORDER-2004",
+                    "售后类型": "退货退款",
+                },
+            ]
+        )
+
+        assert 写入数量 == 1
+        列表 = await 服务.获取待处理列表(batch_id="AS-shop-2-new", shop_id="shop-2")
+        assert [记录["订单号"] for 记录 in 列表] == ["ORDER-2004"]
 
     @pytest.mark.asyncio
     async def test_更新详情_JSON写入和关键字段提取(self, 临时环境: Path):

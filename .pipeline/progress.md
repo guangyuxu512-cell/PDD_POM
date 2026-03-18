@@ -2621,3 +2621,167 @@
 - 首次全量回归命中过一条既有 `tests/单元测试/测试_反检测.py::test_随机延迟在范围内` 计时波动，用例单独复跑通过后再次执行全量已全部通过
 - 16 条 warning 为既有存量：10 条来自第三方 `openpyxl`，6 条来自 Celery `datetime.utcnow()` 弃用提示
 - 工作区仍存在 `.pipeline/task.md`、`data/ecom.db` 及 `data/profiles/`、`data/screenshots/` 下的本地变更，非本轮源码交付
+
+---
+
+## 任务摘要
+
+完成售后退货退款流程重构：新增店铺级售后配置表与配置服务，修复售后按钮抓取和队列去重逻辑，并将售后任务改为按页扫描、按按钮决策的执行链路。
+
+## 改动文件列表
+
+- `backend/models/数据库.py`
+- `backend/services/售后配置服务.py`
+- `backend/services/售后决策引擎.py`
+- `backend/services/售后队列服务.py`
+- `pages/售后页.py`
+- `tasks/售后任务.py`
+- `tests/test_售后配置服务.py`
+- `tests/test_售后队列服务.py`
+- `tests/test_售后决策引擎.py`
+- `tests/test_售后任务.py`
+- `tests/test_售后页.py`
+- `PLAN.md`
+- `改造进度.md`
+- `.pipeline/progress.md`
+
+## 改动说明
+
+- `backend/models/数据库.py`
+  - 新增 `aftersale_config` 表
+  - 新增售后队列索引 `idx_aftersale_queue_shop_order`
+  - 在初始化数据库时补齐售后配置旧表字段，兼容已有库
+- `backend/services/售后配置服务.py`
+  - 新增店铺售后配置读取/更新服务
+  - 未配置时返回默认退货白名单、等待时间、自动退款上限、不支持自动处理类型和备注模板
+- `backend/services/售后队列服务.py`
+  - 批量写入前新增“同店铺同订单活跃记录”查询
+  - 当订单已处于 `待处理 / 处理中 / 等待退回 / 等待验货 / 待退款` 之一时跳过重复导入
+- `pages/售后页.py`
+  - 将按钮读取、按钮点击、详情页按钮抓取统一切换到新版 `data-testid` 选择器
+  - 显式补抓“其他操作”区域里的 `<a>` 按钮，避免漏掉底部链接操作
+- `backend/services/售后决策引擎.py`
+  - 决策入口改为按可用按钮分流
+  - 新增“同意拒收退款”人工拦截通知路径
+  - “同意退货”直接输出自动点击结果
+  - “同意退款”按退货物流状态、白名单、入库校验和金额上限决定等待、验货或自动退款
+- `tasks/售后任务.py`
+  - 去掉规则服务依赖，改用 `售后配置服务`
+  - 执行流程由“全量扫描后处理”改为“扫一页处理一页”
+  - 列表页人工分流改为读取店铺售后配置中的 `不支持自动处理类型`
+- `tests/test_售后配置服务.py`
+  - 新增售后配置表创建、默认读取、插入更新和部分更新测试
+- `tests/test_售后队列服务.py`
+  - 新增售后队列索引断言和跨批次活跃记录去重测试
+- `tests/test_售后决策引擎.py`
+  - 改为覆盖“同意拒收退款 / 同意退货 / 同意退款”三类按钮路径
+- `tests/test_售后任务.py`
+  - 新增逐页处理、配置驱动列表分流、人工拦截、等待与自动退款场景
+- `tests/test_售后页.py`
+  - 新增新版 `data-testid` 按钮选择器参数断言
+
+## 影响范围
+
+- 售后任务现在具备独立的店铺级配置来源，不再依赖规则服务拼装售后参数
+- 同一店铺同一订单的活跃售后单不会被重复导入工作队列
+- 详情页可正确识别 `a[data-testid=...]` 链接按钮，底部“其他操作”区域的操作不再漏抓
+- 售后执行链路改为当前页扫描后立即处理，减少跨页累积带来的队列偏差
+
+## 注意事项
+
+- 已执行针对性回归：`python -m pytest -c tests/pytest.ini -q tests/test_售后配置服务.py tests/test_售后队列服务.py tests/test_售后决策引擎.py tests/test_售后任务.py tests/test_售后页.py`，结果 `66 passed`
+- 已执行全量测试：`python -m pytest -c tests/pytest.ini -q`，结果 `381 passed, 16 warnings`
+- 16 条 warning 为既有存量：10 条来自第三方 `openpyxl`，6 条来自 Celery `datetime.utcnow()` 弃用提示
+- 工作区仍存在 `.pipeline/task.md`、`data/ecom.db` 和运行产生的 `__pycache__/` 本地变更，非本轮核心源码交付
+
+---
+
+## 任务摘要
+
+完成售后配置系统重构：新增完整售后配置模型、配置服务和 REST API，接入独立前端配置页，并将售后任务和决策引擎切换到新配置体系。
+
+## 改动文件列表
+
+- `backend/models/售后配置模型.py`
+- `backend/models/数据库.py`
+- `backend/services/售后配置服务.py`
+- `backend/api/售后配置接口.py`
+- `backend/api/路由注册.py`
+- `backend/services/售后决策引擎.py`
+- `backend/services/规则服务.py`
+- `tasks/售后任务.py`
+- `frontend/src/api/aftersaleConfig.ts`
+- `frontend/src/views/AftersaleConfig.vue`
+- `frontend/src/router/index.ts`
+- `frontend/src/App.vue`
+- `frontend/src/views/DataManage.vue`
+- `tests/test_售后配置服务.py`
+- `tests/test_售后配置接口.py`
+- `tests/test_售后决策引擎.py`
+- `tests/test_售后任务.py`
+- `tests/test_规则服务.py`
+- `tests/单元测试/测试_前端管理页.py`
+- `tests/单元测试/测试_规则配置页.py`
+- `tests/单元测试/测试_售后配置页.py`
+- `PLAN.md`
+- `改造进度.md`
+- `.pipeline/progress.md`
+
+## 改动说明
+
+- `backend/models/售后配置模型.py`
+  - 新建 `aftersale_config` 表定义
+  - 覆盖全局开关、退货退款、仅退款、通知、弹窗备注、执行策略和飞书多维表字段
+  - 增加旧字段补齐逻辑
+- `backend/models/数据库.py`
+  - 接入售后配置模型初始化
+  - 在数据库启动时增加“从旧售后规则迁移到新配置”的调用
+- `backend/services/售后配置服务.py`
+  - 重写为完整配置服务
+  - 提供默认配置、自动初始化、部分更新、列表、删除、白名单校验和规则迁移能力
+- `backend/api/售后配置接口.py`
+  - 新增售后配置 CRUD 接口
+- `backend/api/路由注册.py`
+  - 注册售后配置路由
+- `backend/services/售后决策引擎.py`
+  - 使用新配置字段 `仅退款_*`、`拒收退款_*`、`备注模板`
+  - 恢复仅退款配置驱动决策分支
+- `backend/services/规则服务.py`
+  - 清空默认售后规则
+  - `初始化默认售后规则()` 保留签名但不再插入规则
+- `tasks/售后任务.py`
+  - 使用 `self._配置服务` 读取配置
+  - 接入 `启用自动售后`、`每批最大处理数` 和店铺级飞书 webhook
+- `frontend/src/api/aftersaleConfig.ts`
+  - 新增售后配置前端 API 封装
+- `frontend/src/views/AftersaleConfig.vue`
+  - 新建售后配置页面
+  - 支持店铺切换、白名单编辑、标签输入、通知配置、执行策略、弹窗备注和飞书多维表配置
+  - 保存时只发送改动字段
+- `frontend/src/router/index.ts` / `frontend/src/App.vue`
+  - 新增 `/aftersale-config` 路由与侧边栏导航
+- `frontend/src/views/DataManage.vue`
+  - 移除旧“规则配置”入口
+- `tests/test_售后配置服务.py`
+  - 覆盖默认配置、部分更新、白名单校验、删除和规则迁移
+- `tests/test_售后配置接口.py`
+  - 覆盖售后配置接口的获取、更新、列表和删除
+- `tests/test_售后决策引擎.py` / `tests/test_售后任务.py` / `tests/test_规则服务.py`
+  - 对齐新配置字段和规则服务 no-op 行为
+- `tests/单元测试/测试_前端管理页.py` / `tests/单元测试/测试_规则配置页.py` / `tests/单元测试/测试_售后配置页.py`
+  - 校验新路由、新侧边栏入口，以及 DataManage 不再展示旧规则配置选项卡
+
+## 影响范围
+
+- 售后配置已从旧规则服务彻底拆分为店铺级独立配置体系
+- 售后任务运行时会直接读取店铺售后配置，不再依赖规则引擎拼装参数
+- 前端新增独立“售后配置”页面，可直接编辑白名单、通知、执行策略和多维表配置
+- 数据管理页面不再暴露旧“规则配置”入口，旧 `RuleManage.vue` 仅保留文件本身
+
+## 注意事项
+
+- 已执行针对性回归：`python -m pytest -c tests/pytest.ini -q tests/test_售后配置服务.py tests/test_售后配置接口.py tests/test_售后决策引擎.py tests/test_售后任务.py tests/test_规则服务.py tests/单元测试/测试_前端管理页.py tests/单元测试/测试_规则配置页.py tests/单元测试/测试_售后配置页.py`，结果 `56 passed`
+- 已执行类型检查：`cd frontend && npx vue-tsc -b`
+- 已执行全量测试：`python -m pytest -c tests/pytest.ini -q`，结果 `390 passed, 16 warnings`
+- 16 条 warning 为既有存量：10 条来自第三方 `openpyxl`，6 条来自 Celery `datetime.utcnow()` 弃用提示
+- 工作区仍存在 `.pipeline/task.md`、`data/ecom.db` 和运行产生的 `__pycache__/` 本地变更，非本轮核心源码交付
