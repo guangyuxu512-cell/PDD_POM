@@ -3147,3 +3147,45 @@
 - 已执行全量测试：`python -X utf8 -c "import ctypes, sys, pytest; ctypes.windll.winmm.timeBeginPeriod(1); ctypes.windll.kernel32.SetPriorityClass(ctypes.windll.kernel32.GetCurrentProcess(), 0x00000080); sys.exit(pytest.main(['-c','tests/pytest.ini','tests/','-v']))"`，结果 `408 passed, 16 warnings`
 - 16 条 warning 为既有存量：10 条来自第三方 `openpyxl`，6 条来自 Celery `datetime.utcnow()` 弃用提示
 - `.pipeline/task.md` 仍为当前任务单的本地变更；`data/` 下运行副产物不属于本轮源码改动
+
+---
+
+## 任务摘要
+
+将 `售后页` 的列表导航拦截切换为 `networkidle` 等待所有默认请求收尾后再注册真正的 API 拦截器。
+
+## 改动文件列表
+
+- `pages/售后页.py`
+- `tests/test_售后页.py`
+- `.pipeline/progress.md`
+- `PLAN.md`
+- `改造进度.md`
+
+## 改动说明
+
+- `pages/售后页.py`
+  - `导航并拦截售后列表()` 改为导航完成后执行 `await self.页面.wait_for_load_state("networkidle", timeout=10000)`
+  - 增加 `等待所有默认请求完成（networkidle）`、`networkidle 超时，继续执行`、`网络已空闲，开始拦截` 日志
+  - 删除旧的默认请求“消耗”拦截步骤
+  - 首次与重试路径统一为 `create_task(self.拦截售后列表API(超时秒=15)) -> await asyncio.sleep(0.1) -> await self.确保待商家处理已选中(强制点击=True)`
+  - `翻页并拦截()` 保持 `create_task(拦截) -> sleep(0.1) -> 翻页` 的顺序不变
+- `tests/test_售后页.py`
+  - 更新导航并拦截测试，断言 `wait_for_load_state("networkidle", timeout=10000)` 会被调用
+  - 新增 `networkidle` 超时后仍继续执行并重试的异常路径用例
+- `PLAN.md` / `改造进度.md`
+  - 同步记录本轮 `networkidle` 导航时序改造与验证结果
+
+## 影响范围
+
+- 导航阶段触发的投诉预警、主列表、统计等多个默认请求会先收尾，再开始真正监听“待商家处理”请求
+- 不再依赖“消耗一次默认响应”的数量假设，适应多个 `/afterSales` 相关请求并发的页面
+- `售后任务.py`、选择器层和 `backend/` 未改动
+
+## 注意事项
+
+- 已执行定向回归：`python -m pytest -c tests/pytest.ini -q tests/test_售后页.py tests/test_售后任务.py`，结果 `46 passed`
+- 已执行全量测试：`python -X utf8 -c "import ctypes, sys, pytest; ctypes.windll.winmm.timeBeginPeriod(1); ctypes.windll.kernel32.SetPriorityClass(ctypes.windll.kernel32.GetCurrentProcess(), 0x00000080); sys.exit(pytest.main(['-c','tests/pytest.ini','tests/','-v']))"`，结果 `409 passed, 16 warnings`
+- 全量测试首次复跑仍可能命中既有抖动用例 `tests/单元测试/测试_反检测.py::测试_真人模拟器::test_随机延迟在范围内`，继续复跑后已通过
+- 16 条 warning 为既有存量：10 条来自第三方 `openpyxl`，6 条来自 Celery `datetime.utcnow()` 弃用提示
+- `.pipeline/task.md` 仍为当前任务单的本地变更；`data/` 下运行副产物不属于本轮源码改动

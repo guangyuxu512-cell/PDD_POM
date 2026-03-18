@@ -1,3 +1,6 @@
-2026/03/19-04:28:23.294 9cec Reusing MANIFEST E:\pdd_zd\data\profiles\8eec98e4-89b9-49d5-ab1f-c72be3c405f6\Default\Session Storage/MANIFEST-000001
-2026/03/19-04:28:23.295 9cec Recovering log #110
-2026/03/19-04:28:23.298 9cec Reusing old log E:\pdd_zd\data\profiles\8eec98e4-89b9-49d5-ab1f-c72be3c405f6\Default\Session Storage/000110.log 
+2026/03/19-04:59:52.948 ae40 Reusing MANIFEST E:\pdd_zd\data\profiles\8eec98e4-89b9-49d5-ab1f-c72be3c405f6\Default\Session Storage/MANIFEST-000001
+2026/03/19-04:59:52.953 ae40 Recovering log #110
+2026/03/19-04:59:52.956 ae40 Reusing old log E:\pdd_zd\data\profiles\8eec98e4-89b9-49d5-ab1f-c72be3c405f6\Default\Session Storage/000110.log 
+2026/03/19-05:00:55.134 711c Level-0 table #114: started
+2026/03/19-05:00:55.161 711c Level-0 table #114: 15345 bytes OK
+2026/03/19-05:00:55.181 711c Delete type=0 #110

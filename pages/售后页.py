@@ -252,12 +252,15 @@ class 售后页(基础页):
         return 结果容器
 
     async def 导航并拦截售后列表(self) -> list[dict]:
-        """先导航到列表页，消耗掉默认请求，再通过待商家处理卡片切换触发接口拦截。"""
+        """导航到列表页，等待所有默认请求完成，再拦截待商家处理的请求。"""
         await self.导航到售后列表()
 
-        print("[售后页] 等待默认请求完成")
-        await self.拦截售后列表API(超时秒=8)
-        print("[售后页] 默认请求已消耗，开始真正的拦截")
+        print("[售后页] 等待所有默认请求完成（networkidle）")
+        try:
+            await self.页面.wait_for_load_state("networkidle", timeout=10000)
+        except Exception:
+            print("[售后页] networkidle 超时，继续执行")
+        print("[售后页] 网络已空闲，开始拦截")
 
         拦截任务 = asyncio.create_task(self.拦截售后列表API(超时秒=15))
         await asyncio.sleep(0.1)

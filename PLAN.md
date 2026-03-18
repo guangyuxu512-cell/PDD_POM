@@ -2273,3 +2273,14 @@
 - [x] 定向验证通过：`python -m pytest -c tests/pytest.ini -q tests/test_售后页.py tests/test_售后任务.py`
 - [x] 全量验证通过：在 Python 进程内设置 `timeBeginPeriod(1)` 和高优先级后执行 `python -m pytest -c tests/pytest.ini tests/ -v`
 - [x] 全量验证结果：`408 passed, 16 warnings`（10 条为第三方 `openpyxl` 警告，6 条为现有 Celery 警告）
+
+## Prompt 109：售后页改为 networkidle 等待默认请求 ✅
+
+- [x] 更新 `pages/售后页.py`，`导航并拦截售后列表()` 改为导航后等待 `wait_for_load_state("networkidle", timeout=10000)`
+- [x] 更新 `pages/售后页.py`，新增 `等待所有默认请求完成（networkidle）`、`networkidle 超时，继续执行`、`网络已空闲，开始拦截` 日志
+- [x] 更新 `pages/售后页.py`，去掉旧的默认请求“消耗”拦截调用
+- [x] 更新 `pages/售后页.py`，首次与重试路径统一为 `create_task(拦截) -> sleep(0.1) -> 点击待商家处理`
+- [x] 更新 `tests/test_售后页.py`，对齐新的导航调用顺序，并新增 `networkidle` 超时后继续执行的异常路径用例
+- [x] 定向验证通过：`python -m pytest -c tests/pytest.ini -q tests/test_售后页.py tests/test_售后任务.py`
+- [x] 全量验证通过：在 Python 进程内设置 `timeBeginPeriod(1)` 和高优先级后执行 `python -m pytest -c tests/pytest.ini tests/ -v`
+- [x] 全量验证结果：`409 passed, 16 warnings`（10 条为第三方 `openpyxl` 警告，6 条为现有 Celery 警告）
