@@ -2209,3 +2209,16 @@
 - [x] 定向验证结果：`36 passed`
 - [x] 验证通过：`python -m pytest -c tests/pytest.ini -q`
 - [x] 全量验证结果：`398 passed, 16 warnings`（10 条为第三方 `openpyxl` 警告，6 条为现有 Celery 警告）
+
+## Prompt 104：售后列表拦截与页内记录去重 ✅
+
+- [x] 更新 `pages/售后页.py`，`拦截售后列表API()` 每次收到新的有效响应时清空旧结果，仅保留最后一次响应
+- [x] 更新 `pages/售后页.py`，在单次有效响应内按订单号去重
+- [x] 更新 `tasks/售后任务.py`，写队列前按订单号再做一次页内去重
+- [x] 重复订单号在页内只保留最后一条摘要内容进入后续处理
+- [x] 更新 `tests/test_售后页.py`，覆盖“最后一次响应覆盖前一次 + 同响应去重”
+- [x] 更新 `tests/test_售后任务.py`，覆盖写队列前页内去重
+- [x] 定向验证通过：`python -m pytest -c tests/pytest.ini -q tests/test_售后页.py tests/test_售后任务.py`
+- [x] 定向验证结果：`38 passed`
+- [x] 验证通过：`python -m pytest -c tests/pytest.ini -q`
+- [x] 全量验证结果：`400 passed, 16 warnings`（10 条为第三方 `openpyxl` 警告，6 条为现有 Celery 警告）

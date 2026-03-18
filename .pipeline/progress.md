@@ -2922,3 +2922,47 @@
 - 已执行全量测试：`python -m pytest -c tests/pytest.ini -q`，结果 `398 passed, 16 warnings`
 - 16 条 warning 为既有存量：10 条来自第三方 `openpyxl`，6 条来自 Celery `datetime.utcnow()` 弃用提示
 - `.pipeline/task.md` 仍为当前任务单的本地变更；`data/` 下运行副产物不属于本轮源码改动
+
+---
+
+## 任务摘要
+
+为售后列表 API 拦截与任务扫描补上去重保护，只保留最后一次有效响应并在页内按订单号去重。
+
+## 改动文件列表
+
+- `pages/售后页.py`
+- `tasks/售后任务.py`
+- `tests/test_售后页.py`
+- `tests/test_售后任务.py`
+- `.pipeline/progress.md`
+- `PLAN.md`
+- `改造进度.md`
+
+## 改动说明
+
+- `pages/售后页.py`
+  - 调整 `拦截售后列表API()`，每次收到新的有效响应时先 `clear()` 旧结果，只保留最后一次有效接口返回
+  - 在单次响应处理内增加 `已捕获订单号集合`，按订单号去重，避免同一响应中的重复订单被保留多次
+- `tasks/售后任务.py`
+  - 在 `_处理扫描结果页()` 内增加 `当前页记录映射`，写队列前按订单号再做一次页内去重
+  - 当同一页出现重复订单号时，保留最后一条记录内容，避免同页重复处理
+- `tests/test_售后页.py`
+  - 新增“只保留最后一次有效响应并按订单号去重”的用例
+- `tests/test_售后任务.py`
+  - 新增“API 当前页重复订单写队列前会去重”的用例
+- `PLAN.md` / `改造进度.md`
+  - 同步记录本轮售后列表去重补丁与验证结果
+
+## 影响范围
+
+- 售后页 API 拦截结果不会再累加多个响应，只保留最新一次有效列表数据
+- 即便拼多多接口或页面链路返回重复订单，同一页也只会向队列写入一次该订单
+- 页内重复订单若内容不一致，会以最后一条摘要为准进入后续处理链路
+
+## 注意事项
+
+- 已执行定向回归：`python -m pytest -c tests/pytest.ini -q tests/test_售后页.py tests/test_售后任务.py`，结果 `38 passed`
+- 已执行全量测试：`python -m pytest -c tests/pytest.ini -q`，结果 `400 passed, 16 warnings`
+- 16 条 warning 为既有存量：10 条来自第三方 `openpyxl`，6 条来自 Celery `datetime.utcnow()` 弃用提示
+- `.pipeline/task.md` 仍为当前任务单的本地变更；`data/` 下运行副产物不属于本轮源码改动

@@ -150,6 +150,84 @@ class 测试_售后页:
         模拟页面.remove_listener.assert_called_once()
 
     @pytest.mark.asyncio
+    async def test_拦截售后列表API_只保留最后一次有效响应并按订单号去重(self, 模拟页面):
+        from pages.售后页 import 售后页
+
+        class 假响应:
+            url = "https://mms.pinduoduo.com/mangkhut/afterSales/list"
+            status = 200
+
+            def __init__(self, 数据):
+                self._数据 = 数据
+
+            async def json(self):
+                return self._数据
+
+        响应列表 = [
+            假响应(
+                {
+                    "result": {
+                        "list": [
+                            {
+                                "orderSn": "ORDER-OLD",
+                                "id": 1,
+                                "refundAmount": 100,
+                                "receiveAmount": 200,
+                            }
+                        ]
+                    }
+                }
+            ),
+            假响应(
+                {
+                    "result": {
+                        "list": [
+                            {
+                                "orderSn": "ORDER-NEW",
+                                "id": 2,
+                                "refundAmount": 300,
+                                "receiveAmount": 400,
+                            },
+                            {
+                                "orderSn": "ORDER-NEW",
+                                "id": 3,
+                                "refundAmount": 500,
+                                "receiveAmount": 600,
+                            },
+                        ]
+                    }
+                }
+            ),
+        ]
+
+        def 注册监听(_事件, 回调):
+            for 响应 in 响应列表:
+                asyncio.get_running_loop().call_soon(回调, 响应)
+
+        模拟页面.on.side_effect = 注册监听
+        页面对象 = 售后页(模拟页面)
+
+        结果 = await 页面对象.拦截售后列表API(超时秒=1)
+
+        assert 结果 == [
+            {
+                "订单号": "ORDER-NEW",
+                "售后单ID": "2",
+                "退款金额": 3.0,
+                "实收金额": 4.0,
+                "售后类型": "",
+                "售后类型码": 0,
+                "售后状态": "",
+                "售后状态码": 0,
+                "申请原因": "",
+                "商品名称": "",
+                "发货状态": "",
+                "操作码列表": [],
+                "剩余处理秒数": 0,
+            }
+        ]
+
+    @pytest.mark.asyncio
     async def test_导航并拦截售后列表_首次为空时重试(self, 模拟页面):
         from pages.售后页 import 售后页
 

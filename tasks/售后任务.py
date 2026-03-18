@@ -73,15 +73,19 @@ class 售后任务(基础任务):
         每批最大处理数: int,
         统计: dict[str, int],
     ) -> bool:
-        当前页记录: list[dict[str, Any]] = []
-        当前页订单号集合: set[str] = set()
+        当前页记录映射: dict[str, dict[str, Any]] = {}
 
         for 信息 in 摘要列表:
             if not 信息 or not 信息.get("订单号"):
                 continue
             队列记录 = self._构建队列记录(信息, 批次ID, 店铺ID, 店铺名称)
-            当前页记录.append(队列记录)
-            当前页订单号集合.add(str(队列记录["订单号"]))
+            订单号 = str(队列记录.get("订单号", "")).strip()
+            if not 订单号:
+                continue
+            当前页记录映射[订单号] = 队列记录
+
+        当前页记录 = list(当前页记录映射.values())
+        当前页订单号集合 = set(当前页记录映射.keys())
 
         if not 当前页记录:
             await 上报("[扫描] 当前页未发现有效售后单", 店铺ID)

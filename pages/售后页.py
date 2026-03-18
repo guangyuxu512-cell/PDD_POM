@@ -148,12 +148,15 @@ class 售后页(基础页):
                 if not isinstance(列表数据, list) or not 列表数据:
                     return
 
+                结果容器.clear()
+                已捕获订单号集合: set[str] = set()
                 for 项 in 列表数据:
                     if not isinstance(项, dict):
                         continue
                     订单号 = str(项.get("orderSn") or "").strip()
-                    if not 订单号:
+                    if not 订单号 or 订单号 in 已捕获订单号集合:
                         continue
+                    已捕获订单号集合.add(订单号)
                     结果容器.append(
                         {
                             "订单号": 订单号,
