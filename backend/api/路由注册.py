@@ -10,6 +10,7 @@ from backend.api.流程接口 import 路由 as 流程路由
 from backend.api.浏览器接口 import 路由 as 浏览器路由
 from backend.api.可用任务 import 路由 as 可用任务路由
 from backend.api.执行接口 import 路由 as 执行路由
+from backend.api.运行接口 import 路由 as 运行路由
 from backend.api.定时执行接口 import 路由 as 定时执行路由
 from backend.api.任务接口 import 路由 as 任务路由
 from backend.api.任务参数接口 import 路由 as 任务参数路由
@@ -28,6 +29,7 @@ from backend.api.售后配置接口 import 路由 as 售后配置路由
     浏览器路由,
     可用任务路由,
     执行路由,
+    运行路由,
     定时执行路由,
     任务路由,
     任务参数路由,

@@ -173,6 +173,7 @@ class 测试_批量执行回调:
         with patch("backend.services.执行服务.初始化任务注册表"), \
                 patch("backend.services.执行服务.获取任务类", side_effect=lambda 名称: object()), \
                 patch("backend.services.执行服务.店铺服务实例.根据ID获取", new=AsyncMock(return_value={"id": "shop-1", "name": "店铺一"})), \
+                patch.object(服务, "_写入运行实例快照", new=AsyncMock()), \
                 patch.object(服务, "投递单步任务", new=AsyncMock(side_effect=假投递单步任务)), \
                 patch.object(服务, "_写入批次状态", new=AsyncMock(side_effect=假写入批次状态)):
             await 服务.创建批次(

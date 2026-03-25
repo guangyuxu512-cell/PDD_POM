@@ -88,6 +88,9 @@ class 测试_数据库模型:
                 "shops",
                 "flows",
                 "execution_schedules",
+                "execution_runs",
+                "execution_run_items",
+                "execution_run_steps",
                 "task_logs",
                 "operation_logs",
             }.issubset(表名集合)
@@ -103,6 +106,53 @@ class 测试_数据库模型:
                 "created_at",
                 "updated_at",
             }.issubset(流程字段集合)
+
+            运行实例字段集合 = {
+                行[1] for 行 in 连接.execute("PRAGMA table_info(execution_runs)")
+            }
+            assert {
+                "id",
+                "mode",
+                "flow_id",
+                "task_name",
+                "flow_snapshot",
+                "shop_ids",
+                "requested_concurrency",
+                "actual_concurrency",
+                "status",
+                "total_items",
+                "created_at",
+                "updated_at",
+            }.issubset(运行实例字段集合)
+
+            运行项字段集合 = {
+                行[1] for 行 in 连接.execute("PRAGMA table_info(execution_run_items)")
+            }
+            assert {
+                "id",
+                "run_id",
+                "shop_id",
+                "context_data",
+                "current_step",
+                "total_steps",
+                "status",
+                "created_at",
+                "updated_at",
+            }.issubset(运行项字段集合)
+
+            运行步骤字段集合 = {
+                行[1] for 行 in 连接.execute("PRAGMA table_info(execution_run_steps)")
+            }
+            assert {
+                "id",
+                "run_item_id",
+                "step_index",
+                "task_name",
+                "on_fail",
+                "status",
+                "created_at",
+                "updated_at",
+            }.issubset(运行步骤字段集合)
 
             定时任务字段集合 = {
                 行[1]

@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import sqlite3
 import uuid
 from copy import deepcopy
 from datetime import datetime
@@ -17,6 +18,8 @@ import httpx
 import redis
 import redis.asyncio as aioredis
 
+from backend.models import 数据库 as 数据库模块
+from backend.models.数据库 import 获取连接
 from backend.配置 import 配置实例
 from backend.services.店铺服务 import 店铺服务实例
 from backend.services.流程服务 import 流程服务实例
@@ -264,6 +267,226 @@ def 计算批次汇总(批次数据: Dict[str, Any]) -> Dict[str, Any]:
     return 批次数据
 
 
+def _映射运行状态(批次数据: Dict[str, Any]) -> str:
+    """将批次状态映射到 execution_runs.status。"""
+    if 批次数据.get("stopped"):
+        return "cancelled"
+
+    批次状态 = str(批次数据.get("status") or "").strip()
+    失败数 = int(批次数据.get("failed") or 0)
+    成功数 = int(批次数据.get("completed") or 0)
+
+    if 批次状态 == "completed":
+        if 失败数 > 0 and 成功数 > 0:
+            return "partial_failed"
+        if 失败数 > 0:
+            return "failed"
+        return "completed"
+    if 批次状态 == "failed":
+        return "failed"
+    if 批次状态 == "stopped":
+        return "cancelled"
+    if 批次状态 == "running":
+        return "running"
+    return "queued"
+
+
+def _映射运行项状态(店铺状态: str) -> str:
+    """将批次内店铺状态映射到 execution_run_items.status。"""
+    状态映射 = {
+        "waiting": "queued",
+        "running": "running",
+        "completed": "success",
+        "failed": "failed",
+        "stopped": "cancelled",
+    }
+    return 状态映射.get(str(店铺状态 or "").strip(), "queued")
+
+
+def _映射运行步骤状态(步骤状态: str) -> str:
+    """将批次步骤状态映射到 execution_run_steps.status。"""
+    状态映射 = {
+        "waiting": "queued",
+        "running": "running",
+        "completed": "success",
+        "failed": "failed",
+        "stopped": "cancelled",
+    }
+    return 状态映射.get(str(步骤状态 or "").strip(), "queued")
+
+
+def _构造结果JSON(结果值: Any) -> str:
+    """将结果值统一转换为 JSON 文本。"""
+    if isinstance(结果值, dict):
+        结果数据 = dict(结果值)
+    elif 结果值 in (None, ""):
+        结果数据 = {}
+    else:
+        结果数据 = {"result": 结果值}
+    return json.dumps(结果数据, ensure_ascii=False)
+
+
+def 同步写入运行实例状态(批次数据: Dict[str, Any]) -> bool:
+    """将 Redis 批次快照同步回 execution_run_* 三张表。"""
+    运行ID = str(批次数据.get("batch_id") or "").strip()
+    if not 运行ID:
+        return False
+
+    数据库文件 = getattr(数据库模块, "数据库路径", None)
+    if 数据库文件 is None:
+        return False
+
+    当前时间 = datetime.now().isoformat()
+    运行状态 = _映射运行状态(批次数据)
+    店铺状态表 = dict(批次数据.get("shops") or {})
+
+    try:
+        with sqlite3.connect(
+            数据库文件,
+            timeout=数据库模块.数据库忙等待毫秒 / 1000,
+        ) as 连接:
+            连接.row_factory = sqlite3.Row
+            连接.execute("PRAGMA foreign_keys = ON")
+            连接.execute(f"PRAGMA busy_timeout = {数据库模块.数据库忙等待毫秒}")
+
+            已存在 = 连接.execute(
+                "SELECT id FROM execution_runs WHERE id = ?",
+                (运行ID,),
+            ).fetchone()
+            if not 已存在:
+                return False
+
+            queued_items = 0
+            running_items = 0
+            success_items = 0
+            failed_items = 0
+            cancelled_items = 0
+
+            for 店铺ID, 店铺状态 in 店铺状态表.items():
+                当前运行项状态 = _映射运行项状态(str(店铺状态.get("status") or ""))
+                当前步骤列表 = list(店铺状态.get("steps") or [])
+                当前步骤序号 = int(店铺状态.get("current_step") or 0)
+                最近任务名 = 店铺状态.get("current_task")
+                if 最近任务名 is None and 0 < 当前步骤序号 <= len(当前步骤列表):
+                    最近任务名 = 当前步骤列表[当前步骤序号 - 1].get("task")
+                if 当前运行项状态 == "queued":
+                    queued_items += 1
+                elif 当前运行项状态 == "running":
+                    running_items += 1
+                elif 当前运行项状态 == "success":
+                    success_items += 1
+                elif 当前运行项状态 == "failed":
+                    failed_items += 1
+                elif 当前运行项状态 == "cancelled":
+                    cancelled_items += 1
+
+                开始时间 = 当前时间 if 当前运行项状态 != "queued" else None
+                结束时间 = 当前时间 if 当前运行项状态 in {"success", "failed", "cancelled"} else None
+                连接.execute(
+                    """
+                    UPDATE execution_run_items
+                    SET current_step = ?,
+                        total_steps = ?,
+                        status = ?,
+                        last_task_name = ?,
+                        error = ?,
+                        result_data = ?,
+                        started_at = COALESCE(started_at, ?),
+                        finished_at = CASE
+                            WHEN ? IS NOT NULL THEN ?
+                            ELSE finished_at
+                        END,
+                        updated_at = ?
+                    WHERE id = ?
+                    """,
+                    (
+                        int(店铺状态.get("current_step") or 0),
+                        int(店铺状态.get("total_steps") or len(当前步骤列表)),
+                        当前运行项状态,
+                        最近任务名,
+                        店铺状态.get("last_error"),
+                        _构造结果JSON(店铺状态.get("last_result")),
+                        开始时间,
+                        结束时间,
+                        结束时间,
+                        当前时间,
+                        f"{运行ID}:{店铺ID}",
+                    ),
+                )
+
+                for 步骤序号, 步骤状态 in enumerate(店铺状态.get("steps") or [], start=1):
+                    当前步骤状态 = _映射运行步骤状态(str(步骤状态.get("status") or ""))
+                    步骤开始时间 = 当前时间 if 当前步骤状态 != "queued" else None
+                    步骤结束时间 = 当前时间 if 当前步骤状态 in {"success", "failed", "cancelled", "skipped"} else None
+                    连接.execute(
+                        """
+                        UPDATE execution_run_steps
+                        SET status = ?,
+                            result_data = ?,
+                            error = ?,
+                            started_at = COALESCE(started_at, ?),
+                            finished_at = CASE
+                                WHEN ? IS NOT NULL THEN ?
+                                ELSE finished_at
+                            END,
+                            updated_at = ?
+                        WHERE id = ?
+                        """,
+                        (
+                            当前步骤状态,
+                            _构造结果JSON(步骤状态.get("result")),
+                            步骤状态.get("error"),
+                            步骤开始时间,
+                            步骤结束时间,
+                            步骤结束时间,
+                            当前时间,
+                            f"{运行ID}:{店铺ID}:{步骤序号}",
+                        ),
+                    )
+
+            运行结束时间 = 当前时间 if 运行状态 in {"completed", "partial_failed", "failed", "cancelled"} else None
+            连接.execute(
+                """
+                UPDATE execution_runs
+                SET status = ?,
+                    total_items = ?,
+                    queued_items = ?,
+                    running_items = ?,
+                    success_items = ?,
+                    failed_items = ?,
+                    cancelled_items = ?,
+                    error = ?,
+                    started_at = COALESCE(started_at, ?),
+                    finished_at = CASE
+                        WHEN ? IS NOT NULL THEN ?
+                        ELSE finished_at
+                    END,
+                    updated_at = ?
+                WHERE id = ?
+                """,
+                (
+                    运行状态,
+                    int(批次数据.get("total") or len(店铺状态表)),
+                    queued_items,
+                    running_items,
+                    success_items,
+                    failed_items,
+                    cancelled_items,
+                    None if 运行状态 not in {"failed", "partial_failed", "cancelled"} else str(批次数据.get("error") or ""),
+                    当前时间,
+                    运行结束时间,
+                    运行结束时间,
+                    当前时间,
+                    运行ID,
+                ),
+            )
+            连接.commit()
+            return True
+    except Exception as e:
+        print(f"[执行服务] 同步运行实例状态失败（忽略）: batch_id={运行ID}, error={e}")
+        return False
+
+
 def 更新店铺步骤状态(
     批次数据: Dict[str, Any],
     shop_id: str,
@@ -333,6 +556,7 @@ def 同步写入批次状态(批次数据: Dict[str, Any]) -> Dict[str, Any]:
         客户端.set(批次状态键(批次数据["batch_id"]), 序列化数据)
         客户端.set(当前批次键, 批次数据["batch_id"])
         客户端.publish(执行状态频道, 序列化数据)
+        同步写入运行实例状态(批次数据)
         尝试发送批次完成回调(批次数据, Redis客户端=客户端)
         return 批次数据
     finally:
@@ -467,6 +691,129 @@ async def 清除取消标记(batch_id: str) -> bool:
 class 执行服务:
     """批量执行与执行状态服务。"""
 
+    async def _写入运行实例快照(
+        self,
+        *,
+        run_id: str,
+        flow_id: Optional[str],
+        task_name: Optional[str],
+        shop_ids: List[str],
+        步骤模板: List[Dict[str, Any]],
+        concurrency: int,
+        callback_url: Optional[str],
+        流程参数记录映射: Dict[str, List[Dict[str, Any]]],
+    ) -> None:
+        """为后续运行中心改造预先落一份运行实例快照。"""
+        当前时间 = datetime.now().isoformat()
+        实际并发 = min(concurrency, len(shop_ids)) if shop_ids else 0
+
+        async with 获取连接() as 连接:
+            await 连接.execute(
+                """
+                INSERT OR REPLACE INTO execution_runs (
+                    id, mode, flow_id, task_name, flow_snapshot, input_set_id, shop_ids,
+                    requested_concurrency, actual_concurrency, callback_url, trigger_source,
+                    status, total_items, queued_items, running_items, success_items, failed_items,
+                    cancelled_items, error, created_at, started_at, finished_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    run_id,
+                    "flow" if flow_id else "task",
+                    flow_id,
+                    task_name,
+                    json.dumps(步骤模板, ensure_ascii=False),
+                    None,
+                    json.dumps(shop_ids, ensure_ascii=False),
+                    concurrency,
+                    实际并发,
+                    callback_url,
+                    "manual",
+                    "running",
+                    len(shop_ids),
+                    len(shop_ids),
+                    0,
+                    0,
+                    0,
+                    0,
+                    None,
+                    当前时间,
+                    当前时间,
+                    None,
+                    当前时间,
+                ),
+            )
+
+            for 店铺ID in shop_ids:
+                运行项ID = f"{run_id}:{店铺ID}"
+                flow_param_ids = [
+                    int(流程参数记录["id"])
+                    for 流程参数记录 in 流程参数记录映射.get(店铺ID, [])
+                    if 流程参数记录.get("id") is not None
+                ]
+                上下文快照: Dict[str, Any] = {"flow_param_ids": flow_param_ids}
+                if flow_id and not flow_param_ids:
+                    上下文快照["flow_context"] = {}
+
+                await 连接.execute(
+                    """
+                    INSERT OR REPLACE INTO execution_run_items (
+                        id, run_id, shop_id, input_row_id, context_data, current_step, total_steps,
+                        status, last_task_name, error, result_data, created_at, started_at,
+                        finished_at, updated_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        运行项ID,
+                        run_id,
+                        店铺ID,
+                        None,
+                        json.dumps(上下文快照, ensure_ascii=False),
+                        0,
+                        len(步骤模板),
+                        "queued",
+                        None,
+                        None,
+                        json.dumps({}, ensure_ascii=False),
+                        当前时间,
+                        None,
+                        None,
+                        当前时间,
+                    ),
+                )
+
+                for 步骤序号, 步骤 in enumerate(步骤模板, start=1):
+                    await 连接.execute(
+                        """
+                        INSERT OR REPLACE INTO execution_run_steps (
+                            id, run_item_id, step_index, task_name, on_fail, barrier, merge,
+                            status, params_snapshot, result_data, error, celery_task_id, worker_id,
+                            created_at, started_at, finished_at, updated_at
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        """,
+                        (
+                            f"{运行项ID}:{步骤序号}",
+                            运行项ID,
+                            步骤序号,
+                            str(步骤.get("task") or ""),
+                            str(步骤.get("on_fail") or "abort"),
+                            1 if 步骤.get("barrier") else 0,
+                            1 if 步骤.get("merge") else 0,
+                            "queued",
+                            json.dumps({}, ensure_ascii=False),
+                            json.dumps({}, ensure_ascii=False),
+                            None,
+                            None,
+                            None,
+                            当前时间,
+                            None,
+                            None,
+                            当前时间,
+                        ),
+                    )
+
+            await 连接.commit()
+
     async def _获取异步Redis客户端(self):
         """获取异步 Redis 客户端。"""
         return aioredis.from_url(配置实例.REDIS_URL, decode_responses=True)
@@ -512,6 +859,7 @@ class 执行服务:
             await 客户端.set(批次状态键(批次数据["batch_id"]), 序列化数据)
             await 客户端.set(当前批次键, 批次数据["batch_id"])
             await 客户端.publish(执行状态频道, 序列化数据)
+            同步写入运行实例状态(批次数据)
             return 批次数据
         finally:
             await self._关闭异步Redis客户端(客户端)
@@ -563,6 +911,7 @@ class 执行服务:
         total_steps: int,
         flow_param_id: Optional[int] = None,
         flow_param_ids: Optional[List[int]] = None,
+        flow_mode: bool = False,
         merge: bool = False,
         queue_name: Optional[str] = None,
         批次数据: Optional[Dict[str, Any]] = None,
@@ -582,6 +931,7 @@ class 执行服务:
             total_steps=total_steps,
             flow_param_id=flow_param_id,
             flow_param_ids=flow_param_ids,
+            flow_mode=flow_mode,
             merge=merge,
         ).set(queue=目标队列, routing_key=目标队列)
 
@@ -645,19 +995,25 @@ class 执行服务:
         流程参数记录映射: Dict[str, List[Dict[str, Any]]] = {}
 
         if flow_id:
-            可执行店铺ID列表 = []
             for 店铺ID in 标准店铺ID列表:
                 待执行记录列表 = await 流程参数服务实例.获取待执行列表(店铺ID, str(flow_id))
-                if not 待执行记录列表:
-                    continue
-
                 流程参数记录映射[店铺ID] = 待执行记录列表
-                可执行店铺ID列表.append(店铺ID)
 
         batch_id = uuid.uuid4().hex
         machine_id = 获取默认机器编号()
         queue_name = 获取队列名称(machine_id)
         标准回调地址 = str(callback_url or "").strip() or None
+
+        await self._写入运行实例快照(
+            run_id=batch_id,
+            flow_id=flow_id,
+            task_name=task_name,
+            shop_ids=可执行店铺ID列表,
+            步骤模板=步骤模板,
+            concurrency=concurrency,
+            callback_url=标准回调地址,
+            流程参数记录映射=流程参数记录映射,
+        )
 
         if flow_id:
             for 记录列表 in 流程参数记录映射.values():
@@ -716,7 +1072,25 @@ class 执行服务:
                         step_index=1,
                         total_steps=len(步骤模板),
                         flow_param_ids=[int(流程参数记录["id"]) for 流程参数记录 in 店铺流程参数记录],
+                        flow_mode=True,
                         merge=bool(首步骤.get("merge")),
+                        queue_name=queue_name,
+                        批次数据=批次数据,
+                        立即投递=False,
+                    )
+                    待投递任务列表.append(投递结果["signature"])
+                    continue
+
+                if not 店铺流程参数记录:
+                    投递结果 = await self.投递单步任务(
+                        batch_id=batch_id,
+                        shop_id=店铺ID,
+                        shop_name=店铺名称,
+                        task_name=首步骤["task"],
+                        on_fail=首步骤["on_fail"],
+                        step_index=1,
+                        total_steps=len(步骤模板),
+                        flow_mode=True,
                         queue_name=queue_name,
                         批次数据=批次数据,
                         立即投递=False,
@@ -734,6 +1108,7 @@ class 执行服务:
                         step_index=1,
                         total_steps=len(步骤模板),
                         flow_param_id=int(流程参数记录["id"]),
+                        flow_mode=True,
                         queue_name=queue_name,
                         批次数据=批次数据,
                         立即投递=False,

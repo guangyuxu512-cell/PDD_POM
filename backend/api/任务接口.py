@@ -13,7 +13,9 @@ from backend.models.数据结构 import (
     失败,
     任务执行请求,
 )
+from backend.services.执行服务 import 执行服务实例
 from backend.services.流程参数服务 import 流程参数服务实例
+from backend.services.运行服务 import 运行服务实例
 from backend.services.任务服务 import 任务服务实例, 任务服务
 
 
@@ -96,12 +98,26 @@ async def 内部执行任务(请求: 内部执行请求) -> 统一响应:
     """供 Worker 同步阻塞调用主进程执行任务。"""
     flow_param_id = 请求.flow_param_id
     params = dict(请求.params or {})
+    flow_mode = bool(params.get("flow_mode"))
+    flow_param_ids = 任务服务._标准化流程参数ID列表(params.get("flow_param_ids"))
     step_index = int(params.get("step_index") or 0)
     total_steps = int(params.get("total_steps") or 0)
     on_fail = str(params.get("on_fail") or "abort")
+    batch_id = str(params.get("batch_id") or "").strip()
+    无流程参数运行模式 = flow_mode and flow_param_id is None and not flow_param_ids
     临时任务服务 = 任务服务()
 
     try:
+        if 无流程参数运行模式:
+            已存流程上下文 = {}
+            if batch_id:
+                已存流程上下文 = await 运行服务实例.获取运行项流程上下文(batch_id, 请求.shop_id)
+
+            if 已存流程上下文:
+                params["flow_context"] = 已存流程上下文
+            elif not isinstance(params.get("flow_context"), dict):
+                params["flow_context"] = {}
+
         if flow_param_id is not None:
             await 流程参数服务实例.更新(
                 flow_param_id,
@@ -142,6 +158,13 @@ async def 内部执行任务(请求: 内部执行请求) -> 统一响应:
             来源="worker",
         )
 
+        if flow_mode and flow_param_id is None and 结果.get("status") == "completed" and 结果.get("result") != "成功":
+            结果 = {
+                **结果,
+                "status": "failed",
+                "error": str(结果.get("error") or 结果.get("result") or "流程步骤执行失败"),
+            }
+
         if flow_param_id is not None:
             await 临时任务服务.处理流程步骤执行完成(
                 flow_param_id=flow_param_id,
@@ -151,6 +174,35 @@ async def 内部执行任务(请求: 内部执行请求) -> 统一响应:
                 on_fail=on_fail,
                 执行结果=结果,
             )
+        elif 无流程参数运行模式 and batch_id:
+            运行推进结果 = await 运行服务实例.回写无流程参数步骤结果(
+                run_id=batch_id,
+                shop_id=请求.shop_id,
+                task_name=请求.task_name,
+                step_index=step_index,
+                请求参数=params,
+                执行结果=结果,
+            )
+
+            允许继续 = 临时任务服务._业务执行成功(结果) or on_fail in {"continue", "log_and_skip"}
+            下一步骤 = (运行推进结果 or {}).get("next_step")
+            下一步总步骤数 = int((运行推进结果 or {}).get("total_steps") or total_steps)
+            if 允许继续 and isinstance(下一步骤, dict):
+                批次状态 = await 执行服务实例.获取最新批次状态(batch_id=batch_id)
+                if 批次状态 and not 批次状态.get("stopped"):
+                    店铺状态 = dict((批次状态.get("shops") or {}).get(请求.shop_id) or {})
+                    await 执行服务实例.投递单步任务(
+                        batch_id=batch_id,
+                        shop_id=请求.shop_id,
+                        shop_name=str(店铺状态.get("shop_name") or 请求.shop_id),
+                        task_name=str(下一步骤.get("task") or ""),
+                        on_fail=str(下一步骤.get("on_fail") or "abort"),
+                        step_index=step_index + 1,
+                        total_steps=下一步总步骤数,
+                        flow_mode=True,
+                        merge=bool(下一步骤.get("merge")),
+                        queue_name=str(批次状态.get("queue_name") or "") or None,
+                    )
 
         return 成功(data=结果)
     except Exception as e:

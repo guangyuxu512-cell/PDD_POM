@@ -303,6 +303,112 @@ class 测试_执行任务:
         下一步签名.set.assert_called_once_with(queue="worker.machine-2", routing_key="worker.machine-2")
         下一步签名.apply_async.assert_called_once()
 
+    def test_flow_mode无流程参数时会注入空流程上下文并改由主进程推进下一步(self):
+        假任务对象 = SimpleNamespace(
+            request=SimpleNamespace(id="celery-7", retries=0),
+            retry=MagicMock(),
+        )
+        客户端, 客户端上下文 = 构造HTTP客户端上下文(
+            {
+                "code": 0,
+                "data": {
+                    "task_id": "task-log-8",
+                    "status": "completed",
+                    "result": "成功",
+                },
+            }
+        )
+        下一步签名 = 构造Celery签名()
+        批次状态 = {
+            "queue_name": "worker.machine-3",
+            "shops": {
+                "shop-1": {
+                    "steps": [
+                        {"task": "登录", "on_fail": "abort", "merge": False},
+                        {"task": "发布相似商品", "on_fail": "continue", "merge": False},
+                    ]
+                }
+            },
+        }
+
+        with patch("tasks.执行任务.初始化Worker环境"), \
+                patch("tasks.执行任务.获取任务类"), \
+                patch("tasks.执行任务.httpx.Client", return_value=客户端上下文), \
+                patch("tasks.执行任务.同步更新批次店铺状态"), \
+                patch("tasks.执行任务.同步读取批次状态", return_value=批次状态), \
+                patch("tasks.执行任务.同步检查取消标记", return_value=False), \
+                patch.object(执行任务对象, "si", return_value=下一步签名) as 模拟投递下一步:
+            执行任务函数(
+                假任务对象,
+                batch_id="batch-1",
+                shop_id="shop-1",
+                task_name="登录",
+                on_fail="abort",
+                step_index=1,
+                total_steps=2,
+                flow_mode=True,
+            )
+
+        请求体 = 客户端.post.call_args.kwargs["json"]
+        assert "flow_param_id" not in 请求体
+        assert 请求体["params"]["flow_mode"] is True
+        assert 请求体["params"]["flow_context"] == {}
+        模拟投递下一步.assert_not_called()
+        下一步签名.set.assert_not_called()
+        下一步签名.apply_async.assert_not_called()
+
+    def test_flow_mode无流程参数_continue失败时也不在Worker侧续投递(self):
+        假任务对象 = SimpleNamespace(
+            request=SimpleNamespace(id="celery-8", retries=0),
+            retry=MagicMock(),
+        )
+        客户端, 客户端上下文 = 构造HTTP客户端上下文(
+            {
+                "code": 0,
+                "data": {
+                    "task_id": "task-log-9",
+                    "status": "failed",
+                    "error": "boom",
+                },
+            }
+        )
+        下一步签名 = 构造Celery签名()
+        批次状态 = {
+            "queue_name": "worker.machine-4",
+            "shops": {
+                "shop-1": {
+                    "steps": [
+                        {"task": "登录", "on_fail": "continue", "merge": False},
+                        {"task": "发布相似商品", "on_fail": "abort", "merge": False},
+                    ]
+                }
+            },
+        }
+
+        with patch("tasks.执行任务.初始化Worker环境"), \
+                patch("tasks.执行任务.获取任务类"), \
+                patch("tasks.执行任务.httpx.Client", return_value=客户端上下文), \
+                patch("tasks.执行任务.同步更新批次店铺状态"), \
+                patch("tasks.执行任务.同步读取批次状态", return_value=批次状态), \
+                patch("tasks.执行任务.同步检查取消标记", return_value=False), \
+                patch.object(执行任务对象, "si", return_value=下一步签名) as 模拟投递下一步:
+            结果 = 执行任务函数(
+                假任务对象,
+                batch_id="batch-1",
+                shop_id="shop-1",
+                task_name="登录",
+                on_fail="continue",
+                step_index=1,
+                total_steps=2,
+                flow_mode=True,
+            )
+
+        assert 结果["status"] == "continued"
+        assert 客户端.post.call_args.kwargs["json"]["params"]["flow_mode"] is True
+        模拟投递下一步.assert_not_called()
+        下一步签名.set.assert_not_called()
+        下一步签名.apply_async.assert_not_called()
+
     def test_内部接口返回业务失败时直接抛错(self):
         假任务对象 = SimpleNamespace(
             request=SimpleNamespace(id="celery-3", retries=0),

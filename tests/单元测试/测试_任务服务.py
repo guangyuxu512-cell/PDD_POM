@@ -460,3 +460,36 @@ class 测试_任务服务:
         assert 结果["error"] == "用户手动停止"
         assert 模拟更新任务状态.await_args_list[-1].args[1] == "cancelled"
         模拟执行任务.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_统一执行任务_请求参数中的_flow_context会注入到店铺配置(self):
+        with patch("backend.services.任务服务.任务服务实例.更新任务状态", new=AsyncMock()), \
+                patch("backend.services.浏览器服务.确保已初始化", new=AsyncMock()), \
+                patch("backend.services.浏览器服务.获取当前管理器实例", return_value=假管理器()), \
+                patch("backend.services.任务服务.任务服务实例._确保页面可用", new=AsyncMock(return_value=object())), \
+                patch("backend.services.执行服务.检查取消标记", new=AsyncMock(return_value=False)), \
+                patch("backend.services.店铺服务.店铺服务实例.根据ID获取完整信息", new=AsyncMock(return_value={
+                    "id": "shop-1",
+                    "name": "测试店铺",
+                    "username": "demo",
+                    "password": "pwd",
+                })), \
+                patch("backend.services.店铺服务.店铺服务实例.更新", new=AsyncMock()), \
+                patch(
+                    "backend.services.任务服务.任务服务实例.执行任务",
+                    new=AsyncMock(return_value={"result": "成功", "result_data": {"ok": True}}),
+                ) as 模拟执行任务:
+            结果 = await 任务服务实例.统一执行任务(
+                task_id="task-flow-1",
+                shop_id="shop-1",
+                task_name="发布相似商品",
+                params={
+                    "batch_id": "batch-1",
+                    "flow_mode": True,
+                    "flow_context": {"parent_product_id": "9001"},
+                },
+                来源="worker",
+            )
+
+        assert 结果["status"] == "completed"
+        assert 模拟执行任务.await_args.kwargs["店铺配置"]["flow_context"] == {"parent_product_id": "9001"}

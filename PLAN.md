@@ -2342,3 +2342,82 @@
 - [x] 定向验证结果：`37 passed`
 - [x] 全量验证通过：`python -m pytest -c tests/pytest.ini tests/ -v`
 - [x] 全量验证结果：`416 passed, 16 warnings`（10 条为第三方 `openpyxl` 警告，6 条为现有 Celery 警告）
+
+## Prompt 115：输出流程执行架构改造方案文档 ✅
+
+- [x] 新增 `docs/流程执行架构改造方案.md`
+- [x] 文档明确拆分模板层、输入层、运行层，说明当前 `flows / flow_params / task_params` 的问题与改造目标
+- [x] 文档给出新表结构草案：`flow_input_sets`、`flow_input_rows`、`execution_runs`、`execution_run_items`、`execution_run_steps`
+- [x] 文档给出新接口草案：流程预检、输入集管理、流程启动、运行查询、单任务统一入口
+- [x] 文档给出调度职责边界、并发策略和分阶段迁移建议
+- [x] 本轮仅新增文档与计划记录，不修改业务代码，不执行测试
+
+## Prompt 116：流程批次启动解耦与运行实例表落地 ✅
+
+- [x] 更新 `backend/services/执行服务.py`
+- [x] flow 模式创建批次时不再因缺少 `flow_params` 而跳过店铺
+- [x] flow 模式首步投递统一透传 `flow_mode=True`
+- [x] 新增运行实例快照写入：`execution_runs`、`execution_run_items`、`execution_run_steps`
+- [x] 更新 `tasks/执行任务.py`
+- [x] 无 `flow_param_id/flow_param_ids` 的 flow 步骤自动注入空 `flow_context`
+- [x] 下一步续投递时保留 `flow_mode`
+- [x] 更新 `backend/api/任务接口.py`
+- [x] 无 `flow_params` 的 flow 内部执行会自动补空上下文
+- [x] 无 `flow_params` 的 flow 若返回非“成功”，统一转为显式失败结果
+- [x] 更新 `backend/services/任务服务.py`
+- [x] `统一执行任务(...)` 支持从 `params` 接收并透传 `flow_context`
+- [x] 更新 `backend/models/数据库.py`
+- [x] 新增运行实例三张表与索引：`execution_runs`、`execution_run_items`、`execution_run_steps`
+- [x] 更新单元测试：
+  - `tests/单元测试/测试_执行服务.py`
+  - `tests/单元测试/测试_执行任务.py`
+  - `tests/单元测试/测试_任务接口内部执行.py`
+  - `tests/单元测试/测试_任务服务.py`
+  - `tests/单元测试/测试_数据库模型.py`
+  - `tests/单元测试/测试_批量执行店铺名.py`
+  - `tests/单元测试/测试_批量执行回调.py`
+- [x] 验证通过：`python -m pytest -c tests/pytest.ini -q`
+- [x] 全量验证结果：`419 passed, 16 warnings`
+
+## Prompt 117：运行中心状态同步与查询接口 ✅
+
+- [x] 更新 `backend/services/执行服务.py`
+- [x] 新增批次状态到 `execution_runs / execution_run_items / execution_run_steps` 的同步回写
+- [x] `同步写入批次状态(...)` 与 `_写入批次状态(...)` 都会同步运行实例状态
+- [x] 新增 `backend/services/运行服务.py`
+- [x] 提供运行列表、运行详情、运行项列表、运行步骤列表查询
+- [x] 新增 `backend/api/运行接口.py`
+- [x] 新增接口：
+  - `GET /api/runs`
+  - `GET /api/runs/{run_id}`
+  - `GET /api/runs/{run_id}/items`
+  - `GET /api/runs/{run_id}/steps`
+  - `POST /api/runs/{run_id}/cancel`
+- [x] 更新 `backend/api/路由注册.py`
+- [x] 新增单元测试：
+  - `tests/单元测试/测试_运行服务.py`
+  - `tests/单元测试/测试_运行接口.py`
+- [x] 验证通过：`python -m pytest -c tests/pytest.ini -q`
+- [x] 全量验证结果：`424 passed, 16 warnings`
+
+## Prompt 118：`flow_mode` 无 `flow_param` 编排收口到主进程 ✅
+
+- [x] 更新 `backend/services/运行服务.py`
+- [x] 新增 `获取运行项(...)`、`获取运行项流程上下文(...)`、`回写无流程参数步骤结果(...)`
+- [x] 无 `flow_param` 的运行项会把每一步成功结果累积到 `execution_run_items.context_data.flow_context`
+- [x] 当前步骤的 `params_snapshot` / `result_data` 会同步回写到 `execution_run_steps`
+- [x] 更新 `backend/api/任务接口.py`
+- [x] `POST /api/tasks/execute-internal` 在 `flow_mode=True` 且无 `flow_param_id/flow_param_ids` 时，先从运行实例读取累计 `flow_context`
+- [x] 当前步骤执行完成后，由主进程判断 `on_fail` 是否允许继续并决定是否投递下一步
+- [x] 续投递时复用当前批次的 `queue_name` 和店铺名，不再回退到默认队列
+- [x] 更新 `tasks/执行任务.py`
+- [x] 无 `flow_param` 的 `flow_mode` 成功 / `continue` 失败分支不再由 Worker 本地 `_投递下一步()`
+- [x] 旧 `flow_param` / `flow_param_ids` 链路保持现状，避免本轮扩大影响面
+- [x] 更新单元测试：
+  - `tests/单元测试/测试_运行服务.py`
+  - `tests/单元测试/测试_任务接口内部执行.py`
+  - `tests/单元测试/测试_执行任务.py`
+- [x] 定向验证通过：`python -m pytest -c tests/pytest.ini tests/单元测试/测试_运行服务.py tests/单元测试/测试_任务接口内部执行.py tests/单元测试/测试_执行任务.py -q`
+- [x] 定向验证结果：`18 passed`
+- [x] 验证通过：`python -m pytest -c tests/pytest.ini -q`
+- [x] 全量验证结果：`428 passed, 16 warnings`

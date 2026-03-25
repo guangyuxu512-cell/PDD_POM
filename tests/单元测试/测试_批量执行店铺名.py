@@ -76,6 +76,7 @@ class 测试_批次创建店铺名:
                     ]),
                 ), \
                 patch("backend.services.执行服务.流程参数服务实例.更新", new=AsyncMock()), \
+                patch.object(服务, "_写入运行实例快照", new=AsyncMock()), \
                 patch.object(服务, "投递单步任务", new=AsyncMock(side_effect=假投递单步任务)), \
                 patch.object(服务, "_写入批次状态", new=AsyncMock(side_effect=假写入批次状态)):
             结果 = await 服务.创建批次(
@@ -92,6 +93,8 @@ class 测试_批次创建店铺名:
         assert 投递调用列表[1]["shop_name"] == "Huanyu"
         assert 投递调用列表[0]["flow_param_id"] == 301
         assert 投递调用列表[1]["flow_param_id"] == 302
+        assert 投递调用列表[0]["flow_mode"] is True
+        assert 投递调用列表[1]["flow_mode"] is True
 
     @pytest.mark.asyncio
     async def test_创建批次_店铺缺少名称时回退店铺ID(self):
@@ -121,6 +124,7 @@ class 测试_批次创建店铺名:
                     "backend.services.执行服务.店铺服务实例.根据ID获取",
                     new=AsyncMock(return_value={"id": "shop-1", "name": ""}),
                 ), \
+                patch.object(服务, "_写入运行实例快照", new=AsyncMock()), \
                 patch.object(服务, "投递单步任务", new=AsyncMock(side_effect=假投递单步任务)), \
                 patch.object(服务, "_写入批次状态", new=AsyncMock(side_effect=假写入批次状态)):
             await 服务.创建批次(

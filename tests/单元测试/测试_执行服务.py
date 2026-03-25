@@ -77,6 +77,7 @@ class 测试_执行服务:
                     ),
                 ), \
                 patch("backend.services.执行服务.流程参数服务实例.更新", new=AsyncMock()) as 模拟更新流程参数, \
+                patch.object(服务, "_写入运行实例快照", new=AsyncMock()), \
                 patch.object(服务, "投递单步任务", new=AsyncMock(side_effect=假投递单步任务)), \
                 patch.object(服务, "_写入批次状态", new=AsyncMock(side_effect=假写入批次状态)):
             结果 = await 服务.创建批次(
@@ -98,17 +99,21 @@ class 测试_执行服务:
         assert 已写入批次["shops"]["shop-1"]["task_ids"] == ["shop-1-101-102"]
         assert 已写入批次["shops"]["shop-2"]["task_ids"] == ["shop-2-201"]
         assert 投递调用列表[0]["flow_param_ids"] == [101, 102]
+        assert 投递调用列表[0]["flow_mode"] is True
         assert 投递调用列表[0]["merge"] is False
         assert 投递调用列表[1]["flow_param_ids"] == [201]
+        assert 投递调用列表[1]["flow_mode"] is True
         assert 模拟更新流程参数.await_count == 3
 
     @pytest.mark.asyncio
-    async def test_创建批次_流程模式跳过无待执行流程参数的店铺(self):
-        """flow 模式下，无待执行 flow_params 的店铺应被静默跳过。"""
+    async def test_创建批次_流程模式无待执行流程参数时仍创建空上下文任务(self):
+        """flow 模式下，即使某店铺没有 flow_params，也应创建批次并投递首步任务。"""
         服务 = 执行服务模块.执行服务()
         已写入批次 = {}
+        投递调用列表 = []
 
         async def 假投递单步任务(**kwargs):
+            投递调用列表.append(kwargs)
             kwargs["批次数据"]["shops"][kwargs["shop_id"]]["task_ids"].append("task-1")
             kwargs["批次数据"]["task_ids"].append("task-1")
             return {
@@ -135,6 +140,7 @@ class 测试_执行服务:
                     new=AsyncMock(side_effect=[[{"id": 201}], []]),
                 ), \
                 patch("backend.services.执行服务.流程参数服务实例.更新", new=AsyncMock()), \
+                patch.object(服务, "_写入运行实例快照", new=AsyncMock()), \
                 patch.object(服务, "投递单步任务", new=AsyncMock(side_effect=假投递单步任务)), \
                 patch.object(服务, "_写入批次状态", new=AsyncMock(side_effect=假写入批次状态)):
             结果 = await 服务.创建批次(
@@ -144,8 +150,12 @@ class 测试_执行服务:
                 concurrency=1,
             )
 
-        assert 结果["total"] == 1
-        assert list(已写入批次["shops"].keys()) == ["shop-1"]
+        assert 结果["total"] == 2
+        assert list(已写入批次["shops"].keys()) == ["shop-1", "shop-2"]
+        assert 投递调用列表[0]["flow_param_id"] == 201
+        assert 投递调用列表[0]["flow_mode"] is True
+        assert "flow_param_id" not in 投递调用列表[1]
+        assert 投递调用列表[1]["flow_mode"] is True
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize(

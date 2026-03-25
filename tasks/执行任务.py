@@ -81,6 +81,7 @@ def 执行任务(
     total_steps: int = 1,
     flow_param_id: Optional[int] = None,
     flow_param_ids: Optional[List[int]] = None,
+    flow_mode: bool = False,
     merge: bool = False,
 ) -> Dict[str, Any]:
     """
@@ -102,6 +103,7 @@ def 执行任务(
     显式传入多记录 = bool(标准流程参数ID列表)
     if not 标准流程参数ID列表 and flow_param_id is not None:
         标准流程参数ID列表 = [int(flow_param_id)]
+    无流程参数运行模式 = flow_mode and flow_param_id is None and not 标准流程参数ID列表
 
     任务参数 = {
         "batch_id": batch_id,
@@ -111,9 +113,13 @@ def 执行任务(
         "celery_task_id": self.request.id,
         "on_fail": on_fail,
     }
+    if flow_mode:
+        任务参数["flow_mode"] = True
     if 标准流程参数ID列表:
         任务参数["flow_param_ids"] = 标准流程参数ID列表
         任务参数["merge"] = bool(merge)
+    elif flow_mode:
+        任务参数["flow_context"] = {}
 
     print(
         f"[执行任务] 开始执行: shop_name={展示店铺名}, "
@@ -168,6 +174,8 @@ def 执行任务(
             "total_steps": total_steps,
             "merge": 下一步合并,
         }
+        if flow_mode:
+            下一步参数["flow_mode"] = True
         if flow_param_ids:
             下一步参数["flow_param_ids"] = flow_param_ids
         elif flow_param_id is not None:
@@ -227,7 +235,8 @@ def 执行任务(
                 shop_status="completed" if step_index >= total_steps else "running",
                 result=执行结果.get("result"),
             )
-            _投递下一步()
+            if not 无流程参数运行模式:
+                _投递下一步()
         return 执行结果
 
     错误信息 = 执行结果.get("error") or "任务执行失败"
@@ -258,7 +267,8 @@ def 执行任务(
                 shop_status="completed" if step_index >= total_steps else "running",
                 error=错误信息,
             )
-            _投递下一步()
+            if not 无流程参数运行模式:
+                _投递下一步()
         返回结果 = {
             "task_id": 执行结果["task_id"],
             "shop_id": shop_id,

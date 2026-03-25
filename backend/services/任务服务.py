@@ -1234,6 +1234,8 @@ class 任务服务:
                     店铺配置["flow_param_ids"] = self._标准化流程参数ID列表(params.get("flow_param_ids"))
                 if params.get("merge") is not None:
                     店铺配置["merge"] = bool(params.get("merge"))
+                if isinstance(params.get("flow_context"), dict):
+                    店铺配置["flow_context"] = dict(params.get("flow_context") or {})
 
             当前批次ID = str(店铺配置.get("batch_id") or "")
             if await self._已收到批次取消(当前批次ID):

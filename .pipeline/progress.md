@@ -3393,6 +3393,119 @@
 
 ## 任务摘要
 
+完成流程执行架构改造的首个落地切片：让 flow 批次不再依赖 `flow_params` 才能启动，并新增运行实例三张表的基础落库。
+
+## 改动文件列表
+
+- `backend/services/执行服务.py`
+- `tasks/执行任务.py`
+- `backend/api/任务接口.py`
+- `backend/services/任务服务.py`
+- `backend/models/数据库.py`
+- `tests/单元测试/测试_执行服务.py`
+- `tests/单元测试/测试_执行任务.py`
+- `tests/单元测试/测试_任务接口内部执行.py`
+- `tests/单元测试/测试_任务服务.py`
+- `tests/单元测试/测试_数据库模型.py`
+- `tests/单元测试/测试_批量执行店铺名.py`
+- `tests/单元测试/测试_批量执行回调.py`
+- `PLAN.md`
+- `改造进度.md`
+- `.pipeline/progress.md`
+
+## 改动说明
+
+- `backend/services/执行服务.py`
+  - flow 模式创建批次时不再因缺少 `flow_params` 而跳过店铺
+  - 新增 `_写入运行实例快照(...)`，在批次创建时写入 `execution_runs / execution_run_items / execution_run_steps`
+  - flow 模式首步投递统一加上 `flow_mode=True`
+- `tasks/执行任务.py`
+  - 新增 `flow_mode` 参数
+  - 无 `flow_param_id/flow_param_ids` 的 flow 步骤会自动携带空 `flow_context`
+  - 下一步续投递时继续透传 `flow_mode`
+- `backend/api/任务接口.py`
+  - `execute-internal` 在空 flow 上下文场景下自动补 `flow_context = {}`
+  - 对无 `flow_params` 的 flow 步骤，若返回结果不是“成功”，统一转成显式 `failed`
+- `backend/services/任务服务.py`
+  - `统一执行任务(...)` 新增从 `params` 注入 `flow_context` 到 `店铺配置`
+- `backend/models/数据库.py`
+  - 新增运行实例三张表和相关索引
+- 测试文件
+  - 新增/更新用例覆盖：flow 批次空上下文启动、Worker 空上下文透传、内部执行接口失败语义、`flow_context` 注入、运行实例建表结果
+- `PLAN.md` / `改造进度.md` / `.pipeline/progress.md`
+  - 同步记录本轮改造范围与验证结果
+
+## 影响范围
+
+- 创建了多个流程模板时，即使某个流程还没有导入 `flow_params`，也可以先启动批次
+- 空 flow 上下文不再表现为“点了没反应”，而是会进入可观测的执行结果
+- 数据库已具备运行实例层的基础表结构，为后续把运行状态彻底迁出 `flow_params` 做准备
+
+## 注意事项
+
+- 本轮只落了第一阶段切片，运行中的状态回写还没有全面切到 `execution_run_*`
+- 已执行定向回归：`python -m pytest -c tests/pytest.ini -q tests/单元测试/测试_执行服务.py tests/单元测试/测试_执行任务.py tests/单元测试/测试_任务接口内部执行.py tests/单元测试/测试_任务服务.py tests/单元测试/测试_数据库模型.py tests/单元测试/测试_批量执行店铺名.py tests/单元测试/测试_批量执行回调.py`，结果 `46 passed`
+- 已执行全量测试：`python -m pytest -c tests/pytest.ini -q`，结果 `419 passed, 16 warnings`
+- 16 条 warning 为既有存量：10 条来自第三方 `openpyxl`，6 条来自 Celery `datetime.utcnow()` 弃用提示
+- `.pipeline/task.md` 仍为当前任务单的既有本地变更，未在本轮修改
+
+---
+
+## 任务摘要
+
+完成运行中心最小可用版：批次状态会同步回 `execution_run_*`，并新增运行列表、详情、运行项、步骤查询接口。
+
+## 改动文件列表
+
+- `backend/services/执行服务.py`
+- `backend/services/运行服务.py`
+- `backend/api/运行接口.py`
+- `backend/api/路由注册.py`
+- `tests/单元测试/测试_运行服务.py`
+- `tests/单元测试/测试_运行接口.py`
+- `PLAN.md`
+- `改造进度.md`
+- `.pipeline/progress.md`
+
+## 改动说明
+
+- `backend/services/执行服务.py`
+  - 新增 `同步写入运行实例状态(...)`
+  - 将批次快照里的运行状态、店铺状态、步骤状态映射回 `execution_runs / execution_run_items / execution_run_steps`
+  - 异步 `_写入批次状态(...)` 和同步 `同步写入批次状态(...)` 都接入该同步逻辑
+- `backend/services/运行服务.py`
+  - 新增运行中心查询服务
+  - 提供运行列表、运行详情、运行项列表、运行步骤列表查询，并解析 JSON 字段
+- `backend/api/运行接口.py`
+  - 新增 `GET /api/runs`
+  - 新增 `GET /api/runs/{run_id}`
+  - 新增 `GET /api/runs/{run_id}/items`
+  - 新增 `GET /api/runs/{run_id}/steps`
+  - 新增 `POST /api/runs/{run_id}/cancel`
+- `backend/api/路由注册.py`
+  - 注册运行中心路由
+- 测试文件
+  - `tests/单元测试/测试_运行服务.py` 覆盖运行实例状态同步与查询
+  - `tests/单元测试/测试_运行接口.py` 覆盖运行中心接口正常路径和异常路径
+- `PLAN.md` / `改造进度.md` / `.pipeline/progress.md`
+  - 同步记录本轮运行中心最小可用版的改造与验证结果
+
+## 影响范围
+
+- 新建批次后，运行状态不只存在 Redis，也会同步回 SQLite 的 `execution_run_*` 表
+- 后端现在已经有运行中心查询入口，可以直接按 `run_id` 查看运行详情、运行项和步骤
+- 取消运行可以通过新接口直接复用现有 `停止批次(...)` 能力
+
+## 注意事项
+
+- 本轮实现的是运行中心“最小可用版”，流程编排仍沿用现有执行链路，Worker 还没有完全收口成只执行 `run_step_id`
+- 已执行定向回归：`python -m pytest -c tests/pytest.ini tests/单元测试/测试_运行服务.py tests/单元测试/测试_运行接口.py tests/单元测试/测试_执行服务.py tests/单元测试/测试_执行接口.py -q`，结果 `13 passed`
+- 已执行全量测试：`python -m pytest -c tests/pytest.ini -q`，结果 `424 passed, 16 warnings`
+- 16 条 warning 为既有存量：10 条来自第三方 `openpyxl`，6 条来自 Celery `datetime.utcnow()` 弃用提示
+- `.pipeline/task.md` 仍为当前任务单的既有本地变更，未在本轮修改
+
+## 任务摘要
+
 修正售后页订单号 DOM 选择器，排除 `table-item-header_sn_label__*` 误匹配，并补齐对应脚本断言测试。
 
 ## 改动文件列表
@@ -3428,3 +3541,53 @@
 - 已执行全量测试：`python -m pytest -c tests/pytest.ini tests/ -v`，结果 `416 passed, 16 warnings`
 - 16 条 warning 为既有存量：10 条来自第三方 `openpyxl`，6 条来自 Celery `datetime.utcnow()` 弃用提示
 - 本轮没有临时方案，也未发现新的已知问题
+
+---
+
+## 任务摘要
+
+完成 `flow_mode` 无 `flow_param` 链路的主进程编排收口：运行上下文改由 `execution_run_*` 累积，下一步续投递改由主进程决定，Worker 不再本地推进这条新链路。
+
+## 改动文件列表
+
+- `backend/services/运行服务.py`
+- `backend/api/任务接口.py`
+- `tasks/执行任务.py`
+- `tests/单元测试/测试_运行服务.py`
+- `tests/单元测试/测试_任务接口内部执行.py`
+- `tests/单元测试/测试_执行任务.py`
+- `PLAN.md`
+- `改造进度.md`
+- `.pipeline/progress.md`
+
+## 改动说明
+
+- `backend/services/运行服务.py`
+  - 新增 `获取运行项(...)`、`获取运行项流程上下文(...)`
+  - 新增 `回写无流程参数步骤结果(...)`，把每一步成功产物合并进 `execution_run_items.context_data.flow_context`
+  - 同步回写当前步骤的 `params_snapshot` 和 `result_data` 到 `execution_run_steps`
+- `backend/api/任务接口.py`
+  - `execute-internal` 在 `flow_mode=True` 且没有 `flow_param_id/flow_param_ids` 时，先从运行实例读取累计上下文
+  - 步骤完成后按 `on_fail` 和执行结果决定是否由主进程续投递下一步
+  - 续投递时复用当前批次的 `queue_name` 与店铺名
+- `tasks/执行任务.py`
+  - 无 `flow_param` 的 `flow_mode` 在成功和 `continue/log_and_skip` 失败场景下不再调用 Worker 本地 `_投递下一步()`
+  - 旧 `flow_param` / `flow_param_ids` 链路保持现状
+- 测试文件
+  - `tests/单元测试/测试_运行服务.py` 覆盖上下文累积与失败不污染上下文
+  - `tests/单元测试/测试_任务接口内部执行.py` 覆盖主进程读取上下文、abort 不续投递、成功续投递
+  - `tests/单元测试/测试_执行任务.py` 覆盖 Worker 在无 `flow_param` 场景不再本地推进
+
+## 影响范围
+
+- 无 `flow_param` 的流程步骤现在会把前一步结果累计到运行实例上下文，后续步骤可以继续消费
+- “下一步是否继续”对这条新链路已经由主进程统一判断，减少了 Worker / 主进程双重推进
+- 多个无参流程并行创建后，后续步骤不再依赖 Worker 本地续投递，编排边界更清晰
+
+## 注意事项
+
+- 本轮只收口了“无 `flow_param` 的新运行实例流”；旧 `flow_param` barrier / merge 路径仍沿用现有逻辑
+- 已执行定向回归：`python -m pytest -c tests/pytest.ini tests/单元测试/测试_运行服务.py tests/单元测试/测试_任务接口内部执行.py tests/单元测试/测试_执行任务.py -q`，结果 `18 passed`
+- 已执行全量测试：`python -m pytest -c tests/pytest.ini -q`，结果 `428 passed, 16 warnings`
+- 16 条 warning 为既有存量：10 条来自第三方 `openpyxl`，6 条来自 Celery `datetime.utcnow()` 弃用提示
+- `.pipeline/task.md`、`data/ecom.db` 等仍有既有本地变更，本轮未修改
