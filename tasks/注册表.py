@@ -9,7 +9,7 @@ import importlib
 import pkgutil
 import sys
 from pathlib import Path
-from typing import Any, Type
+from typing import Any, Optional, Type
 
 
 任务注册表: dict[str, dict[str, Any]] = {}
@@ -25,7 +25,14 @@ from typing import Any, Type
 }
 
 
-def register_task(名称: str, 描述: str):
+def register_task(
+    名称: str,
+    描述: str,
+    *,
+    requires_input: bool = False,
+    required_fields: Optional[list[str]] = None,
+    supports_empty_context: bool = True,
+):
     """
     注册任务装饰器。
 
@@ -42,6 +49,9 @@ def register_task(名称: str, 描述: str):
         任务注册表[名称] = {
             "class": 任务类,
             "description": 描述,
+            "requires_input": bool(requires_input),
+            "required_fields": list(required_fields or []),
+            "supports_empty_context": bool(supports_empty_context),
         }
         print(f"[任务注册] {名称} - {描述}")
         return 任务类
@@ -81,6 +91,19 @@ def 获取任务类(名称: str) -> Type[Any]:
     if 名称 not in 任务注册表:
         raise KeyError(f"任务未注册: {名称}，可用任务: {list(任务注册表.keys())}")
     return 任务注册表[名称]["class"]
+
+
+def 获取任务元数据(名称: str) -> dict[str, Any]:
+    """根据名称获取任务元数据。"""
+    if 名称 not in 任务注册表:
+        raise KeyError(f"任务未注册: {名称}，可用任务: {list(任务注册表.keys())}")
+
+    信息 = 任务注册表[名称]
+    return {
+        "requires_input": bool(信息.get("requires_input", False)),
+        "required_fields": list(信息.get("required_fields") or []),
+        "supports_empty_context": bool(信息.get("supports_empty_context", True)),
+    }
 
 
 def 获取任务(名称: str) -> Any:
@@ -141,6 +164,7 @@ __all__ = [
     "注册任务",
     "获取所有任务",
     "获取任务类",
+    "获取任务元数据",
     "获取任务",
     "清空任务注册表",
     "初始化任务注册表",

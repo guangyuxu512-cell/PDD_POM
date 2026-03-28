@@ -22,9 +22,10 @@ from backend.models import 数据库 as 数据库模块
 from backend.models.数据库 import 获取连接
 from backend.配置 import 配置实例
 from backend.services.店铺服务 import 店铺服务实例
+from backend.services.流程输入服务 import 流程输入服务实例
 from backend.services.流程服务 import 流程服务实例
 from backend.services.流程参数服务 import 流程参数服务实例
-from tasks.注册表 import 获取任务类, 初始化任务注册表
+from tasks.注册表 import 获取任务元数据, 获取任务类, 初始化任务注册表
 from tasks.celery应用 import celery应用
 
 
@@ -39,6 +40,13 @@ from tasks.celery应用 import celery应用
 批次回调超时秒 = 10.0
 批次回调标记过期秒 = 86400
 批次取消标记过期秒 = 3600
+允许空运行策略集合 = {"allow_empty", "require_input"}
+任务参数字段别名映射 = {
+    "parent_product_id": ["parent_product_id", "父商品ID"],
+    "new_product_id": ["new_product_id", "新商品ID"],
+    "discount": ["discount", "折扣"],
+    "roi": ["roi", "投产比"],
+}
 
 
 def 批次状态键(batch_id: str) -> str:
@@ -691,6 +699,301 @@ async def 清除取消标记(batch_id: str) -> bool:
 class 执行服务:
     """批量执行与执行状态服务。"""
 
+    @staticmethod
+    def _标准化店铺ID列表(shop_ids: List[str]) -> List[str]:
+        """清理并去重店铺 ID 列表。"""
+        已出现店铺 = set()
+        标准店铺ID列表: List[str] = []
+        for 原始店铺ID in shop_ids:
+            if not isinstance(原始店铺ID, str):
+                continue
+            店铺ID = 原始店铺ID.strip()
+            if not 店铺ID or 店铺ID in 已出现店铺:
+                continue
+            已出现店铺.add(店铺ID)
+            标准店铺ID列表.append(店铺ID)
+        return 标准店铺ID列表
+
+    @staticmethod
+    def _字段值有效(值: Any) -> bool:
+        """判断字段值是否可视为已提供。"""
+        if 值 is None:
+            return False
+        if isinstance(值, str):
+            return bool(值.strip())
+        if isinstance(值, (list, tuple, dict, set)):
+            return len(值) > 0
+        return True
+
+    def _校验空运行策略(self, empty_run_policy: str) -> str:
+        """校验并标准化空运行策略。"""
+        标准策略 = str(empty_run_policy or "allow_empty").strip() or "allow_empty"
+        if 标准策略 not in 允许空运行策略集合:
+            raise ValueError("empty_run_policy 仅支持 allow_empty 或 require_input")
+        return 标准策略
+
+    @staticmethod
+    def _获取任务元数据安全(task_name: str) -> Dict[str, Any]:
+        """兼容未显式标注元数据的任务。"""
+        try:
+            return 获取任务元数据(task_name)
+        except KeyError:
+            return {
+                "requires_input": False,
+                "required_fields": [],
+                "supports_empty_context": True,
+            }
+
+    @staticmethod
+    def _标准化流程上下文(上下文数据: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+        """统一整理输入上下文字段，并补齐常见别名。"""
+        if not isinstance(上下文数据, dict):
+            return {}
+
+        标准上下文: Dict[str, Any] = {}
+        for 原始键, 原始值 in 上下文数据.items():
+            键名 = str(原始键 or "").strip()
+            if not 键名:
+                continue
+            标准上下文[键名] = 原始值
+
+        for 目标字段, 别名列表 in 任务参数字段别名映射.items():
+            for 别名 in 别名列表:
+                if 别名 in 标准上下文 and 目标字段 not in 标准上下文:
+                    标准上下文[目标字段] = 标准上下文[别名]
+
+        return 标准上下文
+
+    def _获取字段值(self, 上下文数据: Dict[str, Any], 字段名: str) -> Any:
+        """按主字段与别名读取上下文字段值。"""
+        别名列表 = 任务参数字段别名映射.get(字段名, [字段名])
+        for 当前字段名 in [字段名, *别名列表]:
+            if 当前字段名 in 上下文数据 and self._字段值有效(上下文数据[当前字段名]):
+                return 上下文数据[当前字段名]
+        return None
+
+    def _步骤需要输入(self, task_name: str) -> bool:
+        """判断某个任务是否依赖外部输入。"""
+        元数据 = self._获取任务元数据安全(task_name)
+        return bool(元数据.get("requires_input")) or not bool(元数据.get("supports_empty_context", True))
+
+    def _校验步骤输入(
+        self,
+        task_name: str,
+        上下文数据: Optional[Dict[str, Any]],
+    ) -> Optional[str]:
+        """校验某一步在给定上下文下是否满足输入要求。"""
+        元数据 = self._获取任务元数据安全(task_name)
+        标准上下文 = self._标准化流程上下文(上下文数据)
+        必填字段列表 = [str(字段).strip() for 字段 in (元数据.get("required_fields") or []) if str(字段).strip()]
+
+        缺失字段列表 = [
+            字段名
+            for 字段名 in 必填字段列表
+            if not self._字段值有效(self._获取字段值(标准上下文, 字段名))
+        ]
+        if 缺失字段列表:
+            return f"缺少 {', '.join(缺失字段列表)}"
+
+        需要输入 = bool(元数据.get("requires_input"))
+        支持空上下文 = bool(元数据.get("supports_empty_context", True))
+        if not 标准上下文 and (需要输入 or not 支持空上下文):
+            return "缺少输入数据"
+
+        return None
+
+    async def _获取流程输入行映射(
+        self,
+        *,
+        flow_id: str,
+        input_set_id: str,
+        shop_ids: List[str],
+    ) -> Dict[str, List[Dict[str, Any]]]:
+        """读取输入集，并按店铺聚合启用输入行。"""
+        输入集 = await 流程输入服务实例.根据ID获取输入集(input_set_id)
+        if not 输入集:
+            raise ValueError("输入集不存在")
+        if str(输入集.get("flow_id") or "") != str(flow_id):
+            raise ValueError("输入集不属于当前流程")
+
+        输入行列表 = await 流程输入服务实例.获取启用输入行(
+            input_set_id,
+            shop_ids=shop_ids,
+        )
+        输入行映射: Dict[str, List[Dict[str, Any]]] = {店铺ID: [] for 店铺ID in shop_ids}
+        for 输入行 in 输入行列表:
+            店铺ID = str(输入行.get("shop_id") or "").strip()
+            if not 店铺ID:
+                continue
+            输入行映射.setdefault(店铺ID, []).append(
+                {
+                    **dict(输入行),
+                    "input_data": self._标准化流程上下文(dict(输入行.get("input_data") or {})),
+                }
+            )
+        return 输入行映射
+
+    async def _创建输入集兼容流程参数(
+        self,
+        *,
+        flow_id: str,
+        输入行映射: Dict[str, List[Dict[str, Any]]],
+    ) -> Dict[str, List[Dict[str, Any]]]:
+        """将输入行兼容映射为 flow_params 记录，复用现有流程执行链路。"""
+        流程参数记录映射: Dict[str, List[Dict[str, Any]]] = {店铺ID: [] for 店铺ID in 输入行映射}
+        for 店铺ID, 输入行列表 in 输入行映射.items():
+            for 输入行 in 输入行列表:
+                记录 = await 流程参数服务实例.创建(
+                    {
+                        "shop_id": 店铺ID,
+                        "flow_id": flow_id,
+                        "params": dict(输入行.get("input_data") or {}),
+                        "step_results": {},
+                        "current_step": 0,
+                        "status": "pending",
+                        "error": None,
+                        "batch_id": None,
+                        "enabled": True,
+                    }
+                )
+                记录["input_row_id"] = 输入行.get("id")
+                流程参数记录映射.setdefault(店铺ID, []).append(记录)
+        return 流程参数记录映射
+
+    def _构建运行项上下文映射(
+        self,
+        *,
+        flow_id: Optional[str],
+        shop_ids: List[str],
+        流程参数记录映射: Dict[str, List[Dict[str, Any]]],
+        输入行映射: Optional[Dict[str, List[Dict[str, Any]]]] = None,
+    ) -> Dict[str, Dict[str, Any]]:
+        """为运行快照生成每个店铺的初始上下文。"""
+        运行项上下文映射: Dict[str, Dict[str, Any]] = {}
+        for 店铺ID in shop_ids:
+            当前上下文: Dict[str, Any] = {}
+            flow_param_ids = [
+                int(流程参数记录["id"])
+                for 流程参数记录 in 流程参数记录映射.get(店铺ID, [])
+                if 流程参数记录.get("id") is not None
+            ]
+            if flow_param_ids:
+                当前上下文["flow_param_ids"] = flow_param_ids
+
+            输入行列表 = list((输入行映射 or {}).get(店铺ID) or [])
+            if 输入行列表:
+                输入行ID列表 = [
+                    int(输入行["id"])
+                    for 输入行 in 输入行列表
+                    if 输入行.get("id") is not None
+                ]
+                if 输入行ID列表:
+                    当前上下文["input_row_ids"] = 输入行ID列表
+                    if len(输入行ID列表) == 1:
+                        当前上下文["input_row_id"] = 输入行ID列表[0]
+
+            if flow_id and not flow_param_ids:
+                当前上下文["flow_context"] = {}
+
+            运行项上下文映射[店铺ID] = 当前上下文
+
+        return 运行项上下文映射
+
+    async def 预检流程(
+        self,
+        *,
+        flow_id: str,
+        shop_ids: List[str],
+        input_set_id: Optional[str] = None,
+        empty_run_policy: str = "allow_empty",
+    ) -> Dict[str, Any]:
+        """在启动前校验流程步骤对输入的要求。"""
+        标准店铺ID列表 = self._标准化店铺ID列表(shop_ids)
+        if not 标准店铺ID列表:
+            raise ValueError("shop_ids 不能为空")
+
+        self._校验空运行策略(empty_run_policy)
+        for 店铺ID in 标准店铺ID列表:
+            if not await 店铺服务实例.根据ID获取(店铺ID):
+                raise ValueError(f"店铺不存在: {店铺ID}")
+
+        步骤模板 = await self._构建步骤列表(flow_id=flow_id, task_name=None)
+        候选上下文映射: Dict[str, List[Dict[str, Any]]] = {店铺ID: [] for 店铺ID in 标准店铺ID列表}
+
+        if input_set_id:
+            输入行映射 = await self._获取流程输入行映射(
+                flow_id=flow_id,
+                input_set_id=input_set_id,
+                shop_ids=标准店铺ID列表,
+            )
+            for 店铺ID, 输入行列表 in 输入行映射.items():
+                候选上下文映射[店铺ID] = [
+                    {
+                        "input_row_id": 输入行.get("id"),
+                        "context_data": dict(输入行.get("input_data") or {}),
+                    }
+                    for 输入行 in 输入行列表
+                ]
+        else:
+            for 店铺ID in 标准店铺ID列表:
+                待执行记录列表 = await 流程参数服务实例.获取待执行列表(店铺ID, flow_id)
+                候选上下文映射[店铺ID] = [
+                    {
+                        "flow_param_id": 记录.get("id"),
+                        "context_data": self._标准化流程上下文(dict(记录.get("params") or {})),
+                    }
+                    for 记录 in 待执行记录列表
+                ]
+
+        预检结果项列表: List[Dict[str, Any]] = []
+        通过数量 = 0
+        失败数量 = 0
+
+        for 店铺ID in 标准店铺ID列表:
+            当前候选列表 = list(候选上下文映射.get(店铺ID) or [])
+            if not 当前候选列表:
+                当前候选列表 = [{"input_row_id": None, "context_data": {}}]
+
+            for 候选项 in 当前候选列表:
+                失败信息: Optional[str] = None
+                失败步骤序号: Optional[int] = None
+                失败任务名: Optional[str] = None
+                for 步骤序号, 步骤 in enumerate(步骤模板, start=1):
+                    失败信息 = self._校验步骤输入(
+                        str(步骤.get("task") or ""),
+                        dict(候选项.get("context_data") or {}),
+                    )
+                    if 失败信息:
+                        失败步骤序号 = 步骤序号
+                        失败任务名 = str(步骤.get("task") or "")
+                        break
+
+                if 失败信息:
+                    失败数量 += 1
+                else:
+                    通过数量 += 1
+
+                预检结果项列表.append(
+                    {
+                        "shop_id": 店铺ID,
+                        "input_row_id": 候选项.get("input_row_id"),
+                        "step_index": 失败步骤序号,
+                        "task_name": 失败任务名,
+                        "ok": 失败信息 is None,
+                        "error": 失败信息,
+                    }
+                )
+
+        return {
+            "ok": 失败数量 == 0,
+            "summary": {
+                "total_items": len(预检结果项列表),
+                "pass_items": 通过数量,
+                "failed_items": 失败数量,
+            },
+            "items": 预检结果项列表,
+        }
+
     async def _写入运行实例快照(
         self,
         *,
@@ -702,6 +1005,8 @@ class 执行服务:
         concurrency: int,
         callback_url: Optional[str],
         流程参数记录映射: Dict[str, List[Dict[str, Any]]],
+        input_set_id: Optional[str] = None,
+        运行项上下文映射: Optional[Dict[str, Dict[str, Any]]] = None,
     ) -> None:
         """为后续运行中心改造预先落一份运行实例快照。"""
         当前时间 = datetime.now().isoformat()
@@ -723,7 +1028,7 @@ class 执行服务:
                     flow_id,
                     task_name,
                     json.dumps(步骤模板, ensure_ascii=False),
-                    None,
+                    input_set_id,
                     json.dumps(shop_ids, ensure_ascii=False),
                     concurrency,
                     实际并发,
@@ -746,14 +1051,25 @@ class 执行服务:
 
             for 店铺ID in shop_ids:
                 运行项ID = f"{run_id}:{店铺ID}"
-                flow_param_ids = [
-                    int(流程参数记录["id"])
-                    for 流程参数记录 in 流程参数记录映射.get(店铺ID, [])
-                    if 流程参数记录.get("id") is not None
-                ]
-                上下文快照: Dict[str, Any] = {"flow_param_ids": flow_param_ids}
-                if flow_id and not flow_param_ids:
-                    上下文快照["flow_context"] = {}
+                默认上下文快照: Dict[str, Any] = dict((运行项上下文映射 or {}).get(店铺ID) or {})
+                flow_param_ids = list(默认上下文快照.get("flow_param_ids") or [])
+                if "flow_param_ids" not in 默认上下文快照:
+                    flow_param_ids = [
+                        int(流程参数记录["id"])
+                        for 流程参数记录 in 流程参数记录映射.get(店铺ID, [])
+                        if 流程参数记录.get("id") is not None
+                    ]
+                    if flow_param_ids:
+                        默认上下文快照["flow_param_ids"] = flow_param_ids
+
+                if flow_id and not flow_param_ids and "flow_context" not in 默认上下文快照:
+                    默认上下文快照["flow_context"] = {}
+
+                输入行ID = 默认上下文快照.get("input_row_id")
+                if 输入行ID is None:
+                    输入行ID列表 = list(默认上下文快照.get("input_row_ids") or [])
+                    if len(输入行ID列表) == 1:
+                        输入行ID = 输入行ID列表[0]
 
                 await 连接.execute(
                     """
@@ -767,8 +1083,8 @@ class 执行服务:
                         运行项ID,
                         run_id,
                         店铺ID,
-                        None,
-                        json.dumps(上下文快照, ensure_ascii=False),
+                        输入行ID,
+                        json.dumps(默认上下文快照, ensure_ascii=False),
                         0,
                         len(步骤模板),
                         "queued",
@@ -974,14 +1290,20 @@ class 执行服务:
         shop_ids: List[str],
         concurrency: int,
         callback_url: Optional[str] = None,
+        input_set_id: Optional[str] = None,
+        empty_run_policy: str = "allow_empty",
     ) -> Dict[str, Any]:
         """创建批量执行批次并投递 Celery 队列。"""
-        标准店铺ID列表 = [店铺ID.strip() for 店铺ID in shop_ids if isinstance(店铺ID, str) and 店铺ID.strip()]
+        标准店铺ID列表 = self._标准化店铺ID列表(shop_ids)
         if not 标准店铺ID列表:
             raise ValueError("shop_ids 不能为空")
 
         if concurrency <= 0:
             raise ValueError("concurrency 必须大于 0")
+
+        标准空运行策略 = self._校验空运行策略(empty_run_policy)
+        if task_name and input_set_id:
+            raise ValueError("单任务模式暂不支持 input_set_id")
 
         店铺信息映射: Dict[str, Dict[str, Any]] = {}
         for 店铺ID in 标准店铺ID列表:
@@ -993,16 +1315,48 @@ class 执行服务:
         步骤模板 = await self._构建步骤列表(flow_id=flow_id, task_name=task_name)
         可执行店铺ID列表 = list(标准店铺ID列表)
         流程参数记录映射: Dict[str, List[Dict[str, Any]]] = {}
+        输入行映射: Dict[str, List[Dict[str, Any]]] = {店铺ID: [] for 店铺ID in 可执行店铺ID列表}
 
         if flow_id:
-            for 店铺ID in 标准店铺ID列表:
-                待执行记录列表 = await 流程参数服务实例.获取待执行列表(店铺ID, str(flow_id))
-                流程参数记录映射[店铺ID] = 待执行记录列表
+            if input_set_id:
+                输入行映射 = await self._获取流程输入行映射(
+                    flow_id=str(flow_id),
+                    input_set_id=input_set_id,
+                    shop_ids=标准店铺ID列表,
+                )
+                流程参数记录映射 = await self._创建输入集兼容流程参数(
+                    flow_id=str(flow_id),
+                    输入行映射=输入行映射,
+                )
+            else:
+                for 店铺ID in 标准店铺ID列表:
+                    待执行记录列表 = await 流程参数服务实例.获取待执行列表(店铺ID, str(flow_id))
+                    流程参数记录映射[店铺ID] = 待执行记录列表
+
+            if 标准空运行策略 == "require_input" and any(
+                self._步骤需要输入(str(步骤.get("task") or ""))
+                for 步骤 in 步骤模板
+            ):
+                缺失输入店铺列表 = [
+                    店铺ID
+                    for 店铺ID in 可执行店铺ID列表
+                    if not list(流程参数记录映射.get(店铺ID) or [])
+                ]
+                if 缺失输入店铺列表:
+                    raise ValueError(
+                        f"以下店铺缺少输入数据: {', '.join(缺失输入店铺列表)}"
+                    )
 
         batch_id = uuid.uuid4().hex
         machine_id = 获取默认机器编号()
         queue_name = 获取队列名称(machine_id)
         标准回调地址 = str(callback_url or "").strip() or None
+        运行项上下文映射 = self._构建运行项上下文映射(
+            flow_id=flow_id,
+            shop_ids=可执行店铺ID列表,
+            流程参数记录映射=流程参数记录映射,
+            输入行映射=输入行映射,
+        )
 
         await self._写入运行实例快照(
             run_id=batch_id,
@@ -1013,6 +1367,8 @@ class 执行服务:
             concurrency=concurrency,
             callback_url=标准回调地址,
             流程参数记录映射=流程参数记录映射,
+            input_set_id=input_set_id,
+            运行项上下文映射=运行项上下文映射,
         )
 
         if flow_id:
@@ -1032,6 +1388,7 @@ class 执行服务:
             "mode": "flow" if flow_id else "task",
             "flow_id": flow_id,
             "task_name": task_name,
+            "input_set_id": input_set_id,
             "callback_url": 标准回调地址,
             "machine_id": machine_id,
             "queue_name": queue_name,

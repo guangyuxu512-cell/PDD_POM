@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import asyncio
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
 
@@ -239,3 +239,73 @@ class 测试_运行服务:
         运行项 = await 运行服务实例.获取运行项(run_id, 店铺ID)
         assert 运行项 is not None
         assert 运行项["context_data"]["flow_context"] == {"parent_product_id": "9001"}
+
+    @pytest.mark.asyncio
+    async def test_重试失败项会复用原运行配置创建新批次(self, 临时环境):
+        店铺ID, 流程ID = await 创建运行样本()
+        服务 = 执行服务()
+        run_id = "run-retry-1"
+
+        await 服务._写入运行实例快照(
+            run_id=run_id,
+            flow_id=流程ID,
+            task_name=None,
+            shop_ids=[店铺ID],
+            步骤模板=[{"task": "登录", "on_fail": "abort", "barrier": False, "merge": False}],
+            concurrency=2,
+            callback_url="http://agent.local/callback",
+            流程参数记录映射={店铺ID: []},
+            input_set_id="input-set-1",
+        )
+
+        同步写入运行实例状态(
+            {
+                "batch_id": run_id,
+                "status": "failed",
+                "stopped": False,
+                "total": 1,
+                "waiting": 0,
+                "running": 0,
+                "completed": 0,
+                "failed": 1,
+                "shops": {
+                    店铺ID: {
+                        "shop_id": 店铺ID,
+                        "shop_name": "运行店铺",
+                        "status": "failed",
+                        "current_task": "登录",
+                        "current_step": 1,
+                        "total_steps": 1,
+                        "last_error": "boom",
+                        "last_result": None,
+                        "steps": [
+                            {
+                                "task": "登录",
+                                "on_fail": "abort",
+                                "barrier": False,
+                                "merge": False,
+                                "status": "failed",
+                                "error": "boom",
+                                "result": None,
+                            }
+                        ],
+                    }
+                },
+            }
+        )
+
+        with patch(
+            "backend.services.执行服务.执行服务实例.创建批次",
+            new=AsyncMock(return_value={"batch_id": "run-retry-new", "total": 1, "status": "running"}),
+        ) as 模拟创建批次:
+            结果 = await 运行服务实例.重试失败项(run_id)
+
+        assert 结果["batch_id"] == "run-retry-new"
+        模拟创建批次.assert_awaited_once_with(
+            flow_id=流程ID,
+            task_name=None,
+            shop_ids=[店铺ID],
+            concurrency=2,
+            callback_url="http://agent.local/callback",
+            input_set_id="input-set-1",
+        )

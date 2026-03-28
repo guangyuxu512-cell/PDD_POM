@@ -30,7 +30,7 @@ class 测试_执行接口:
         with patch(
             "backend.api.执行接口.执行服务实例.创建批次",
             new=AsyncMock(return_value={"batch_id": "batch-1", "total": 2, "status": "running"}),
-        ):
+        ) as 模拟创建批次:
             响应 = 客户端.post(
                 "/api/execute/batch",
                 json={
@@ -50,6 +50,15 @@ class 测试_执行接口:
                 "status": "running",
             },
         }
+        模拟创建批次.assert_awaited_once_with(
+            flow_id=None,
+            task_name="登录",
+            shop_ids=["shop-1", "shop-2"],
+            concurrency=2,
+            callback_url=None,
+            input_set_id=None,
+            empty_run_policy="allow_empty",
+        )
 
     def test_执行状态流_输出SSE事件(self, 客户端: TestClient):
         """GET /api/execute/status 应输出可消费的 SSE 数据。"""

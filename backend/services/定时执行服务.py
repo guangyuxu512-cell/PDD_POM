@@ -564,6 +564,9 @@ class 定时执行服务:
             task_name=None,
             shop_ids=list(计划数据["shop_ids"]),
             concurrency=int(计划数据["concurrency"]),
+            callback_url=None,
+            input_set_id=None,
+            empty_run_policy="allow_empty",
         )
         await self._写入计划批次ID(计划ID, 批次结果["batch_id"])
 

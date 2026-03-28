@@ -138,3 +138,34 @@ class 测试_运行接口:
         assert 响应.status_code == 200
         assert 响应.json()["code"] == 0
         模拟停止批次.assert_awaited_once_with(batch_id="run-api-cancel")
+
+    def test_运行事件接口输出SSE流(self, 客户端: TestClient):
+        async def 假订阅批次状态(batch_id=None):
+            yield {"batch_id": batch_id or "run-api-1", "status": "running"}
+
+        with patch("backend.api.运行接口.执行服务实例.订阅批次状态", new=假订阅批次状态):
+            with 客户端.stream("GET", "/api/runs/run-api-1/events") as 响应:
+                片段列表 = list(响应.iter_text())
+
+        assert 响应.status_code == 200
+        assert 响应.headers["content-type"].startswith("text/event-stream")
+        assert any('"batch_id": "run-api-1"' in 片段 for 片段 in 片段列表)
+
+    def test_重试失败项接口会转发到运行服务(self, 客户端: TestClient):
+        with patch(
+            "backend.api.运行接口.运行服务实例.重试失败项",
+            new=AsyncMock(return_value={"batch_id": "run-retry-1", "status": "running", "total": 2}),
+        ) as 模拟重试失败项:
+            响应 = 客户端.post("/api/runs/run-old-1/retry-failed")
+
+        assert 响应.status_code == 200
+        assert 响应.json() == {
+            "code": 0,
+            "msg": "失败项已重试",
+            "data": {
+                "run_id": "run-retry-1",
+                "status": "running",
+                "total_items": 2,
+            },
+        }
+        模拟重试失败项.assert_awaited_once_with("run-old-1")

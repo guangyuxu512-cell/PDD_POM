@@ -209,4 +209,6 @@ class 测试_批量执行回调:
             shop_ids=["shop-1"],
             concurrency=1,
             callback_url="http://agent.custom/api/batch-callback",
+            input_set_id=None,
+            empty_run_policy="allow_empty",
         )

@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import asyncio
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
 from fastapi import FastAPI
@@ -187,3 +187,86 @@ class 测试_流程接口:
         assert 响应.status_code == 200
         assert 响应.json()["code"] == 1
         assert "steps JSON 格式错误" in 响应.json()["msg"]
+
+    def test_预检流程与创建运行接口可用(self, 客户端: TestClient):
+        """流程预检和运行接口应转发到执行服务。"""
+        创建响应 = 客户端.post(
+            "/api/flows",
+            json={
+                "name": "预检流程",
+                "steps": [{"task": "登录", "on_fail": "abort"}],
+            },
+        )
+        流程ID = 创建响应.json()["data"]["id"]
+
+        with patch(
+            "backend.api.流程接口.执行服务实例.预检流程",
+            new=AsyncMock(
+                return_value={
+                    "ok": False,
+                    "summary": {"total_items": 1, "pass_items": 0, "failed_items": 1},
+                    "items": [
+                        {
+                            "shop_id": "shop-1",
+                            "step_index": 1,
+                            "task_name": "登录",
+                            "ok": False,
+                            "error": "缺少输入数据",
+                        }
+                    ],
+                }
+            ),
+        ) as 模拟预检:
+            预检响应 = 客户端.post(
+                f"/api/flows/{流程ID}/precheck",
+                json={
+                    "shop_ids": ["shop-1"],
+                    "input_set_id": None,
+                    "empty_run_policy": "allow_empty",
+                },
+            )
+
+        assert 预检响应.status_code == 200
+        assert 预检响应.json()["code"] == 0
+        assert 预检响应.json()["msg"] == "预检完成"
+        模拟预检.assert_awaited_once_with(
+            flow_id=流程ID,
+            shop_ids=["shop-1"],
+            input_set_id=None,
+            empty_run_policy="allow_empty",
+        )
+
+        with patch(
+            "backend.api.流程接口.执行服务实例.创建批次",
+            new=AsyncMock(return_value={"batch_id": "run-flow-1", "status": "running", "total": 3}),
+        ) as 模拟创建批次:
+            运行响应 = 客户端.post(
+                f"/api/flows/{流程ID}/runs",
+                json={
+                    "shop_ids": ["shop-1"],
+                    "input_set_id": "input-set-1",
+                    "requested_concurrency": 2,
+                    "callback_url": "http://agent.local/callback",
+                    "empty_run_policy": "require_input",
+                },
+            )
+
+        assert 运行响应.status_code == 200
+        assert 运行响应.json() == {
+            "code": 0,
+            "msg": "流程已启动",
+            "data": {
+                "run_id": "run-flow-1",
+                "status": "running",
+                "total_items": 3,
+            },
+        }
+        模拟创建批次.assert_awaited_once_with(
+            flow_id=流程ID,
+            task_name=None,
+            shop_ids=["shop-1"],
+            concurrency=2,
+            callback_url="http://agent.local/callback",
+            input_set_id="input-set-1",
+            empty_run_policy="require_input",
+        )

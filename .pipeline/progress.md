@@ -3591,3 +3591,84 @@
 - 已执行全量测试：`python -m pytest -c tests/pytest.ini -q`，结果 `428 passed, 16 warnings`
 - 16 条 warning 为既有存量：10 条来自第三方 `openpyxl`，6 条来自 Celery `datetime.utcnow()` 弃用提示
 - `.pipeline/task.md`、`data/ecom.db` 等仍有既有本地变更，本轮未修改
+
+---
+
+## 任务摘要
+
+完成流程执行架构改造的输入层与统一运行入口补齐：新增流程输入集/输入行管理、流程预检、流程/任务运行创建、运行事件订阅和失败项重试，并补齐全部回归测试。
+
+## 改动文件列表
+
+- `tasks/注册表.py`
+- `tasks/发布相似商品任务.py`
+- `tasks/发布换图商品任务.py`
+- `backend/models/数据结构.py`
+- `backend/models/数据库.py`
+- `backend/services/流程输入服务.py`
+- `backend/services/执行服务.py`
+- `backend/services/运行服务.py`
+- `backend/services/定时执行服务.py`
+- `backend/api/流程输入接口.py`
+- `backend/api/流程接口.py`
+- `backend/api/任务接口.py`
+- `backend/api/运行接口.py`
+- `backend/api/执行接口.py`
+- `backend/api/路由注册.py`
+- `tests/单元测试/测试_数据库模型.py`
+- `tests/单元测试/测试_执行服务.py`
+- `tests/单元测试/测试_运行服务.py`
+- `tests/单元测试/测试_运行接口.py`
+- `tests/单元测试/测试_店铺和流程接口.py`
+- `tests/单元测试/测试_执行接口.py`
+- `tests/单元测试/测试_批量执行回调.py`
+- `tests/单元测试/测试_定时执行服务.py`
+- `tests/单元测试/测试_流程输入服务.py`
+- `tests/单元测试/测试_流程输入接口.py`
+- `tests/单元测试/测试_任务运行接口.py`
+- `PLAN.md`
+- `改造进度.md`
+- `.pipeline/progress.md`
+
+## 改动说明
+
+- `tasks/注册表.py`、`tasks/发布相似商品任务.py`、`tasks/发布换图商品任务.py`
+  - 给任务注册表补齐输入元数据，并给发布类任务标注 `requires_input` 和 `required_fields`
+- `backend/models/数据结构.py`、`backend/models/数据库.py`
+  - 新增输入层模型、流程/任务运行模型，以及 `flow_input_sets / flow_input_rows` 建表与索引
+- `backend/services/流程输入服务.py`
+  - 新增输入集/输入行 CRUD、分页、启用输入行查询和 CSV/XLSX 导入
+- `backend/services/执行服务.py`
+  - 新增 `预检流程(...)`
+  - `创建批次(...)` 支持 `input_set_id`、`empty_run_policy`
+  - 运行快照写入支持 `execution_runs.input_set_id`
+  - 输入集启动时先兼容映射成 `flow_params`，复用现有执行引擎
+- `backend/services/运行服务.py`
+  - 新增失败项重试能力
+- `backend/api/流程输入接口.py`
+  - 新增输入集与输入行接口
+- `backend/api/流程接口.py`
+  - 新增流程预检与流程运行接口
+- `backend/api/任务接口.py`
+  - 新增单任务运行接口 `POST /api/tasks/{task_name}/runs`
+- `backend/api/运行接口.py`
+  - 新增运行事件 SSE 与失败项重试接口
+- `backend/api/执行接口.py`、`backend/services/定时执行服务.py`
+  - 旧批量执行和定时触发链路兼容透传新运行参数
+- 测试文件
+  - 新增流程输入服务/接口、任务运行接口测试
+  - 扩展执行服务、运行服务、运行接口、流程接口、数据库模型等测试，覆盖正常路径和异常路径
+
+## 影响范围
+
+- 现在可以独立管理流程输入集与输入行，不再只能依赖旧 `flow_params` 手工准备数据
+- 新增流程预检、流程运行、单任务运行、运行事件和失败项重试接口，运行中心能力补齐
+- 旧 `POST /api/execute/batch` 和定时计划触发仍可用，但已兼容新参数
+- 输入集启动当前采用兼容映射方式接到现有执行引擎，减少了对既有 barrier / merge 链路的破坏面
+
+## 注意事项
+
+- 已执行定向回归：`python -m pytest -c tests/pytest.ini -q tests/单元测试/测试_执行服务.py tests/单元测试/测试_运行服务.py tests/单元测试/测试_运行接口.py tests/单元测试/测试_店铺和流程接口.py tests/单元测试/测试_流程输入服务.py tests/单元测试/测试_流程输入接口.py tests/单元测试/测试_任务运行接口.py tests/单元测试/测试_执行接口.py tests/单元测试/测试_批量执行回调.py tests/单元测试/测试_定时执行服务.py tests/单元测试/测试_数据库模型.py -q`，结果 `48 passed`
+- 已执行全量测试：`python -m pytest -c tests/pytest.ini -q`，结果 `442 passed, 16 warnings`
+- 16 条 warning 为既有存量：10 条来自第三方 `openpyxl`，6 条来自 Celery `datetime.utcnow()` 弃用提示
+- `.pipeline/task.md`、`data/ecom.db` 等仍有既有本地变更，本轮未修改

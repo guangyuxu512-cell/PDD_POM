@@ -2421,3 +2421,62 @@
 - [x] 定向验证结果：`18 passed`
 - [x] 验证通过：`python -m pytest -c tests/pytest.ini -q`
 - [x] 全量验证结果：`428 passed, 16 warnings`
+
+## Prompt 119：流程输入层与统一运行入口补齐 ✅
+
+- [x] 更新 `tasks/注册表.py`
+- [x] 任务注册表新增 `requires_input`、`required_fields`、`supports_empty_context` 元数据
+- [x] 更新 `tasks/发布相似商品任务.py`
+- [x] 更新 `tasks/发布换图商品任务.py`
+- [x] 为发布类任务补齐输入要求标注，便于预检和空运行策略判断
+- [x] 更新 `backend/models/数据结构.py`
+- [x] 新增流程预检、流程运行、任务运行、流程输入集、流程输入行等请求/响应模型
+- [x] `批量执行请求` 新增 `input_set_id`、`empty_run_policy`
+- [x] 更新 `backend/models/数据库.py`
+- [x] 新增输入层两张表：`flow_input_sets`、`flow_input_rows`
+- [x] 补齐对应索引和建表初始化
+- [x] 新增 `backend/services/流程输入服务.py`
+- [x] 提供输入集/输入行 CRUD、分页查询、启用行查询、CSV/XLSX 导入
+- [x] 更新 `backend/services/执行服务.py`
+- [x] 新增流程预检能力 `预检流程(...)`
+- [x] 批次创建支持 `input_set_id`、`empty_run_policy`
+- [x] 运行快照写入支持 `execution_runs.input_set_id`
+- [x] 输入集启动时会先兼容映射为 `flow_params`，以复用现有执行引擎
+- [x] 更新 `backend/services/运行服务.py`
+- [x] 新增 `重试失败项(...)`
+- [x] 新增 `backend/api/流程输入接口.py`
+- [x] 新增输入层接口：
+  - `GET/POST /api/flows/{flow_id}/input-sets`
+  - `PUT/DELETE /api/flows/{flow_id}/input-sets/{input_set_id}`
+  - `GET/POST/PUT/DELETE /api/input-sets/{input_set_id}/rows`
+  - `POST /api/input-sets/{input_set_id}/rows/import`
+- [x] 更新 `backend/api/流程接口.py`
+- [x] 新增：
+  - `POST /api/flows/{flow_id}/precheck`
+  - `POST /api/flows/{flow_id}/runs`
+- [x] 更新 `backend/api/任务接口.py`
+- [x] 新增 `POST /api/tasks/{task_name}/runs`
+- [x] 更新 `backend/api/运行接口.py`
+- [x] 新增：
+  - `GET /api/runs/{run_id}/events`
+  - `POST /api/runs/{run_id}/retry-failed`
+- [x] 更新 `backend/api/执行接口.py`
+- [x] 旧 `POST /api/execute/batch` 兼容透传 `input_set_id` / `empty_run_policy`
+- [x] 更新 `backend/api/路由注册.py`
+- [x] 注册新的流程输入路由
+- [x] 更新 `backend/services/定时执行服务.py`
+- [x] 定时计划触发批次时同步透传新的运行参数默认值
+- [x] 新增/更新单元测试：
+  - `tests/单元测试/测试_数据库模型.py`
+  - `tests/单元测试/测试_执行服务.py`
+  - `tests/单元测试/测试_运行服务.py`
+  - `tests/单元测试/测试_运行接口.py`
+  - `tests/单元测试/测试_店铺和流程接口.py`
+  - `tests/单元测试/测试_执行接口.py`
+  - `tests/单元测试/测试_批量执行回调.py`
+  - `tests/单元测试/测试_定时执行服务.py`
+  - `tests/单元测试/测试_流程输入服务.py`
+  - `tests/单元测试/测试_流程输入接口.py`
+  - `tests/单元测试/测试_任务运行接口.py`
+- [x] 验证通过：`python -m pytest -c tests/pytest.ini -q`
+- [x] 全量验证结果：`442 passed, 16 warnings`

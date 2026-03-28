@@ -88,6 +88,8 @@ class 测试_数据库模型:
                 "shops",
                 "flows",
                 "execution_schedules",
+                "flow_input_sets",
+                "flow_input_rows",
                 "execution_runs",
                 "execution_run_items",
                 "execution_run_steps",
@@ -107,6 +109,35 @@ class 测试_数据库模型:
                 "updated_at",
             }.issubset(流程字段集合)
 
+            输入集字段集合 = {
+                行[1] for 行 in 连接.execute("PRAGMA table_info(flow_input_sets)")
+            }
+            assert {
+                "id",
+                "flow_id",
+                "name",
+                "description",
+                "source_type",
+                "enabled",
+                "created_at",
+                "updated_at",
+            }.issubset(输入集字段集合)
+
+            输入行字段集合 = {
+                行[1] for 行 in 连接.execute("PRAGMA table_info(flow_input_rows)")
+            }
+            assert {
+                "id",
+                "input_set_id",
+                "shop_id",
+                "input_data",
+                "enabled",
+                "sort_order",
+                "source_key",
+                "created_at",
+                "updated_at",
+            }.issubset(输入行字段集合)
+
             运行实例字段集合 = {
                 行[1] for 行 in 连接.execute("PRAGMA table_info(execution_runs)")
             }
@@ -116,6 +147,7 @@ class 测试_数据库模型:
                 "flow_id",
                 "task_name",
                 "flow_snapshot",
+                "input_set_id",
                 "shop_ids",
                 "requested_concurrency",
                 "actual_concurrency",

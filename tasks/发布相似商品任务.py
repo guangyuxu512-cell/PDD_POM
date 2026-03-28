@@ -12,7 +12,13 @@ from tasks.基础任务 import 基础任务
 from tasks.注册表 import register_task
 
 
-@register_task("发布相似商品", "搜索商品并发布相似品（不换图）")
+@register_task(
+    "发布相似商品",
+    "搜索商品并发布相似品（不换图）",
+    requires_input=True,
+    required_fields=["parent_product_id"],
+    supports_empty_context=False,
+)
 class 发布相似商品任务(基础任务):
     """发布相似商品任务（不换图版）"""
 

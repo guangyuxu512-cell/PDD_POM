@@ -10,8 +10,11 @@ from backend.models.数据结构 import (
     成功,
     失败,
     流程创建请求,
+    流程预检请求,
+    流程运行创建请求,
     流程更新请求,
 )
+from backend.services.执行服务 import 执行服务实例
 from backend.services.流程服务 import 流程服务实例
 
 
@@ -61,3 +64,49 @@ async def 删除流程(flow_id: str) -> 统一响应:
         return 成功(message="删除成功")
     except Exception as e:
         return 失败(f"删除流程失败: {str(e)}")
+
+
+@路由.post("/{flow_id}/precheck", summary="预检流程")
+async def 预检流程(flow_id: str, 请求: 流程预检请求) -> 统一响应:
+    """启动前预检流程输入。"""
+    try:
+        if not await 流程服务实例.根据ID获取(flow_id):
+            return 失败("流程不存在")
+
+        结果 = await 执行服务实例.预检流程(
+            flow_id=flow_id,
+            shop_ids=请求.shop_ids,
+            input_set_id=请求.input_set_id,
+            empty_run_policy=请求.empty_run_policy,
+        )
+        return 成功(data=结果, message="预检完成")
+    except Exception as e:
+        return 失败(f"预检流程失败: {str(e)}")
+
+
+@路由.post("/{flow_id}/runs", summary="创建流程运行")
+async def 创建流程运行(flow_id: str, 请求: 流程运行创建请求) -> 统一响应:
+    """创建一次流程运行。"""
+    try:
+        if not await 流程服务实例.根据ID获取(flow_id):
+            return 失败("流程不存在")
+
+        结果 = await 执行服务实例.创建批次(
+            flow_id=flow_id,
+            task_name=None,
+            shop_ids=请求.shop_ids,
+            concurrency=请求.requested_concurrency,
+            callback_url=请求.callback_url,
+            input_set_id=请求.input_set_id,
+            empty_run_policy=请求.empty_run_policy,
+        )
+        return 成功(
+            data={
+                "run_id": 结果["batch_id"],
+                "status": 结果["status"],
+                "total_items": 结果["total"],
+            },
+            message="流程已启动",
+        )
+    except Exception as e:
+        return 失败(f"创建流程运行失败: {str(e)}")

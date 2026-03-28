@@ -170,6 +170,89 @@ class 流程响应(BaseModel):
     updated_at: Optional[str] = Field(default=None, description="更新时间")
 
 
+class 流程预检请求(BaseModel):
+    """流程启动前预检请求。"""
+    shop_ids: List[str] = Field(description="店铺 ID 列表")
+    input_set_id: Optional[str] = Field(default=None, description="输入集 ID")
+    empty_run_policy: str = Field(default="allow_empty", description="空运行策略")
+
+
+class 流程运行创建请求(BaseModel):
+    """创建流程运行请求。"""
+    shop_ids: List[str] = Field(description="店铺 ID 列表")
+    input_set_id: Optional[str] = Field(default=None, description="输入集 ID")
+    requested_concurrency: int = Field(default=1, ge=1, description="请求并发数")
+    callback_url: Optional[str] = Field(default=None, description="回调地址")
+    empty_run_policy: str = Field(default="allow_empty", description="空运行策略")
+
+
+class 任务运行创建请求(BaseModel):
+    """创建单任务运行请求。"""
+    shop_ids: List[str] = Field(description="店铺 ID 列表")
+    requested_concurrency: int = Field(default=1, ge=1, description="请求并发数")
+    callback_url: Optional[str] = Field(default=None, description="回调地址")
+
+
+class 流程输入集创建请求(BaseModel):
+    """创建流程输入集请求。"""
+    name: str = Field(description="输入集名称")
+    description: Optional[str] = Field(default=None, description="输入集描述")
+    source_type: str = Field(default="manual", description="来源类型")
+    enabled: bool = Field(default=True, description="是否启用")
+
+
+class 流程输入集更新请求(BaseModel):
+    """更新流程输入集请求。"""
+    name: Optional[str] = Field(default=None, description="输入集名称")
+    description: Optional[str] = Field(default=None, description="输入集描述")
+    source_type: Optional[str] = Field(default=None, description="来源类型")
+    enabled: Optional[bool] = Field(default=None, description="是否启用")
+
+
+class 流程输入集响应(BaseModel):
+    """流程输入集响应。"""
+    id: str = Field(description="输入集 ID")
+    flow_id: str = Field(description="流程 ID")
+    name: str = Field(description="输入集名称")
+    description: Optional[str] = Field(default=None, description="输入集描述")
+    source_type: str = Field(description="来源类型")
+    enabled: bool = Field(description="是否启用")
+    created_at: Optional[str] = Field(default=None, description="创建时间")
+    updated_at: Optional[str] = Field(default=None, description="更新时间")
+
+
+class 流程输入行创建请求(BaseModel):
+    """创建流程输入行请求。"""
+    shop_id: str = Field(description="店铺 ID")
+    input_data: Dict[str, Any] = Field(default_factory=dict, description="输入参数")
+    enabled: bool = Field(default=True, description="是否启用")
+    sort_order: int = Field(default=0, description="排序值")
+    source_key: Optional[str] = Field(default=None, description="幂等键")
+
+
+class 流程输入行更新请求(BaseModel):
+    """更新流程输入行请求。"""
+    shop_id: Optional[str] = Field(default=None, description="店铺 ID")
+    input_data: Optional[Dict[str, Any]] = Field(default=None, description="输入参数")
+    enabled: Optional[bool] = Field(default=None, description="是否启用")
+    sort_order: Optional[int] = Field(default=None, description="排序值")
+    source_key: Optional[str] = Field(default=None, description="幂等键")
+
+
+class 流程输入行响应(BaseModel):
+    """流程输入行响应。"""
+    id: int = Field(description="输入行 ID")
+    input_set_id: str = Field(description="输入集 ID")
+    shop_id: str = Field(description="店铺 ID")
+    shop_name: Optional[str] = Field(default=None, description="店铺名称")
+    input_data: Dict[str, Any] = Field(default_factory=dict, description="输入参数")
+    enabled: bool = Field(description="是否启用")
+    sort_order: int = Field(description="排序值")
+    source_key: Optional[str] = Field(default=None, description="幂等键")
+    created_at: Optional[str] = Field(default=None, description="创建时间")
+    updated_at: Optional[str] = Field(default=None, description="更新时间")
+
+
 class 批量执行请求(BaseModel):
     """批量执行请求"""
     flow_id: Optional[str] = Field(default=None, description="流程 ID")
@@ -177,6 +260,8 @@ class 批量执行请求(BaseModel):
     shop_ids: List[str] = Field(description="店铺 ID 列表")
     concurrency: int = Field(default=1, ge=1, description="请求并发数，仅记录用途")
     callback_url: Optional[str] = Field(default=None, description="批次完成回调地址（可选）")
+    input_set_id: Optional[str] = Field(default=None, description="输入集 ID（可选）")
+    empty_run_policy: str = Field(default="allow_empty", description="空运行策略")
 
 
 class 任务参数创建请求(BaseModel):

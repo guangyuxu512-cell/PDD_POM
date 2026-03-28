@@ -277,5 +277,43 @@ class 运行服务:
             "total": len(行列表),
         }
 
+    async def 重试失败项(self, run_id: str) -> Dict[str, Any]:
+        """按原运行配置重试失败的店铺项。"""
+        运行 = await self.根据ID获取(run_id)
+        if not 运行:
+            raise ValueError("运行不存在")
+
+        async with 获取连接() as 连接:
+            async with 连接.execute(
+                """
+                SELECT DISTINCT shop_id
+                FROM execution_run_items
+                WHERE run_id = ?
+                  AND status IN ('failed', 'precheck_failed', 'cancelled')
+                ORDER BY shop_id ASC
+                """,
+                (run_id,),
+            ) as 游标:
+                行列表 = await 游标.fetchall()
+
+        失败店铺ID列表 = [
+            str(行["shop_id"])
+            for 行 in 行列表
+            if str(行["shop_id"] or "").strip()
+        ]
+        if not 失败店铺ID列表:
+            raise ValueError("没有可重试的失败项")
+
+        from backend.services.执行服务 import 执行服务实例
+
+        return await 执行服务实例.创建批次(
+            flow_id=运行.get("flow_id"),
+            task_name=运行.get("task_name"),
+            shop_ids=失败店铺ID列表,
+            concurrency=max(int(运行.get("requested_concurrency") or 1), 1),
+            callback_url=运行.get("callback_url"),
+            input_set_id=运行.get("input_set_id"),
+        )
+
 
 运行服务实例 = 运行服务()

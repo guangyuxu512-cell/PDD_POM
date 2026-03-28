@@ -109,6 +109,9 @@ class 测试_定时执行服务:
             task_name=None,
             shop_ids=[店铺ID],
             concurrency=2,
+            callback_url=None,
+            input_set_id=None,
+            empty_run_policy="allow_empty",
         )
         写入计划批次ID.assert_awaited_once_with(计划["id"], "batch-1")
 

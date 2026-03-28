@@ -11,7 +11,13 @@ from tasks.基础任务 import 基础任务
 from tasks.注册表 import register_task
 
 
-@register_task("发布换图商品", "搜索商品并发布相似品（换图+调整主图位置）")
+@register_task(
+    "发布换图商品",
+    "搜索商品并发布相似品（换图+调整主图位置）",
+    requires_input=True,
+    required_fields=["parent_product_id"],
+    supports_empty_context=False,
+)
 class 发布换图商品任务(基础任务):
     """发布换图商品任务（换图版）"""
 

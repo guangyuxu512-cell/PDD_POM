@@ -158,6 +158,135 @@ class 测试_执行服务:
         assert 投递调用列表[1]["flow_mode"] is True
 
     @pytest.mark.asyncio
+    async def test_创建批次_输入集模式会透传_input_set_id_并创建兼容流程参数(self):
+        """指定 input_set_id 时，应写入运行快照并基于输入行生成兼容 flow_params。"""
+        服务 = 执行服务模块.执行服务()
+        已写入批次 = {}
+
+        async def 假写入批次状态(批次数据):
+            已写入批次.clear()
+            已写入批次.update(批次数据)
+            return 批次数据
+
+        async def 假投递单步任务(**kwargs):
+            kwargs["批次数据"]["shops"][kwargs["shop_id"]]["task_ids"].append("task-1")
+            kwargs["批次数据"]["task_ids"].append("task-1")
+            return {
+                "task_id": "task-1",
+                "signature": 假签名("task-1", []),
+                "batch": kwargs["批次数据"],
+            }
+
+        with patch.object(执行服务模块.配置实例, "AGENT_MACHINE_ID", "machine-1"), \
+                patch("backend.services.执行服务.店铺服务实例.根据ID获取", new=AsyncMock(return_value={"id": "shop-1", "name": "店铺一"})), \
+                patch.object(
+                    服务,
+                    "_构建步骤列表",
+                    new=AsyncMock(return_value=[{"task": "发布相似商品", "on_fail": "abort", "barrier": False, "merge": False}]),
+                ), \
+                patch.object(
+                    服务,
+                    "_获取流程输入行映射",
+                    new=AsyncMock(return_value={
+                        "shop-1": [
+                            {
+                                "id": 11,
+                                "shop_id": "shop-1",
+                                "input_data": {"parent_product_id": "9001"},
+                            }
+                        ]
+                    }),
+                ), \
+                patch.object(
+                    服务,
+                    "_创建输入集兼容流程参数",
+                    new=AsyncMock(return_value={"shop-1": [{"id": 301, "input_row_id": 11}]}),
+                ), \
+                patch("backend.services.执行服务.流程参数服务实例.更新", new=AsyncMock()), \
+                patch.object(服务, "_写入运行实例快照", new=AsyncMock()) as 模拟写入快照, \
+                patch.object(服务, "投递单步任务", new=AsyncMock(side_effect=假投递单步任务)), \
+                patch.object(服务, "_写入批次状态", new=AsyncMock(side_effect=假写入批次状态)):
+            结果 = await 服务.创建批次(
+                flow_id="flow-1",
+                task_name=None,
+                shop_ids=["shop-1"],
+                concurrency=1,
+                input_set_id="input-set-1",
+            )
+
+        assert 结果["status"] == "running"
+        assert 已写入批次["input_set_id"] == "input-set-1"
+        assert 模拟写入快照.await_args.kwargs["input_set_id"] == "input-set-1"
+        assert 模拟写入快照.await_args.kwargs["运行项上下文映射"]["shop-1"]["input_row_id"] == 11
+        assert 模拟写入快照.await_args.kwargs["运行项上下文映射"]["shop-1"]["flow_param_ids"] == [301]
+
+    @pytest.mark.asyncio
+    async def test_创建批次_require_input缺少输入时直接报错(self):
+        """当空运行策略为 require_input 且店铺没有输入数据时，应拒绝启动。"""
+        服务 = 执行服务模块.执行服务()
+
+        with patch("backend.services.执行服务.店铺服务实例.根据ID获取", new=AsyncMock(return_value={"id": "shop-1"})), \
+                patch.object(
+                    服务,
+                    "_构建步骤列表",
+                    new=AsyncMock(return_value=[{"task": "发布相似商品", "on_fail": "abort", "barrier": False, "merge": False}]),
+                ), \
+                patch.object(服务, "_获取流程输入行映射", new=AsyncMock(return_value={"shop-1": []})), \
+                patch.object(服务, "_创建输入集兼容流程参数", new=AsyncMock(return_value={"shop-1": []})), \
+                patch(
+                    "backend.services.执行服务.获取任务元数据",
+                    side_effect=lambda 名称: {
+                        "requires_input": 名称 == "发布相似商品",
+                        "required_fields": ["parent_product_id"] if 名称 == "发布相似商品" else [],
+                        "supports_empty_context": 名称 != "发布相似商品",
+                    },
+                ):
+            with pytest.raises(ValueError, match="缺少输入数据"):
+                await 服务.创建批次(
+                    flow_id="flow-1",
+                    task_name=None,
+                    shop_ids=["shop-1"],
+                    concurrency=1,
+                    input_set_id="input-set-1",
+                    empty_run_policy="require_input",
+                )
+
+    @pytest.mark.asyncio
+    async def test_预检流程_输入缺字段时返回失败项(self):
+        """预检应明确指出缺少的必填字段。"""
+        服务 = 执行服务模块.执行服务()
+
+        with patch("backend.services.执行服务.店铺服务实例.根据ID获取", new=AsyncMock(return_value={"id": "shop-1"})), \
+                patch.object(
+                    服务,
+                    "_构建步骤列表",
+                    new=AsyncMock(return_value=[{"task": "发布相似商品", "on_fail": "abort", "barrier": False, "merge": False}]),
+                ), \
+                patch.object(
+                    服务,
+                    "_获取流程输入行映射",
+                    new=AsyncMock(return_value={"shop-1": [{"id": 11, "shop_id": "shop-1", "input_data": {}}]}),
+                ), \
+                patch(
+                    "backend.services.执行服务.获取任务元数据",
+                    return_value={
+                        "requires_input": True,
+                        "required_fields": ["parent_product_id"],
+                        "supports_empty_context": False,
+                    },
+                ):
+            结果 = await 服务.预检流程(
+                flow_id="flow-1",
+                shop_ids=["shop-1"],
+                input_set_id="input-set-1",
+            )
+
+        assert 结果["ok"] is False
+        assert 结果["summary"]["failed_items"] == 1
+        assert 结果["items"][0]["input_row_id"] == 11
+        assert "parent_product_id" in str(结果["items"][0]["error"])
+
+    @pytest.mark.asyncio
     @pytest.mark.parametrize(
         ("flow_id", "task_name"),
         [

@@ -7,6 +7,7 @@ from fastapi import FastAPI
 
 from backend.api.店铺接口 import 路由 as 店铺路由
 from backend.api.流程接口 import 路由 as 流程路由
+from backend.api.流程输入接口 import 路由 as 流程输入路由
 from backend.api.浏览器接口 import 路由 as 浏览器路由
 from backend.api.可用任务 import 路由 as 可用任务路由
 from backend.api.执行接口 import 路由 as 执行路由
@@ -26,6 +27,7 @@ from backend.api.售后配置接口 import 路由 as 售后配置路由
 所有路由 = [
     店铺路由,
     流程路由,
+    流程输入路由,
     浏览器路由,
     可用任务路由,
     执行路由,

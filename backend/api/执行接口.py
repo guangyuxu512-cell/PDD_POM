@@ -35,6 +35,8 @@ async def 批量执行(请求: 批量执行请求) -> 统一响应:
             shop_ids=请求.shop_ids,
             concurrency=请求.concurrency,
             callback_url=请求.callback_url,
+            input_set_id=请求.input_set_id,
+            empty_run_policy=请求.empty_run_policy,
         )
         return 成功(data=结果)
     except Exception as e:
