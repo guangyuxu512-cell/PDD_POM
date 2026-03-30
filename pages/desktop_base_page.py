@@ -1,28 +1,12 @@
 """桌面应用页面对象模型基类。"""
 from __future__ import annotations
 
-import importlib.util
 import random
 import time
 from pathlib import Path
 from typing import Any, Optional
-import sys
 
 from backend.config import 配置实例
-
-if "selectors" in sys.modules and not hasattr(sys.modules["selectors"], "__path__"):
-    选择器包目录 = Path(__file__).resolve().parents[1] / "selectors"
-    选择器初始化文件 = 选择器包目录 / "__init__.py"
-    选择器规格 = importlib.util.spec_from_file_location(
-        "selectors",
-        选择器初始化文件,
-        submodule_search_locations=[str(选择器包目录)],
-    )
-    if 选择器规格 is None or 选择器规格.loader is None:
-        raise ImportError("无法加载项目 selectors 包")
-    选择器模块 = importlib.util.module_from_spec(选择器规格)
-    sys.modules["selectors"] = 选择器模块
-    选择器规格.loader.exec_module(选择器模块)
 
 try:
     import uiautomation as uia
