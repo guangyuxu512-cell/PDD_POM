@@ -1,14 +1,19 @@
 from pathlib import Path
 
 
+项目根目录 = Path(__file__).resolve().parents[2]
+
+
 def 读取文件(路径: str) -> str:
-    return Path(路径).read_text(encoding="utf-8")
+    return (项目根目录 / 路径).read_text(encoding="utf-8")
 
 
 def test_backend_spec_显式收集关键模块且移除_collect_submodules():
     spec内容 = 读取文件("backend.spec")
 
     assert "pathex=['.']" in spec内容
+    assert "('.env', '.')" in spec内容
+    assert "contents_directory='.'" in spec内容
     assert "'backend.api.task_api'" in spec内容
     assert "'backend.services.task_service'" in spec内容
     assert "'browser.task_callback'" in spec内容

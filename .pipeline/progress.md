@@ -405,3 +405,51 @@
 ```
 448 passed, 16 warnings in 61.78s
 ```
+---
+
+## 任务摘要
+
+修复 PyInstaller 打包后的 `backend.exe` 启动路径问题，补齐 `.env`/数据库目录解析、Electron 打包 `cwd`，并让 PyInstaller 6 onedir 产物把 `.env` 放回 exe 同级，最终完成真实打包启动与全量回归验证。
+
+## 改动文件列表
+
+- `scripts/pyinstaller_entry.py`
+- `backend/config.py`
+- `backend/models/database.py`
+- `electron/main.js`
+- `backend.spec`
+- `tests/unit/test_pyinstaller_entry.py`
+- `tests/unit/test_packaged_runtime_paths.py`
+- `tests/unit/test_electron_main.py`
+- `tests/unit/test_pyinstaller_spec_files.py`
+- `PLAN.md`
+- `改造进度.md`
+- `.pipeline/progress.md`
+
+## 改动说明
+
+- `scripts/pyinstaller_entry.py`：冻结模式启动前切换到 `sys.executable` 所在目录；导入失败时将错误、`cwd` 和 traceback 写入 exe 同级 `crash.log`，便于直接排查打包产物启动失败。
+- `backend/config.py`：新增冻结模式 `.env` 解析策略，优先读取 exe 同级，再回退到 exe 上级和当前工作目录，避免 Electron 或双击启动时相对路径失效。
+- `backend/models/database.py`：将冻结模式数据库目录改为 exe 同级 `data/`，保证打包后默认写入 `python-backend-dist/backend/data/ecom.db`。
+- `electron/main.js`：打包模式启动 `backend.exe` 与 `celery-worker.exe` 时显式设置 `cwd: path.dirname(...)`，保证后端与 Worker 的运行目录一致。
+- `backend.spec`：补齐 `('.env', '.')`，并在 `EXE(...)` 中设置 `contents_directory='.'`，兼容 PyInstaller 6 onedir 布局，确保 `.env` 实际复制到 `backend.exe` 同级而不是 `_internal/`。
+- `tests/unit/test_pyinstaller_entry.py`：补充冻结模式切换 `cwd`、导入失败写 `crash.log` 的回归，同时修复测试本身残留 `cwd` 导致后续用例失败的问题。
+- `tests/unit/test_packaged_runtime_paths.py`：新增打包运行时 `.env` 与数据库目录解析测试。
+- `tests/unit/test_electron_main.py`：补充打包模式 `cwd` 必须使用 `path.dirname(exe)` 的静态断言。
+- `tests/unit/test_pyinstaller_spec_files.py`：补充 `.env` 收集与 `contents_directory='.'` 的 spec 断言。
+- `PLAN.md`、`改造进度.md`、`.pipeline/progress.md`：同步记录本轮改造、验证命令与验收结果。
+
+## 影响范围
+
+- PyInstaller 后端入口启动链路
+- 打包后 `.env` 读取与 SQLite 数据目录定位
+- Electron 打包模式下后端与 Worker 子进程启动
+- 打包相关单元测试与静态回归
+
+## 注意事项
+
+- 已执行 `pyinstaller --noconfirm --distpath ./python-backend-dist backend.spec`，构建成功。
+- 已直接运行 `python-backend-dist/backend/backend.exe`，控制台输出 `Application startup complete`，并自动创建 `python-backend-dist/backend/data/ecom.db`。
+- 产物目录已确认 `.env` 位于 `python-backend-dist/backend/.env`，`crash.log` 未生成。
+- 已执行 `python -m pytest -c tests/pytest.ini tests/ -v`，结果为 `479 passed, 16 warnings`。
+- 构建阶段仍有 `kombu.asynchronous.aws` 缺少 `botocore` 的 PyInstaller 警告，但不影响本轮验收。

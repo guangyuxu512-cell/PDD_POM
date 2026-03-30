@@ -12,8 +12,16 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 def _解析env路径() -> Path:
     """根据运行模式解析 .env 文件路径。"""
     if getattr(sys, "frozen", False):
-        # 打包后：exe 所在目录
-        return Path(sys.executable).resolve().parent / ".env"
+        可执行目录 = Path(sys.executable).resolve().parent
+        候选列表 = [
+            可执行目录 / ".env",
+            可执行目录.parent / ".env",
+            Path.cwd() / ".env",
+        ]
+        for 候选 in 候选列表:
+            if 候选.exists():
+                return 候选
+        return 候选列表[0]
     # 开发环境：项目根目录（config.py 所在目录的上级）
     return Path(__file__).resolve().parent.parent / ".env"
 

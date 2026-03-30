@@ -4,6 +4,7 @@ from PyInstaller.utils.hooks import collect_all
 
 额外二进制 = []
 额外数据 = [
+    ('.env', '.'),
     ('pdd_selectors', 'pdd_selectors'),
     ('pages', 'pages'),
 ]
@@ -157,6 +158,7 @@ exe = EXE(
     [],
     exclude_binaries=True,
     name='backend',
+    contents_directory='.',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,

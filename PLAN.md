@@ -2688,3 +2688,33 @@
   - `Uvicorn running on http://127.0.0.1:8000`
 - [x] 全量验证通过：`python -m pytest -c tests/pytest.ini tests/ -v`
 - [x] 全量验证结果：`459 passed, 16 warnings`
+## Prompt 126：PyInstaller backend.exe 启动路径与 onedir 运行目录修复 ✅
+- [x] 更新 `scripts/pyinstaller_entry.py`
+- [x] 冻结模式启动前切换 `cwd` 到 `backend.exe` 所在目录
+- [x] 导入失败时在 exe 同级写入 `crash.log`
+- [x] 更新 `backend/config.py`
+- [x] 冻结模式下按 `exe同级 -> exe上级 -> cwd` 解析 `.env`
+- [x] 更新 `backend/models/database.py`
+- [x] 冻结模式下数据库目录改为 `backend.exe` 同级 `data/`
+- [x] 更新 `electron/main.js`
+- [x] 打包模式启动后端与 Celery 时将 `cwd` 固定为各自 exe 所在目录
+- [x] 更新 `backend.spec`
+- [x] 补齐 `('.env', '.')`
+- [x] 在 `EXE(...)` 中设置 `contents_directory='.'`，兼容 PyInstaller 6 onedir 布局，确保 `.env` 真正落在 exe 同级
+- [x] 更新测试：
+  - `tests/unit/test_pyinstaller_entry.py`
+  - `tests/unit/test_packaged_runtime_paths.py`
+  - `tests/unit/test_electron_main.py`
+  - `tests/unit/test_pyinstaller_spec_files.py`
+- [x] 定向验证通过：
+  - `python -m pytest -c tests/pytest.ini tests/unit/test_pyinstaller_entry.py tests/unit/test_packaged_runtime_paths.py tests/unit/test_electron_main.py tests/unit/test_pyinstaller_spec_files.py -q`
+  - `node --check electron/main.js`
+- [x] 按任务命令完成打包验证：
+  - `pyinstaller --noconfirm --distpath ./python-backend-dist backend.spec`
+- [x] `python-backend-dist/backend/backend.exe` 短时启动验收通过
+- [x] 观测结果：
+  - `.env` 已位于 `backend.exe` 同级
+  - 首次启动自动创建 `data/ecom.db`
+  - 控制台输出 `Application startup complete`
+- [x] 全量验证通过：`python -m pytest -c tests/pytest.ini tests/ -v`
+- [x] 全量验证结果：`479 passed, 16 warnings`

@@ -107,7 +107,7 @@ function startBackend() {
   } else {
     ensurePackagedFileExists(packagedBackendExe, '后端程序')
     backendProcess = spawn(packagedBackendExe, [], {
-      cwd: rootDir,
+      cwd: path.dirname(packagedBackendExe),
       env: createProcessEnv(),
     })
   }
@@ -135,7 +135,7 @@ function startCelery() {
   } else {
     ensurePackagedFileExists(packagedCeleryExe, 'Celery Worker 程序')
     celeryProcess = spawn(packagedCeleryExe, [], {
-      cwd: rootDir,
+      cwd: path.dirname(packagedCeleryExe),
       env: celeryEnv,
     })
   }

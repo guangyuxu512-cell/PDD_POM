@@ -1,8 +1,11 @@
 from pathlib import Path
 
 
+项目根目录 = Path(__file__).resolve().parents[2]
+
+
 def 读取主进程文件() -> str:
-    return Path("electron/main.js").read_text(encoding="utf-8")
+    return (项目根目录 / "electron" / "main.js").read_text(encoding="utf-8")
 
 
 def test_Celery启动_默认监听默认队列与机器队列():
@@ -44,6 +47,7 @@ def test_启动后端前_会先清理监听端口的残留进程():
     assert "shell: windowsCmdExe" in 后端启动代码块
     assert 'execSync(`"${taskkillExe}" /F /T /PID ${pid}`, {' in 后端启动代码块
     assert "console.log(`[Backend] 已清理残留进程 PID=${pid}，释放端口 ${backendPort}`)" in 后端启动代码块
+    assert "cwd: path.dirname(packagedBackendExe)" in 后端启动代码块
 
 
 def test_关闭子进程_Windows下使用taskkill终止整个进程树():
@@ -55,3 +59,10 @@ def test_关闭子进程_Windows下使用taskkill终止整个进程树():
     assert "shell: windowsCmdExe" in 关闭进程代码块
     assert "child.kill('SIGTERM')" in 关闭进程代码块
     assert "try { child.kill() } catch {}" in 关闭进程代码块
+
+
+def test_Celery打包模式_工作目录切到_worker_exe_所在目录():
+    主进程文件 = 读取主进程文件()
+    Celery启动代码块 = 主进程文件[主进程文件.index("function startCelery() {"):主进程文件.index("function waitForUrl(")]
+
+    assert "cwd: path.dirname(packagedCeleryExe)" in Celery启动代码块

@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from contextlib import asynccontextmanager
 from pathlib import Path
+import sys
 from typing import AsyncIterator
 
 import aiosqlite
@@ -22,7 +23,15 @@ from backend.logging_config import get_logger
 
 logger = get_logger()
 
-数据库路径 = Path("data/ecom.db")
+
+def _获取数据目录() -> Path:
+    """根据运行模式解析数据目录。"""
+    if getattr(sys, "frozen", False):
+        return Path(sys.executable).resolve().parent / "data"
+    return Path(__file__).resolve().parent.parent.parent / "data"
+
+
+数据库路径 = _获取数据目录() / "ecom.db"
 数据库忙等待毫秒 = 5000
 数据库日志模式 = "WAL"
 数据库同步模式 = "NORMAL"
