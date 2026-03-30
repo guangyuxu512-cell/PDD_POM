@@ -1,0 +1,39 @@
+﻿# 依赖
+node_modules/
+venv/
+.venv/
+__pycache__/
+*.pyc
+
+# 构建产物
+build/
+dist_bundle/
+python-backend-dist/
+electron/dist/
+frontend/dist/
+
+# Playwright 浏览器缓存
+playwright/.cache/
+ms-playwright/
+browser/
+
+# 敏感文件
+.env
+cookies/
+*.log
+*.db
+
+# 临时/缓存
+logs/
+tmp_api_check/
+.pytest_cache/
+data/
+
+# 系统文件
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+.claude/

@@ -1,0 +1,46 @@
+{
+  "name": "pdd-automation",
+  "version": "1.0.0",
+  "description": "PDD automation desktop shell",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "pack": "electron-builder --win --x64"
+  },
+  "dependencies": {
+    "dotenv": "^17.2.3"
+  },
+  "devDependencies": {
+    "electron": "^28.0.0",
+    "electron-builder": "^24.13.3"
+  },
+  "build": {
+    "appId": "com.pdd.automation",
+    "productName": "自动化工作台",
+    "directories": {
+      "output": "dist"
+    },
+    "win": {
+      "target": "dir"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "../frontend/dist",
+        "to": "app/frontend/dist"
+      },
+      {
+        "from": "../python-backend-dist",
+        "to": "app/python-backend"
+      },
+      {
+        "from": "../.env",
+        "to": "app/.env"
+      }
+    ]
+  }
+}
