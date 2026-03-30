@@ -2576,3 +2576,22 @@
 - [ ] 当前执行环境下未完成 GUI 验收：
   - stdout 仅看到 dotenv 注入日志
   - Electron 进程因 `platform_channel.cc(83)` 的 `拒绝访问 (0x5)` 提前退出
+
+## Prompt 122：Electron 重启端口清理与进程树回收 ✅
+
+- [x] 更新 `electron/main.js`
+- [x] Windows 启动前的代码页切换改为 `stdio: 'inherit'`
+- [x] `stopProcess(...)` 在 Windows 下改为 `taskkill /F /T /PID`，回收整个子进程树
+- [x] `startBackend()` 启动前增加 `netstat` + `findstr` 端口占用清理
+- [x] 针对当前环境补强 `System32` 命令路径和固定 shell 配置，避免依赖 PATH
+- [x] 更新 `tests/unit/test_electron_main.py`
+- [x] 静态回归覆盖代码页切换、端口清理和进程树终止
+- [x] 定向验证通过：
+  - `python -m pytest -c tests/pytest.ini tests/unit/test_electron_main.py -v`
+  - `node --check electron/main.js`
+- [x] 全量验证通过：`python -m pytest -c tests/pytest.ini tests/ -v`
+- [x] 全量验证结果：`452 passed, 16 warnings`
+- [ ] 已尝试执行：`cd electron && npx electron .`
+- [ ] 当前执行环境下未完成 GUI 验收：
+  - stderr 仍出现 `platform_channel.cc(83)` 的 `拒绝访问 (0x5)`
+  - stderr 仍出现 `'chcp' 不是内部或外部命令`，说明当前沙箱下 Electron 子进程命令执行受限

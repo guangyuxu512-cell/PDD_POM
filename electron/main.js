@@ -19,6 +19,12 @@ const frontendPort = Number(process.env.FRONTEND_PORT || 3000)
 const backendBaseUrl = `http://127.0.0.1:${backendPort}`
 const rendererDevUrl = process.env.ELECTRON_RENDERER_URL || `http://127.0.0.1:${frontendPort}`
 const pythonExe = process.env.PYTHON || 'python'
+const systemRoot = process.env.SystemRoot || 'C:\\Windows'
+const system32Dir = path.join(systemRoot, 'System32')
+const windowsCmdExe = process.env.ComSpec || path.join(system32Dir, 'cmd.exe')
+const taskkillExe = path.join(system32Dir, 'taskkill.exe')
+const netstatExe = path.join(system32Dir, 'netstat.exe')
+const findstrExe = path.join(system32Dir, 'findstr.exe')
 
 const packagedBackendExe = path.join(rootDir, 'python-backend', 'backend.exe')
 const packagedCeleryExe = path.join(rootDir, 'python-backend', 'celery-worker.exe')
@@ -55,6 +61,30 @@ function attachFailureDialog(label, child) {
 }
 
 function startBackend() {
+  // 启动前清理上次残留的端口占用
+  if (process.platform === 'win32') {
+    try {
+      const result = execSync(
+        `"${netstatExe}" -ano | "${findstrExe}" ":${backendPort}" | "${findstrExe}" "LISTENING"`,
+        {
+          encoding: 'utf-8',
+          stdio: ['pipe', 'pipe', 'ignore'],
+          shell: windowsCmdExe,
+        }
+      )
+      for (const line of result.trim().split(/\r?\n/)) {
+        const pid = line.trim().split(/\s+/).pop()
+        if (pid && pid !== '0') {
+          execSync(`"${taskkillExe}" /F /T /PID ${pid}`, {
+            stdio: 'ignore',
+            shell: windowsCmdExe,
+          })
+          console.log(`[Backend] 已清理残留进程 PID=${pid}，释放端口 ${backendPort}`)
+        }
+      }
+    } catch {}
+  }
+
   const backendArgs = [
     '-m',
     'uvicorn',
@@ -170,9 +200,18 @@ function stopProcess(child) {
   }
 
   try {
-    child.kill()
+    if (process.platform === 'win32' && child.pid) {
+      // /F 强制终止, /T 终止整个进程树（含 uvicorn 子进程）
+      execSync(`"${taskkillExe}" /F /T /PID ${child.pid}`, {
+        stdio: 'ignore',
+        shell: windowsCmdExe,
+      })
+    } else {
+      child.kill('SIGTERM')
+    }
   } catch (error) {
-    console.error(`[Electron] 关闭子进程失败: ${error.message}`)
+    // taskkill 可能因进程已退出而报错，忽略
+    try { child.kill() } catch {}
   }
 }
 
@@ -210,7 +249,7 @@ async function createWindow() {
 app.whenReady().then(async () => {
   try {
     if (process.platform === 'win32') {
-      try { execSync('chcp 65001', { stdio: 'ignore' }) } catch {}
+      try { execSync('chcp 65001', { stdio: 'inherit', shell: windowsCmdExe }) } catch {}
     }
 
     startBackend()

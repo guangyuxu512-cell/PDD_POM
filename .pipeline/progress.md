@@ -1,5 +1,38 @@
 ## 任务摘要
 
+修复 Electron 重启后的端口残留与子进程清理问题：Windows 启动前尝试切换 UTF-8 代码页，关闭时用 `taskkill /F /T /PID` 回收进程树，并在后端启动前清理端口占用。
+
+## 改动文件列表
+
+- `electron/main.js`
+- `tests/unit/test_electron_main.py`
+- `PLAN.md`
+- `改造进度.md`
+
+## 改动说明
+
+- `electron/main.js`：启动前增加端口占用清理；`stopProcess(...)` 在 Windows 下改成 `taskkill /F /T /PID`；代码页切换改成 `stdio: 'inherit'`；同时显式收口到 `System32` 命令路径，减少对 PATH 的依赖。
+- `tests/unit/test_electron_main.py`：更新 `chcp` 断言，并新增端口清理与进程树终止的静态回归。
+- `PLAN.md`：补充本轮 Prompt 122 记录、验证命令和当前环境限制。
+- `改造进度.md`：新增本轮改造记录，便于后续接续。
+
+## 影响范围
+
+- Electron 主进程启动/退出流程
+- Windows 下的后端端口释放与子进程回收
+- Electron 主进程相关静态回归
+
+## 注意事项
+
+- 已执行 `python -m pytest -c tests/pytest.ini tests/ -v`，结果 `452 passed, 16 warnings`。
+- 已执行 `node --check electron/main.js`。
+- 已尝试 `cd electron && npx electron .`，但当前执行环境下仍因 `platform_channel.cc(83)` 的 `拒绝访问 (0x5)` 提前退出，且 stderr 仍出现 `'chcp' 不是内部或外部命令`。
+- `.pipeline/task.md` 为既有本地变更，本轮未修改。
+
+---
+
+## 任务摘要
+
 补齐 Electron 主进程启动链路：Windows 启动前切换 UTF-8 控制台代码页，Celery 默认同时监听 `celery` 和 `worker.{AGENT_MACHINE_ID}`，并补回两处存量 `_运行异步任务` 兼容导出以恢复全量回归。
 
 ## 改动文件列表
