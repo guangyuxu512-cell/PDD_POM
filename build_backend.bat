@@ -2,7 +2,7 @@
 chcp 65001 >nul
 cd /d %~dp0
 
-echo [1/2] æ‰“åŒ… FastAPI åç«¯ EXE...
+echo [1/2] ´ò°ü FastAPI ºó¶Ë EXE...
 set PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
 set PYTHONUTF8=1
 
@@ -27,7 +27,7 @@ python -m PyInstaller --noconfirm --clean --onefile --name backend ^
   scripts\pyinstaller_entry.py
 if errorlevel 1 goto :error
 
-echo [2/2] æ‰“åŒ… Celery Worker EXE...
+echo [2/2] ´ò°ü Celery Worker EXE...
 python -m PyInstaller --noconfirm --clean --onefile --name celery-worker ^
   --distpath python-backend-dist ^
   --workpath build\pyinstaller\celery-worker ^
@@ -46,11 +46,11 @@ python -m PyInstaller --noconfirm --clean --onefile --name celery-worker ^
   scripts\pyinstaller_celery_entry.py
 if errorlevel 1 goto :error
 
-echo æ‰“åŒ…å®Œæˆï¼Œè¾“å‡ºç›®å½•ï¼špython-backend-dist\
+echo ´ò°üÍê³É£¬Êä³öÄ¿Â¼£ºpython-backend-dist\
 goto :end
 
 :error
-echo æ‰“åŒ…å¤±è´¥ï¼Œè¯·å…ˆå®‰è£… PyInstaller å¹¶æ£€æŸ¥ä¾èµ–ã€‚
+echo ´ò°üÊ§°Ü£¬ÇëÏÈ°²×° PyInstaller ²¢¼ì²éÒÀÀµ¡£
 exit /b 1
 
 :end

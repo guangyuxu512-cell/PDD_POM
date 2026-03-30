@@ -2595,3 +2595,27 @@
 - [ ] 当前执行环境下未完成 GUI 验收：
   - stderr 仍出现 `platform_channel.cc(83)` 的 `拒绝访问 (0x5)`
   - stderr 仍出现 `'chcp' 不是内部或外部命令`，说明当前沙箱下 Electron 子进程命令执行受限
+
+## Prompt 123：PyInstaller 冻结模式路径注入修复 ✅
+
+- [x] 更新 `scripts/pyinstaller_entry.py`
+- [x] `sys.path.insert(...)` 改为仅在 `not getattr(sys, "frozen", False)` 时执行
+- [x] 更新 `scripts/pyinstaller_celery_entry.py`
+- [x] Celery 入口同样改为仅在非 frozen 模式下注入项目根目录
+- [x] 新增 `tests/unit/test_pyinstaller_entry.py`
+- [x] 补齐入口脚本回归覆盖：
+  - 后端入口非 frozen 模式会插入项目根目录
+  - 后端入口 frozen 模式不会重复插入路径
+  - Celery 入口非 frozen 模式会插入项目根目录
+  - Celery 入口 frozen 模式不会重复插入路径
+- [x] 定向验证通过：
+  - `python -m pytest -c tests/pytest.ini tests/unit/test_pyinstaller_entry.py -v`
+- [x] 全量验证通过：`python -m pytest -c tests/pytest.ini tests/ -v`
+- [x] 全量验证结果：`456 passed, 16 warnings`
+- [x] 开发模式启动验收：
+  - `python scripts/pyinstaller_entry.py`
+  - 5 秒观测内进程保持运行，并输出 `Started server process`、`Waiting for application startup`
+- [x] 按任务给定命令完成 `PyInstaller --onedir` 打包
+- [ ] 打包后运行 `python-backend-dist/backend/backend.exe` 仍有存量依赖问题：
+  - 已不再报 `ModuleNotFoundError: No module named 'backend'`
+  - 当前报错改为 `ModuleNotFoundError: No module named 'fastapi'`

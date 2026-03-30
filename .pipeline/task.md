@@ -1,79 +1,66 @@
-**文件：** `electron/main.js`
+scripts/pyinstaller_entry.py 和 scripts/pyinstaller_celery_entry.py 中使用 sys.path.insert(0, Path(__file__).resolve().parent.parent) 来定位项目根目录。在 PyInstaller 冻结模式下 __file__ 指向打包后的路径，导致 from backend.main import app 报 ModuleNotFoundError: No module named 'backend'。
+PyInstaller --onedir 模式会自动将 _internal/ 加入 sys.path，--add-data 的内容也在 _internal/ 下，无需手动修改路径。
+任务
+修改以下两个文件，让 sys.path.insert 仅在非冻结（开发）模式下执行：
+文件 1：scripts/pyinstaller_entry.py
+替换整个文件内容为：
+"""PyInstaller 后端入口：启动 FastAPI。"""
+import sys
+from pathlib import Path
 
-### 改动 1：`chcp` 改用 `stdio: 'inherit'`
+# 仅在开发模式下手动添加项目根目录；冻结模式由 PyInstaller 自动处理
+if not getattr(sys, 'frozen', False):
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-```jsx
-// 把
-try { execSync('chcp 65001', { stdio: 'ignore' }) } catch {}
-// 改为
-try { execSync('chcp 65001', { stdio: 'inherit' }) } catch {}
-```
+import uvicorn
 
-### 改动 2：`stopProcess` 改用 `taskkill` 强杀进程树
+from backend.main import app
+from backend.config import 配置实例
+​
+if name == "main":
+uvicorn.run(app, host="127.0.0.1", port=配置实例.BACKEND_PORT, loop="asyncio")
 
-```jsx
-function stopProcess(child) {
-  if (!child || child.killed) {
-    return
-  }
+### 文件 2：`scripts/pyinstaller_celery_entry.py`
 
-  try {
-    if (process.platform === 'win32' && child.pid) {
-      // /F 强制终止, /T 终止整个进程树（含 uvicorn 子进程）
-      execSync(`taskkill /F /T /PID ${child.pid}`, { stdio: 'ignore' })
-    } else {
-      child.kill('SIGTERM')
-    }
-  } catch (error) {
-    // taskkill 可能因进程已退出而报错，忽略
-    try { child.kill() } catch {}
-  }
-}
-```
+**替换整个文件内容为：**
 
-### 改动 3：启动前清理残留端口占用
+​
+"""PyInstaller Celery Worker 入口。"""
+import os
+import sys
+from pathlib import Path
+仅在开发模式下手动添加项目根目录；冻结模式由 PyInstaller 自动处理
+if not getattr(sys, 'frozen', False):
+sys.path.insert(0, str(Path(file).resolve().parent.parent))
+from tasks.celery_app import celery_app
+def 构建Worker参数() -> list[str]:
+"""根据环境变量组装 Worker 启动参数。"""
+参数 = ["worker", "-P", "solo", "-l", os.getenv("CELERY_LOG_LEVEL", "INFO")]
+队列 = os.getenv("CELERY_QUEUES", "").strip()
+if 队列:
+参数.extend(["-Q", 队列])
+return 参数
+if name == "main":
+celery_app.worker_main(构建Worker参数())
 
-在 `startBackend()` 函数**最前面**加一段端口清理：
+---
 
-```jsx
-function startBackend() {
-  // 启动前清理上次残留的端口占用
-  if (process.platform === 'win32') {
-    try {
-      const result = execSync(
-        `netstat -ano | findstr ":${backendPort}" | findstr "LISTENING"`,
-        { encoding: 'utf-8', stdio: ['pipe', 'pipe', 'ignore'] }
-      )
-      for (const line of result.trim().split('\n')) {
-        const pid = line.trim().split(/\s+/).pop()
-        if (pid && pid !== '0') {
-          execSync(`taskkill /F /T /PID ${pid}`, { stdio: 'ignore' })
-          console.log(`[Backend] 已清理残留进程 PID=${pid}，释放端口 ${backendPort}`)
-        }
-      }
-    } catch {}
-  }
+### 验收方式
 
-  const backendArgs = [
-    // ... 以下不变
-```
+1. **开发模式验证**（不影响现有功能）：
+​
+cd E:pdd_zd
+python scripts/pyinstaller_entry.py
+期望：Uvicorn 正常启动在 127.0.0.1:8000
 
-### 验收
+2. **PyInstaller 打包验证**：
+​
+pyinstaller --noconfirm --onedir --name backend --distpath ./python-backend-dist --add-data "pdd_selectors;pdd_selectors" --add-data "pages;pages" --add-data "tasks;tasks" --add-data "backend;backend" --hidden-import tasks.pdd_task --hidden-import celery.app.task scripts/pyinstaller_entry.py
+& ".python-backend-distbackendbackend.exe"
+期望：Uvicorn 正常启动，无 ModuleNotFoundError
 
-```bash
-npx electron .
-```
+### 改动范围
 
-**期望：**
-
-1. ✅ 控制台中文正常显示（不再乱码）
-2. ✅ 关闭后再重启，不再报 `[Errno 10048]` 端口冲突
-3. ✅ 队列双监听 `celery` + `worker.office-pc-001`（已修好）
-4. ✅ 任务能正常执行（已修好）
-
-### 检查清单
-
-- [ ]  `chcp 65001` 改为 `stdio: 'inherit'`
-- [ ]  `stopProcess` 使用 `taskkill /F /T /PID`
-- [ ]  `startBackend` 启动前清理残留端口
-- [ ]  重启无端口冲突，控制台无乱码
+- `scripts/pyinstaller_entry.py` — 仅在第 5 行添加 `if not getattr(sys, 'frozen', False):` 条件判断
+- `scripts/pyinstaller_celery_entry.py` — 同上，第 7 行添加条件判断
+- **不涉及其他文件**

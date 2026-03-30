@@ -1,5 +1,44 @@
 ## 任务摘要
 
+修复 PyInstaller 后端与 Celery 入口在冻结模式下错误覆盖 `sys.path` 的问题，并补齐 frozen / 非 frozen 分支回归测试。
+
+## 改动文件列表
+
+- `scripts/pyinstaller_entry.py`
+- `scripts/pyinstaller_celery_entry.py`
+- `tests/unit/test_pyinstaller_entry.py`
+- `PLAN.md`
+- `改造进度.md`
+- `.pipeline/progress.md`
+
+## 改动说明
+
+- `scripts/pyinstaller_entry.py`：将项目根目录注入改成仅在非 frozen 模式执行，避免 PyInstaller 运行时把 `_internal` 导入路径顶掉。
+- `scripts/pyinstaller_celery_entry.py`：同步为 Celery Worker 入口增加相同条件，保持两条启动链路行为一致。
+- `tests/unit/test_pyinstaller_entry.py`：新增 4 个回归用例，覆盖后端入口与 Celery 入口在 frozen / 非 frozen 两种模式下的路径注入行为，并顺带校验 `构建Worker参数()` 默认值。
+- `PLAN.md`：补充 Prompt 123 的改造内容、验证命令和当前打包验收结论。
+- `改造进度.md`：同步本轮进度、测试结果和运行态验收情况。
+- `.pipeline/progress.md`：记录本轮 Builder 执行结果。
+
+## 影响范围
+
+- PyInstaller 后端启动入口
+- PyInstaller Celery Worker 启动入口
+- 打包入口脚本相关回归测试
+
+## 注意事项
+
+- 已执行 `python -m pytest -c tests/pytest.ini tests/unit/test_pyinstaller_entry.py -v`，结果 `4 passed`。
+- 已执行 `python -m pytest -c tests/pytest.ini tests/ -v`，结果 `456 passed, 16 warnings`。
+- 已执行 `python scripts/pyinstaller_entry.py` 的 5 秒短时启动验收，进程保持运行并输出 `Started server process`、`Waiting for application startup`。
+- 已按任务给定命令执行 `PyInstaller --onedir` 构建；生成的 `backend.exe` 不再报 `No module named 'backend'`，但仍因缺少 `fastapi` 依赖报错，属于现存打包配置问题，本轮未处理。
+- `backend.spec` 在打包验收时曾被 PyInstaller 改写，已恢复到验收前内容。
+- `.pipeline/task.md`、`backend.spec`、`build_backend.bat`、`celery-worker.spec` 为既有本地变更，本轮未修改其目标内容。
+
+---
+
+## 任务摘要
+
 修复 Electron 重启后的端口残留与子进程清理问题：Windows 启动前尝试切换 UTF-8 代码页，关闭时用 `taskkill /F /T /PID` 回收进程树，并在后端启动前清理端口占用。
 
 ## 改动文件列表

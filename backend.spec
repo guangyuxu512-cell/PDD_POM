@@ -1,28 +1,12 @@
 # -*- mode: python ; coding: utf-8 -*-
-from PyInstaller.utils.hooks import collect_data_files
-from PyInstaller.utils.hooks import collect_submodules
-
-datas = []
-hiddenimports = ['backend', 'uvicorn.logging', 'uvicorn.protocols.http']
-datas += collect_data_files('backend')
-datas += collect_data_files('tasks')
-datas += collect_data_files('pages')
-datas += collect_data_files('pdd_selectors')
-hiddenimports += collect_submodules('backend')
-hiddenimports += collect_submodules('tasks')
-hiddenimports += collect_submodules('celery')
-hiddenimports += collect_submodules('kombu')
-hiddenimports += collect_submodules('browser')
-hiddenimports += collect_submodules('pages')
-hiddenimports += collect_submodules('pdd_selectors')
 
 
 a = Analysis(
-    ['scripts/pyinstaller_entry.py'],
+    ['scripts\\pyinstaller_entry.py'],
     pathex=[],
     binaries=[],
-    datas=datas,
-    hiddenimports=hiddenimports,
+    datas=[('pdd_selectors', 'pdd_selectors'), ('pages', 'pages'), ('tasks', 'tasks')],
+    hiddenimports=['tasks.pdd_task', 'celery.app.task'],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
@@ -35,20 +19,26 @@ pyz = PYZ(a.pure)
 exe = EXE(
     pyz,
     a.scripts,
-    a.binaries,
-    a.datas,
     [],
+    exclude_binaries=True,
     name='backend',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
     upx=True,
-    upx_exclude=[],
-    runtime_tmpdir=None,
     console=True,
     disable_windowed_traceback=False,
     argv_emulation=False,
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
+)
+coll = COLLECT(
+    exe,
+    a.binaries,
+    a.datas,
+    strip=False,
+    upx=True,
+    upx_exclude=[],
+    name='backend',
 )
