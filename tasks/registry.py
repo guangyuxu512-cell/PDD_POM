@@ -166,8 +166,21 @@ def 清空任务注册表() -> None:
     任务注册表.clear()
 
 
+_FROZEN_TASK_MODULES = [
+    "after_sale_task",
+    "flash_sale_task",
+    "login_task",
+    "promotion_task",
+    "publish_replace_image_task",
+    "publish_similar_product_task",
+]
+
+
 def _列出任务模块() -> list[str]:
     """列出 tasks 目录下需要自动导入的任务模块。"""
+    if getattr(sys, "frozen", False):
+        return _FROZEN_TASK_MODULES
+
     模块目录 = Path(__file__).resolve().parent
     模块列表: list[str] = []
 

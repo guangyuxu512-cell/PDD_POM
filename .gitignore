@@ -15,7 +15,6 @@ frontend/dist/
 # Playwright 浏览器缓存
 playwright/.cache/
 ms-playwright/
-browser/
 
 # 敏感文件
 .env

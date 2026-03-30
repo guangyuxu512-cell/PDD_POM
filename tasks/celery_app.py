@@ -48,7 +48,17 @@ celery_app.conf.update(
     task_acks_late=True,            # 任务完成后才 ack，防止崩溃丢任务
     task_reject_on_worker_lost=True,  # Worker 异常退出后重新入队，避免任务静默丢失
     broker_connection_retry_on_startup=True,  # 启动期等待 Redis 恢复，避免瞬时网络抖动直接退出
-    imports=("tasks.bridge_task", "tasks.execute_task", "tasks.scheduled_task"),
+    imports=(
+        "tasks.bridge_task",
+        "tasks.execute_task",
+        "tasks.scheduled_task",
+        "tasks.login_task",
+        "tasks.after_sale_task",
+        "tasks.flash_sale_task",
+        "tasks.promotion_task",
+        "tasks.publish_replace_image_task",
+        "tasks.publish_similar_product_task",
+    ),
 )
 
 
