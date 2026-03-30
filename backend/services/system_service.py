@@ -3,13 +3,19 @@
 
 封装系统配置的读取、更新和健康检查。
 """
+import asyncio
 import re
-import shutil
+from datetime import datetime
+from time import perf_counter
 from typing import Dict, Any
 from pathlib import Path
 
+import redis.asyncio as aioredis
+
 from backend.config import 配置实例, _ENV_PATH
 from backend.models.database import 获取连接
+from backend.services.metrics_service import 指标服务实例
+from tasks.celery_app import celery_app
 
 
 class 系统服务:
@@ -36,6 +42,111 @@ class 系统服务:
         """初始化系统服务"""
         self._env文件路径 = _ENV_PATH
         self._数据库路径 = Path(配置实例.DATA_DIR) / "ecom.db"
+
+    @staticmethod
+    def _获取版本号() -> str:
+        候选文件列表 = [
+            Path("version"),
+            Path("VERSION"),
+        ]
+        for 候选文件 in 候选文件列表:
+            if 候选文件.exists():
+                内容 = 候选文件.read_text(encoding="utf-8").strip()
+                if 内容:
+                    return 内容
+        return "0.1.0"
+
+    @staticmethod
+    async def _关闭Redis客户端(客户端: Any) -> None:
+        if 客户端 is None:
+            return
+        关闭方法 = getattr(客户端, "aclose", None)
+        if callable(关闭方法):
+            await 关闭方法()
+            return
+        await 客户端.close()
+
+    async def _检查Redis(self) -> Dict[str, Any]:
+        Redis地址 = str(配置实例.REDIS_URL or "").strip()
+        if not Redis地址:
+            return {"status": "error", "latency_ms": None}
+
+        客户端 = None
+        try:
+            客户端 = aioredis.from_url(Redis地址)
+            开始时间 = perf_counter()
+            await asyncio.wait_for(客户端.ping(), timeout=2)
+            return {
+                "status": "ok",
+                "latency_ms": round((perf_counter() - 开始时间) * 1000, 2),
+            }
+        except Exception:
+            return {"status": "error", "latency_ms": None}
+        finally:
+            try:
+                await self._关闭Redis客户端(客户端)
+            except Exception:
+                pass
+
+    async def _检查SQLite(self) -> Dict[str, Any]:
+        try:
+            开始时间 = perf_counter()
+            async with 获取连接() as db:
+                await db.execute("SELECT 1")
+            return {
+                "status": "ok",
+                "latency_ms": round((perf_counter() - 开始时间) * 1000, 2),
+            }
+        except Exception:
+            return {"status": "error", "latency_ms": None}
+
+    async def _检查浏览器池(self) -> Dict[str, Any]:
+        try:
+            from backend.services import browser_service as 浏览器服务模块
+
+            管理器实例 = 浏览器服务模块.获取当前管理器实例()
+            活跃数 = len(getattr(管理器实例, "实例集", {}) or {})
+            最大值 = int(配置实例.MAX_BROWSER_INSTANCES)
+            return {
+                "status": "ok" if 活跃数 <= 最大值 else "warning",
+                "active": 活跃数,
+                "max": 最大值,
+            }
+        except Exception:
+            return {
+                "status": "error",
+                "active": 0,
+                "max": int(配置实例.MAX_BROWSER_INSTANCES),
+            }
+
+    async def _检查CeleryWorkers(self) -> Dict[str, Any]:
+        try:
+            响应列表 = celery_app.control.ping(timeout=2) or []
+            return {
+                "status": "ok" if 响应列表 else "warning",
+                "count": len(响应列表),
+            }
+        except Exception:
+            return {"status": "error", "count": 0}
+
+    async def _获取Redis内存使用MB(self) -> float | None:
+        Redis地址 = str(配置实例.REDIS_URL or "").strip()
+        if not Redis地址:
+            return None
+
+        客户端 = None
+        try:
+            客户端 = aioredis.from_url(Redis地址)
+            信息 = await asyncio.wait_for(客户端.info(section="memory"), timeout=2)
+            已用字节 = float(信息.get("used_memory", 0) or 0)
+            return round(已用字节 / 1024 / 1024, 2)
+        except Exception:
+            return None
+        finally:
+            try:
+                await self._关闭Redis客户端(客户端)
+            except Exception:
+                pass
 
     async def 获取配置(self) -> Dict[str, Any]:
         """
@@ -138,63 +249,49 @@ class 系统服务:
         返回:
             Dict[str, Any]: 系统健康状态
         """
-        组件状态 = {}
+        Redis检查, SQLite检查, 浏览器池检查, Celery检查 = await asyncio.gather(
+            self._检查Redis(),
+            self._检查SQLite(),
+            self._检查浏览器池(),
+            self._检查CeleryWorkers(),
+        )
 
-        # 检查数据库
-        try:
-            async with 获取连接() as db:
-                await db.execute("SELECT 1")
-            组件状态["database"] = "ok"
-        except Exception:
-            组件状态["database"] = "error"
+        检查结果 = {
+            "redis": Redis检查,
+            "sqlite": SQLite检查,
+            "browser_pool": 浏览器池检查,
+            "celery_workers": Celery检查,
+        }
+        状态集合 = {项.get("status") for 项 in 检查结果.values()}
 
-        # 检查浏览器实例
-        try:
-            from backend.services.browser_service import 浏览器服务实例
-            实例数 = len(浏览器服务实例._实例状态)
-            组件状态["browser"] = {
-                "count": 实例数,
-                "status": "ok"
-            }
-        except Exception:
-            组件状态["browser"] = {
-                "count": 0,
-                "status": "error"
-            }
-
-        # 检查磁盘空间
-        try:
-            数据目录 = Path(配置实例.DATA_DIR)
-            if not 数据目录.exists():
-                数据目录.mkdir(parents=True, exist_ok=True)
-            磁盘使用 = shutil.disk_usage(数据目录)
-            剩余空间_gb = 磁盘使用.free / (1024 ** 3)
-            组件状态["disk"] = {
-                "free_gb": round(剩余空间_gb, 2),
-                "status": "ok" if 剩余空间_gb > 1 else "warning"
-            }
-        except Exception:
-            组件状态["disk"] = {
-                "free_gb": 0,
-                "status": "error"
-            }
-
-        # 判断整体状态
-        错误数 = sum(1 for v in 组件状态.values() if
-                     (isinstance(v, str) and v == "error") or
-                     (isinstance(v, dict) and v.get("status") == "error"))
-
-        if 错误数 == 0:
-            整体状态 = "healthy"
-        elif 错误数 == len(组件状态):
+        if SQLite检查.get("status") == "error":
             整体状态 = "unhealthy"
+        elif 状态集合 <= {"ok"}:
+            整体状态 = "healthy"
         else:
             整体状态 = "degraded"
 
         return {
             "status": 整体状态,
-            "components": 组件状态
+            "version": self._获取版本号(),
+            "uptime_seconds": 指标服务实例.获取运行秒数(),
+            "checks": 检查结果,
+            "timestamp": datetime.now().astimezone().isoformat(),
         }
+
+    async def 获取指标(self) -> Dict[str, Any]:
+        """返回基础运行指标。"""
+        指标快照 = 指标服务实例.获取快照()
+        浏览器池检查 = await self._检查浏览器池()
+        Redis内存 = await self._获取Redis内存使用MB()
+        指标快照.update(
+            {
+                "browser_instances_active": 浏览器池检查.get("active", 0),
+                "browser_instances_max": 浏览器池检查.get("max", int(配置实例.MAX_BROWSER_INSTANCES)),
+                "redis_memory_used_mb": Redis内存,
+            }
+        )
+        return 指标快照
 
 
 # 创建单例

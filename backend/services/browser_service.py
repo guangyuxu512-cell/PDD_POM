@@ -11,6 +11,10 @@ from datetime import datetime
 from browser.manager import 浏览器管理器
 
 
+from backend.logging_config import get_logger
+
+logger = get_logger()
+
 # 模块级单例
 管理器实例: Optional[浏览器管理器] = None
 初始化锁: Optional[asyncio.Lock] = None
@@ -90,20 +94,20 @@ async def 确保已初始化() -> None:
         当前管理器实例 = 获取当前管理器实例()
         # 中文注释：并发场景下做二次检查，避免多个协程重复创建或启动 Playwright。
         if 当前管理器实例 is None:
-            print("浏览器服务: 管理器实例不存在，自动创建...")
+            logger.info("浏览器服务: 管理器实例不存在，自动创建...")
             当前管理器实例 = 浏览器管理器()
             设置当前管理器实例(当前管理器实例)
 
         # 中文注释：Playwright 启动属于外部 IO，这里加超时兜底，避免初始化卡死。
         if 当前管理器实例.playwright实例 is None:
-            print("浏览器服务: Playwright 未初始化，自动初始化...")
+            logger.info("浏览器服务: Playwright 未初始化，自动初始化...")
             try:
                 await asyncio.wait_for(当前管理器实例.初始化(), timeout=初始化超时秒)
             except asyncio.TimeoutError as e:
                 raise TimeoutError(f"浏览器初始化超时（{初始化超时秒}秒）") from e
             except Exception as e:
                 raise RuntimeError(f"浏览器初始化失败: {e}") from e
-            print("浏览器服务: 自动初始化完成")
+            logger.info("浏览器服务: 自动初始化完成")
 
 
 async def 初始化浏览器(配置: dict) -> None:
@@ -117,15 +121,15 @@ async def 初始化浏览器(配置: dict) -> None:
         当前管理器实例 = 获取当前管理器实例()
         # 中文注释：初始化接口和自动初始化共用同一把锁，避免并发时重复启动浏览器内核。
         if 当前管理器实例 is not None and 当前管理器实例.playwright实例 is not None:
-            print(f"浏览器服务: 管理器已完全初始化，跳过")
+            logger.info(f"浏览器服务: 管理器已完全初始化，跳过")
             return
 
-        print(f"浏览器服务: 开始初始化管理器...")
+        logger.info(f"浏览器服务: 开始初始化管理器...")
 
         if 当前管理器实例 is None:
             当前管理器实例 = 浏览器管理器()
             设置当前管理器实例(当前管理器实例)
-            print(f"浏览器服务: 管理器对象已创建")
+            logger.info(f"浏览器服务: 管理器对象已创建")
 
         # 中文注释：显式限制初始化耗时，防止 Playwright 启动异常时长期阻塞调用方。
         try:
@@ -135,7 +139,7 @@ async def 初始化浏览器(配置: dict) -> None:
         except Exception as e:
             raise RuntimeError(f"浏览器初始化失败: {e}") from e
 
-        print(f"浏览器服务: 管理器初始化完成，playwright实例 = {当前管理器实例.playwright实例}")
+        logger.info(f"浏览器服务: 管理器初始化完成，playwright实例 = {当前管理器实例.playwright实例}")
 
 
 async def 打开店铺浏览器(店铺ID: str, 店铺配置: dict, headless: bool = False) -> Dict[str, Any]:
@@ -159,9 +163,9 @@ async def 打开店铺浏览器(店铺ID: str, 店铺配置: dict, headless: boo
 
     # 详细日志：检查管理器和 Playwright 状态
     playwright状态 = 当前管理器实例.playwright实例 if 当前管理器实例 else None
-    print(f"浏览器服务: 打开店铺浏览器 (headless={headless})")
-    print(f"  - 管理器实例 = {当前管理器实例}")
-    print(f"  - playwright实例 = {playwright状态}")
+    logger.info(f"浏览器服务: 打开店铺浏览器 (headless={headless})")
+    logger.info(f"  - 管理器实例 = {当前管理器实例}")
+    logger.info(f"  - playwright实例 = {playwright状态}")
 
     # 将 headless 参数添加到店铺配置
     店铺配置_副本 = {**店铺配置, "headless": headless}
@@ -203,10 +207,10 @@ async def 关闭店铺浏览器(店铺ID: str) -> bool:
         return True
     except KeyError:
         # 实例可能已被自动清理，忽略错误
-        print(f"⚠ 店铺 {店铺ID} 实例不存在或已关闭")
+        logger.info(f"⚠ 店铺 {店铺ID} 实例不存在或已关闭")
         return False
     except Exception as e:
-        print(f"✗ 关闭店铺 {店铺ID} 浏览器失败: {e}")
+        logger.info(f"✗ 关闭店铺 {店铺ID} 浏览器失败: {e}")
         return False
 
 

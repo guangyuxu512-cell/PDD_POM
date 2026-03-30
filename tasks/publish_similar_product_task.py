@@ -3,6 +3,7 @@ import asyncio
 import inspect
 import random
 
+from backend.logging_config import get_logger
 from backend.services.task_params_service import 任务参数服务实例
 from browser.task_callback import 自动回调, 上报
 from pages.publish_product_page import 发布商品页
@@ -10,6 +11,9 @@ from pages.product_list_page import 商品列表页
 from pdd_selectors.publish_product_page_selector import 发布商品页选择器
 from tasks.base_task import 基础任务
 from tasks.registry import register_task
+
+
+logger = get_logger()
 
 
 @register_task(
@@ -43,7 +47,7 @@ class 发布相似商品任务(基础任务):
                 错误信息=错误信息,
             )
         except Exception as 异常:
-            print(f"[发布相似商品任务] 回填任务参数失败: {异常}")
+            logger.info(f"[发布相似商品任务] 回填任务参数失败: {异常}")
 
     @staticmethod
     def _页面已关闭(页面) -> bool:

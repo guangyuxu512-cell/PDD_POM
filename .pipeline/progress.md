@@ -1,5 +1,100 @@
 ## 任务摘要
 
+完成登录态失效检测与告警、结构化日志体系、依赖版本锁定、健康检查与监控端点、浏览器崩溃自动恢复五项改造，并补齐对应回归测试。
+
+## 改动文件列表
+
+- `backend/logging_config.py`
+- `backend/services/metrics_service.py`
+- `browser/session_monitor.py`
+- `browser/recovery.py`
+- `browser/manager.py`
+- `pages/base_page.py`
+- `tasks/execute_task.py`
+- `backend/main.py`
+- `backend/api/system_api.py`
+- `backend/services/system_service.py`
+- `backend/services/task_service.py`
+- `tasks/celery_app.py`
+- `backend/models/database.py`
+- `backend/services/browser_service.py`
+- `backend/services/execute_service.py`
+- `backend/services/heartbeat_service.py`
+- `backend/services/rule_service.py`
+- `backend/services/task_params_service.py`
+- `backend/api/shop_api.py`
+- `backend/api/task_api.py`
+- `browser/slider_captcha.py`
+- `browser/task_callback.py`
+- `browser/user_dir_factory.py`
+- `pages/after_sale_page.py`
+- `pages/desktop_base_page.py`
+- `pages/flash_sale_page.py`
+- `pages/login_page.py`
+- `pages/product_list_page.py`
+- `pages/promotion_page.py`
+- `pages/publish_product_page.py`
+- `pages/wechat_page.py`
+- `tasks/async_utils.py`
+- `tasks/bridge_task.py`
+- `tasks/publish_replace_image_task.py`
+- `tasks/publish_similar_product_task.py`
+- `tasks/registry.py`
+- `tasks/scheduled_task.py`
+- `requirements.txt`
+- `requirements-dev.txt`
+- `requirements-lock.txt`
+- `docs/deployment.md`
+- `backend.spec`
+- `celery-worker.spec`
+- `tests/unit/test_session_monitor.py`
+- `tests/unit/test_browser_recovery.py`
+- `tests/unit/test_requirements_files.py`
+- `tests/unit/test_base_page.py`
+- `tests/unit/test_browser_manager.py`
+- `tests/unit/test_execute_task.py`
+- `tests/unit/test_system_api.py`
+- `tests/unit/test_startup_entry.py`
+- `PLAN.md`
+- `改造进度.md`
+- `.pipeline/progress.md`
+
+## 改动说明
+
+- `backend/logging_config.py`：新增统一日志初始化，优先使用 `loguru`，依赖缺失时回退标准库；支持 `trace_id`、控制台输出、`data/logs/` 文件轮转与错误日志拆分。
+- `backend/services/metrics_service.py`：新增进程内指标统计，记录任务总量、成功/失败数量、运行中数量、平均任务耗时、请求耗时与运行时长。
+- `browser/session_monitor.py`：新增登录态监控器，检测登录页 URL、失效文案和关键 Cookie；失效时写入 `operation_logs`，发送飞书告警，并向 Redis `session:expired` 发布事件。
+- `browser/recovery.py`：新增浏览器恢复器，封装冷却、重试上限、恢复成功/失败日志与自动重建逻辑。
+- `browser/manager.py`：新增登录页自动标记、店铺元数据缓存、`安全获取页面(...)`、浏览器崩溃日志和 `browser:crashed` Redis 事件。
+- `pages/base_page.py`：新增 `检查并处理登录态(...)`，在关键交互前自动检测登录态；统一捕获浏览器关闭类异常并抛出恢复标识错误。
+- `tasks/execute_task.py`：为 Worker 执行链路绑定 `trace_id`，接入指标统计，对浏览器关闭类失败增加一次恢复性重试。
+- `backend/main.py`、`backend/api/system_api.py`、`backend/services/system_service.py`：补齐根 `/health`、结构化 `/api/system/health`、`/api/system/metrics`、请求耗时统计以及 Redis/SQLite/浏览器池/Celery Worker 健康检查。
+- `requirements.txt`、`requirements-dev.txt`、`requirements-lock.txt`：拆分生产与测试依赖，补充 `loguru`，并生成当前环境的锁定依赖清单。
+- `docs/deployment.md`：补充开发安装、生产安装、日志目录和探针说明。
+- `backend.spec`、`celery-worker.spec`：补充新增日志/指标/登录态/恢复模块的 `hiddenimports`。
+- 批量日志替换：清理 `backend/`、`browser/`、`pages/`、`tasks/` 中所有 `print()` 调用，统一切换到新日志体系。
+- 测试补齐：新增登录态监控、浏览器恢复、依赖清单静态校验；更新基础页、浏览器管理器、Worker 执行链路、系统接口、启动入口测试。
+
+## 影响范围
+
+- 浏览器生命周期管理与店铺登录态检测
+- Worker 执行链路与自动恢复重试
+- 后端日志输出、日志目录与 trace_id 链路
+- 系统健康检查、监控指标与负载均衡探针
+- 依赖安装方式与 PyInstaller 打包模块收集
+
+## 注意事项
+
+- 已执行 `python -m compileall backend browser pages tasks`。
+- 已执行 `python -m pytest -c tests/pytest.ini tests/ -v`，结果为 `473 passed, 16 warnings`。
+- 16 条 warning 为第三方依赖弃用提示，来源于 `openpyxl` 与 Celery 的 `datetime.utcnow()`，不属于本轮新增问题。
+- `requirements-lock.txt` 已按当前环境重新生成并使用 UTF-8 编码写入。
+- `.pipeline/task.md` 与 `backend_log.txt` 为既有本地变更，本轮未修改其任务内容。
+
+---
+
+## 任务摘要
+
 替换 PyInstaller 的 backend / celery-worker spec 为显式模块收集方案，并修正 Electron 打包 exe 路径到 `--onedir` 子目录结构。
 
 ## 改动文件列表

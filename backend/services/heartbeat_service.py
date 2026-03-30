@@ -11,6 +11,10 @@ import httpx
 from backend.config import 配置实例
 
 
+from backend.logging_config import get_logger
+
+logger = get_logger()
+
 def 构建请求头() -> Optional[dict[str, str]]:
     """构造 Agent 心跳请求头。"""
     密钥 = str(配置实例.X_RPA_KEY or "").strip()
@@ -68,7 +72,7 @@ class 心跳服务:
             pass
         except Exception as e:
             # 中文注释：心跳任务属于附属能力，停止阶段出现异常只记录，不能影响主服务退出。
-            print(f"[心跳服务] 停止心跳任务时发生异常（忽略）: {e}")
+            logger.info(f"[心跳服务] 停止心跳任务时发生异常（忽略）: {e}")
 
         self._心跳任务 = None
         self._停止事件 = None
@@ -80,7 +84,7 @@ class 心跳服务:
                 # 中文注释：心跳上报失败不能让后台循环退出，否则主服务会悄悄失去心跳能力。
                 await self._发送心跳()
             except Exception as e:
-                print(f"[心跳服务] 心跳循环异常（忽略）: {e}")
+                logger.info(f"[心跳服务] 心跳循环异常（忽略）: {e}")
 
             try:
                 await asyncio.wait_for(self._停止事件.wait(), timeout=30)
@@ -88,7 +92,7 @@ class 心跳服务:
                 continue
             except Exception as e:
                 # 中文注释：等待停止事件时的异常同样只记录，避免心跳循环被意外打断。
-                print(f"[心跳服务] 等待停止事件异常（忽略）: {e}")
+                logger.info(f"[心跳服务] 等待停止事件异常（忽略）: {e}")
                 continue
 
     async def _发送心跳(self) -> None:
@@ -98,7 +102,7 @@ class 心跳服务:
 
         请求头 = 构建请求头()
         if not 请求头:
-            print("[心跳服务] 心跳已跳过：未配置 X_RPA_KEY")
+            logger.info("[心跳服务] 心跳已跳过：未配置 X_RPA_KEY")
             return
 
         数据 = {
@@ -116,7 +120,7 @@ class 心跳服务:
                 响应.raise_for_status()
                 校验业务响应(响应)
         except Exception as e:
-            print(f"[心跳服务] 发送心跳失败（忽略）: {e}")
+            logger.info(f"[心跳服务] 发送心跳失败（忽略）: {e}")
             return
 
 

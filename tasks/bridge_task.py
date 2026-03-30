@@ -10,6 +10,10 @@ from backend.services.task_service import 任务服务实例
 from tasks.celery_app import celery_app, 初始化Worker环境, 获取Worker事件循环
 
 
+from backend.logging_config import get_logger
+
+logger = get_logger()
+
 def _运行异步任务(协程):
     """在同步 Celery Task 中执行异步协程。"""
     try:
@@ -19,7 +23,7 @@ def _运行异步任务(协程):
             事件循环 = 获取Worker事件循环()
             asyncio.set_event_loop(事件循环)
         except Exception as e:
-            print(f"[Celery] 获取 Worker 事件循环失败，回退到临时事件循环: {e}")
+            logger.info(f"[Celery] 获取 Worker 事件循环失败，回退到临时事件循环: {e}")
             return asyncio.run(协程)
 
         try:

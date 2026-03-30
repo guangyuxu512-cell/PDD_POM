@@ -1,10 +1,15 @@
 """拼多多商家后台登录页面的页面对象模型"""
 import json
 from pathlib import Path
+
+from backend.logging_config import get_logger
+from backend.config import 配置实例
 from pages.base_page import 基础页
 from pdd_selectors.base_page_selector import 基础页选择器
 from pdd_selectors.login_page_selector import 登录页选择器
-from backend.config import 配置实例
+
+
+logger = get_logger()
 
 
 class 登录页(基础页):
@@ -61,7 +66,7 @@ class 登录页(基础页):
         with open(Cookie文件, "w", encoding="utf-8") as f:
             json.dump(cookies, f, ensure_ascii=False, indent=2)
 
-        print(f"✓ Cookie 已保存: {Cookie文件}")
+        logger.info(f"✓ Cookie 已保存: {Cookie文件}")
 
     async def 加载Cookie(self, 店铺ID: str) -> bool:
         """
@@ -77,7 +82,7 @@ class 登录页(基础页):
 
         # 检查文件是否存在
         if not Cookie文件.exists():
-            print(f"⚠ Cookie 文件不存在: {Cookie文件}")
+            logger.info(f"⚠ Cookie 文件不存在: {Cookie文件}")
             return False
 
         try:
@@ -91,11 +96,11 @@ class 登录页(基础页):
             # 添加 Cookie
             await 上下文.add_cookies(cookies)
 
-            print(f"✓ Cookie 已加载: {Cookie文件}")
+            logger.info(f"✓ Cookie 已加载: {Cookie文件}")
             return True
 
         except Exception as e:
-            print(f"✗ Cookie 加载失败: {e}")
+            logger.info(f"✗ Cookie 加载失败: {e}")
             return False
 
     async def 检测Cookie是否有效(self) -> bool:
@@ -112,14 +117,14 @@ class 登录页(基础页):
             # 检查当前 URL 是否在首页
             当前URL = self.页面.url
             if "mms.pinduoduo.com/home" in 当前URL:
-                print(f"✓ Cookie 有效，当前 URL: {当前URL}")
+                logger.info(f"✓ Cookie 有效，当前 URL: {当前URL}")
                 return True
             else:
-                print(f"✗ Cookie 失效，被重定向到: {当前URL}")
+                logger.info(f"✗ Cookie 失效，被重定向到: {当前URL}")
                 return False
 
         except Exception as e:
-            print(f"✗ Cookie 验证失败: {e}")
+            logger.info(f"✗ Cookie 验证失败: {e}")
             return False
 
     # === 登录操作 ===
@@ -203,7 +208,7 @@ class 登录页(基础页):
 
             # 如果是 context destroyed 或 navigation 相关异常，说明页面发生了跳转
             if "context" in 错误信息 or "destroyed" in 错误信息 or "navigation" in 错误信息:
-                print(f"⚠ 捕获到页面跳转异常: {e}，等待后检查 URL")
+                logger.info(f"⚠ 捕获到页面跳转异常: {e}，等待后检查 URL")
                 # 等待页面稳定
                 await self.随机延迟(3, 5)
 
@@ -211,13 +216,13 @@ class 登录页(基础页):
                     # 检查当前 URL 是否在首页
                     当前URL = self.页面.url
                     if "mms.pinduoduo.com/home" in 当前URL:
-                        print(f"✓ 页面已跳转到首页: {当前URL}")
+                        logger.info(f"✓ 页面已跳转到首页: {当前URL}")
                         return True
                 except Exception as e2:
-                    print(f"✗ 检查 URL 失败: {e2}")
+                    logger.info(f"✗ 检查 URL 失败: {e2}")
                     return False
 
-            print(f"✗ 登录失败: {e}")
+            logger.info(f"✗ 登录失败: {e}")
             return False
 
     async def 检测滑块验证码(self) -> bool:

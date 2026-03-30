@@ -6,6 +6,7 @@
 from typing import Optional
 from fastapi import APIRouter, Query
 
+from backend.logging_config import get_logger
 from backend.models.data_structure import (
     统一响应,
     成功,
@@ -17,6 +18,9 @@ from backend.models.data_structure import (
 from backend.services.shop_service import 店铺服务实例
 from backend.services.email_service import 邮箱服务实例
 from backend.services import browser_service
+
+
+logger = get_logger()
 
 
 # 创建路由
@@ -289,7 +293,7 @@ async def 检查店铺登录状态(shop_id: str) -> 统一响应:
         if not 店铺:
             return 失败("店铺不存在")
 
-        print(f"检查店铺状态: {shop_id}")
+        logger.info(f"检查店铺状态: {shop_id}")
 
         # 自动初始化并打开浏览器（headless 模式）
         浏览器实例 = await 浏览器服务.打开店铺浏览器(shop_id, 店铺, headless=True)
@@ -319,11 +323,11 @@ async def 检查店铺登录状态(shop_id: str) -> 统一响应:
             try:
                 await 浏览器服务.关闭店铺浏览器(shop_id)
             except Exception as e:
-                print(f"⚠ 关闭浏览器时出错（已忽略）: {e}")
+                logger.info(f"⚠ 关闭浏览器时出错（已忽略）: {e}")
 
         return 成功(data={"status": 状态}, message=消息)
     except Exception as e:
-        print(f"检查店铺状态失败: {str(e)}")
+        logger.info(f"检查店铺状态失败: {str(e)}")
         import traceback
         traceback.print_exc()
         return 失败(f"检查状态失败: {str(e)}")
@@ -363,7 +367,7 @@ async def 打开店铺浏览器并登录(shop_id: str) -> 统一响应:
 
         return 成功(data=任务, message="登录任务已启动")
     except Exception as e:
-        print(f"打开店铺浏览器失败: {str(e)}")
+        logger.info(f"打开店铺浏览器失败: {str(e)}")
         import traceback
         traceback.print_exc()
         return 失败(f"打开浏览器失败: {str(e)}")

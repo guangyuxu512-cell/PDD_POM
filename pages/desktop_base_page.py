@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any, Optional
 
 from backend.config import 配置实例
+from backend.logging_config import get_logger
 
 try:
     import uiautomation as uia
@@ -14,6 +15,9 @@ except ImportError:  # pragma: no cover - 依赖缺失时走兜底
     uia = None
 
 from pdd_selectors.desktop_selector_config import 桌面选择器配置
+
+
+logger = get_logger()
 
 
 class 桌面基础页:
@@ -68,7 +72,7 @@ class 桌面基础页:
         """查找并点击控件。"""
         控件 = self.查找(配置)
         if not 控件:
-            print(f"[桌面基础页] 未找到控件: {配置.名称 or 配置.控件类型}")
+            logger.info(f"[桌面基础页] 未找到控件: {配置.名称 or 配置.控件类型}")
             return False
         控件.Click()
         self.操作后延迟()
@@ -78,7 +82,7 @@ class 桌面基础页:
         """查找控件并输入文本。"""
         控件 = self.查找(配置)
         if not 控件:
-            print(f"[桌面基础页] 未找到输入控件: {配置.名称 or 配置.控件类型}")
+            logger.info(f"[桌面基础页] 未找到输入控件: {配置.名称 or 配置.控件类型}")
             return False
 
         if 清空:

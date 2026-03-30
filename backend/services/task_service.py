@@ -16,6 +16,10 @@ from backend.config import 配置实例
 from backend.models.database import 获取连接
 from backend.services.task_params_service import 任务参数服务实例
 
+from backend.logging_config import get_logger
+
+logger = get_logger()
+
 浏览器初始化超时秒 = 60
 打开浏览器超时秒 = 120
 任务执行超时秒 = 1800
@@ -53,9 +57,12 @@ class 任务服务:
         """确保任务执行前拿到一个可用页面。"""
         页面 = None
         try:
-            页面 = 管理器实例.获取页面(shop_id)
+            if hasattr(管理器实例, "安全获取页面"):
+                页面 = await 管理器实例.安全获取页面(shop_id)
+            else:
+                页面 = 管理器实例.获取页面(shop_id)
         except RuntimeError as 异常:
-            if "所有页面已关闭" not in str(异常):
+            if "所有页面已关闭" not in str(异常) and "需要恢复" not in str(异常):
                 raise
 
         if 页面 is not None and not self._页面已关闭(页面):
@@ -79,7 +86,7 @@ class 任务服务:
 
         实例["页面"] = 页面
         实例["page"] = 页面
-        print(f"[任务服务] 页面已刷新: {页面}")
+        logger.info(f"[任务服务] 页面已刷新: {页面}")
         return 页面
 
     async def _获取待执行任务参数记录(
@@ -240,7 +247,7 @@ class 任务服务:
             }
 
         if await self._已收到批次取消(batch_id):
-            print("[任务服务] 收到取消信号，停止执行")
+            logger.info("[任务服务] 收到取消信号，停止执行")
             return self._构建取消结果(task_name, shop_id)
 
         if merge:
@@ -287,7 +294,7 @@ class 任务服务:
                 await self._标记合并跳过(flow_param_id, task_name, step_index, 主记录ID)
 
             if await self._已收到批次取消(batch_id):
-                print("[任务服务] 收到取消信号，停止执行")
+                logger.info("[任务服务] 收到取消信号，停止执行")
                 return self._构建取消结果(task_name, shop_id)
 
             try:
@@ -326,7 +333,7 @@ class 任务服务:
 
         for 索引, flow_param_id in enumerate(flow_param_ids):
             if await self._已收到批次取消(batch_id):
-                print("[任务服务] 收到取消信号，停止执行")
+                logger.info("[任务服务] 收到取消信号，停止执行")
                 return self._构建取消结果(task_name, shop_id)
             try:
                 await 流程参数服务实例.更新(
@@ -417,7 +424,7 @@ class 任务服务:
                 break
 
             if await self._已收到批次取消(batch_id):
-                print("[任务服务] 收到取消信号，停止执行")
+                logger.info("[任务服务] 收到取消信号，停止执行")
                 return self._构建取消结果(task_name, shop_id)
 
             if 索引 < len(flow_param_ids) - 1:
@@ -828,7 +835,7 @@ class 任务服务:
             return
 
         if await self._已收到批次取消(批次ID):
-            print("[任务服务] 收到取消信号，停止执行")
+            logger.info("[任务服务] 收到取消信号，停止执行")
             return
 
         当前步骤名 = str(当前步骤["task"])
@@ -1109,7 +1116,7 @@ class 任务服务:
             展示店铺名 = str(params.get("shop_name") or shop_id)
 
         try:
-            print(
+            logger.info(
                 f"[任务服务] 开始执行任务: 来源={来源}, task_id={task_id}, "
                 f"shop_name={展示店铺名}, shop_id={shop_id}, task_name={task_name}"
             )
@@ -1118,11 +1125,11 @@ class 任务服务:
             if task_name == "登录":
                 from backend.services.shop_service import 店铺服务实例
                 await 店铺服务实例.更新(shop_id, {"status": "logging_in"})
-                print(f"[任务服务] 店铺状态已更新为 logging_in")
+                logger.info(f"[任务服务] 店铺状态已更新为 logging_in")
 
             # 更新状态为 running
             await self.更新任务状态(task_id, "running")
-            print(f"[任务服务] 任务状态已更新为 running")
+            logger.info(f"[任务服务] 任务状态已更新为 running")
 
             # 获取浏览器页面
             from backend.services import browser_service as 浏览器服务模块
@@ -1142,11 +1149,11 @@ class 任务服务:
             if 管理器实例 is None:
                 raise RuntimeError("浏览器初始化失败: 管理器实例为空")
 
-            print(f"[任务服务] 浏览器管理器实例: {管理器实例}")
+            logger.info(f"[任务服务] 浏览器管理器实例: {管理器实例}")
 
             # 检查店铺浏览器是否已打开
             if shop_id not in 管理器实例.实例集:
-                print(f"[任务服务] 店铺浏览器未打开，开始自动初始化...")
+                logger.info(f"[任务服务] 店铺浏览器未打开，开始自动初始化...")
                 # 自动初始化浏览器
                 from backend.services.shop_service import 店铺服务实例
                 店铺 = await 店铺服务实例.根据ID获取(shop_id)
@@ -1173,15 +1180,15 @@ class 任务服务:
                 管理器实例 = 浏览器服务模块.获取当前管理器实例()
                 if 管理器实例 is None:
                     raise RuntimeError("浏览器打开失败: 管理器实例为空")
-                print(f"[任务服务] 浏览器已自动打开")
+                logger.info(f"[任务服务] 浏览器已自动打开")
             else:
-                print(f"[任务服务] 店铺浏览器已打开，复用现有实例")
+                logger.info(f"[任务服务] 店铺浏览器已打开，复用现有实例")
 
             # 获取页面
             页面 = await self._确保页面可用(管理器实例, shop_id)
             if 页面 is None:
                 raise RuntimeError("浏览器页面获取失败: 页面对象为空")
-            print(f"[任务服务] 获取到页面对象: {页面}")
+            logger.info(f"[任务服务] 获取到页面对象: {页面}")
 
             # 获取店铺配置（包含解密后的密码）
             from backend.services.shop_service import 店铺服务实例
@@ -1191,7 +1198,7 @@ class 任务服务:
                 raise Exception(f"店铺不存在: {shop_id}")
             展示店铺名 = str(店铺完整信息.get("name") or 展示店铺名)
 
-            print(f"[任务服务] 获取到店铺完整信息，用户名: {店铺完整信息.get('username')}")
+            logger.info(f"[任务服务] 获取到店铺完整信息，用户名: {店铺完整信息.get('username')}")
 
             # 构建店铺配置
             店铺配置 = {
@@ -1207,7 +1214,7 @@ class 任务服务:
             if not 店铺配置.get("password"):
                 raise Exception("店铺密码为空，请先在店铺管理中设置密码")
 
-            print(f"[任务服务] 店铺配置验证通过，密码长度: {len(店铺配置.get('password', ''))}")
+            logger.info(f"[任务服务] 店铺配置验证通过，密码长度: {len(店铺配置.get('password', ''))}")
 
             # 添加邮箱配置（用于邮箱验证码功能）
             if 店铺完整信息.get("smtp_host"):
@@ -1239,7 +1246,7 @@ class 任务服务:
 
             当前批次ID = str(店铺配置.get("batch_id") or "")
             if await self._已收到批次取消(当前批次ID):
-                print("[任务服务] 收到取消信号，停止执行")
+                logger.info("[任务服务] 收到取消信号，停止执行")
                 await self.更新任务状态(task_id, "cancelled", error="用户手动停止")
                 return {
                     "task_id": task_id,
@@ -1251,7 +1258,7 @@ class 任务服务:
                     "error": "用户手动停止",
                 }
 
-            print(f"[任务服务] 开始执行任务...")
+            logger.info(f"[任务服务] 开始执行任务...")
             # 中文注释：任务执行过程可能包含页面交互和网络等待，设置超时可避免任务永久占用 Worker。
             try:
                 执行结果 = await asyncio.wait_for(
@@ -1267,21 +1274,21 @@ class 任务服务:
                 raise TimeoutError(f"任务执行超时（{任务执行超时秒}秒）") from e
 
             结果 = 执行结果["result"]
-            print(f"[任务服务] 任务执行完成，结果: {结果}")
+            logger.info(f"[任务服务] 任务执行完成，结果: {结果}")
 
             # 更新任务状态为 completed
             await self.更新任务状态(task_id, "completed", result=str(结果))
-            print(f"[任务服务] 任务状态已更新为 completed")
+            logger.info(f"[任务服务] 任务状态已更新为 completed")
 
             # 如果是登录任务，根据结果更新店铺状态
             if task_name == "登录":
                 from backend.services.shop_service import 店铺服务实例
                 if 结果 == "成功":
                     await 店铺服务实例.更新(shop_id, {"status": "online"})
-                    print(f"[任务服务] 登录成功，店铺状态已更新为 online")
+                    logger.info(f"[任务服务] 登录成功，店铺状态已更新为 online")
                 else:
                     await 店铺服务实例.更新(shop_id, {"status": "offline"})
-                    print(f"[任务服务] 登录失败，店铺状态已更新为 offline")
+                    logger.info(f"[任务服务] 登录失败，店铺状态已更新为 offline")
 
             return {
                 "task_id": task_id,
@@ -1295,7 +1302,7 @@ class 任务服务:
             }
 
         except Exception as e:
-            print(f"[任务服务] 任务执行失败: shop_name={展示店铺名}, shop_id={shop_id}, error={e}")
+            logger.info(f"[任务服务] 任务执行失败: shop_name={展示店铺名}, shop_id={shop_id}, error={e}")
             import traceback
             traceback.print_exc()
 
@@ -1306,7 +1313,7 @@ class 任务服务:
             if task_name == "登录":
                 from backend.services.shop_service import 店铺服务实例
                 await 店铺服务实例.更新(shop_id, {"status": "offline"})
-                print(f"[任务服务] 登录异常，店铺状态已更新为 offline")
+                logger.info(f"[任务服务] 登录异常，店铺状态已更新为 offline")
 
             return {
                 "task_id": task_id,
@@ -1485,7 +1492,7 @@ class 任务服务:
             )
 
         if await self._已收到批次取消(batch_id):
-            print("[任务服务] 收到取消信号，停止执行")
+            logger.info("[任务服务] 收到取消信号，停止执行")
             return self._构建取消结果(task_name, shop_id)
 
         任务参数记录 = await self._准备任务参数(shop_id, task_name, 店铺配置)
@@ -1529,7 +1536,7 @@ class 任务服务:
                             下一步任务名=下一步任务名,
                         )
                     except Exception as e:
-                        print(f"[任务服务] 自动创建后续任务失败（忽略）: {e}")
+                        logger.info(f"[任务服务] 自动创建后续任务失败（忽略）: {e}")
             elif 结果 != "跳过":
                 await self._回填任务参数执行结果(
                     任务参数记录,

@@ -4,10 +4,11 @@
 FastAPI 应用入口，负责创建 app 实例、注册路由、处理生命周期事件。
 """
 import sys
+from time import perf_counter
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
@@ -15,9 +16,12 @@ from fastapi.staticfiles import StaticFiles
 from backend.api.router import 注册所有路由
 from backend.models.database import 初始化数据库, 关闭数据库
 from backend.config import 配置实例
+from backend.logging_config import get_logger
+from backend.services.metrics_service import 指标服务实例
 
 
 后端保留路径 = ("/api", "/docs", "/redoc", "/openapi.json")
+日志记录器 = get_logger()
 
 
 @asynccontextmanager
@@ -35,6 +39,7 @@ async def 生命周期(app: FastAPI):
     from browser.task_callback import 设置回调地址
     from backend.services.heartbeat_service import 心跳服务实例
 
+    指标服务实例.重置()
     初始化任务注册表()
 
     if 配置实例.AGENT_CALLBACK_URL:
@@ -42,7 +47,7 @@ async def 生命周期(app: FastAPI):
 
     await 心跳服务实例.启动()
 
-    print(f"[后端启动完成] 端口: {配置实例.BACKEND_PORT}")
+    日志记录器.success(f"后端启动完成，端口: {配置实例.BACKEND_PORT}")
 
     try:
         yield  # --- 应用运行中 ---
@@ -50,7 +55,7 @@ async def 生命周期(app: FastAPI):
         # === 关闭阶段 ===
         await 心跳服务实例.停止()
         await 关闭数据库()
-        print("[后端已关闭]")
+        日志记录器.info("后端已关闭")
 
 
 def 创建应用() -> FastAPI:
@@ -67,6 +72,17 @@ def 创建应用() -> FastAPI:
         lifespan=生命周期,
         redirect_slashes=False,  # 禁用自动重定向，避免 POST/DELETE 请求 body 丢失
     )
+
+    @app.middleware("http")
+    async def 记录请求指标(request: Request, call_next):
+        开始时间 = perf_counter()
+        响应 = await call_next(request)
+        指标服务实例.记录请求((perf_counter() - 开始时间) * 1000)
+        return 响应
+
+    @app.get("/health", include_in_schema=False)
+    async def 根健康检查():
+        return {"status": "ok"}
 
     # --- CORS 中间件（允许前端跨域访问）---
     app.add_middleware(

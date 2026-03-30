@@ -3,6 +3,8 @@ from __future__ import annotations
 
 from typing import Any, Optional
 
+from backend.logging_config import get_logger
+
 try:
     import uiautomation as uia
 except ImportError:  # pragma: no cover - 依赖缺失时走兜底
@@ -10,6 +12,9 @@ except ImportError:  # pragma: no cover - 依赖缺失时走兜底
 
 from pages.desktop_base_page import 桌面基础页
 from pdd_selectors.wechat_selector import 微信选择器
+
+
+logger = get_logger()
 
 
 class 微信页(桌面基础页):
@@ -26,7 +31,7 @@ class 微信页(桌面基础页):
     def 激活窗口(self) -> bool:
         """将微信窗口置顶激活。"""
         if not self._窗口 or not self._窗口.Exists(maxSearchSeconds=5):
-            print("[微信页] 微信窗口未找到，请确认微信已登录")
+            logger.info("[微信页] 微信窗口未找到，请确认微信已登录")
             return False
         self._窗口.SetActive()
         self._窗口.SetTopmost(True)
@@ -37,18 +42,18 @@ class 微信页(桌面基础页):
     def 搜索联系人(self, 联系人: str) -> bool:
         """通过搜索框搜索联系人并打开聊天。"""
         if not self.点击(微信选择器.搜索按钮):
-            print("[微信页] 搜索按钮未找到")
+            logger.info("[微信页] 搜索按钮未找到")
             return False
         self._随机等待(0.5, 1.0)
 
         if not self.输入文本(微信选择器.搜索输入框, 联系人):
-            print("[微信页] 搜索输入框未找到")
+            logger.info("[微信页] 搜索输入框未找到")
             return False
         self._随机等待(1.0, 2.0)
 
         联系人选择器 = 微信选择器.获取联系人项(联系人)
         if not self.点击(联系人选择器):
-            print(f"[微信页] 联系人未找到: {联系人}")
+            logger.info(f"[微信页] 联系人未找到: {联系人}")
             return False
         self._随机等待(0.5, 1.0)
         return True
@@ -67,7 +72,7 @@ class 微信页(桌面基础页):
             return False
 
         if not self.输入文本(微信选择器.聊天输入框, 消息, 清空=True):
-            print("[微信页] 聊天输入框未找到")
+            logger.info("[微信页] 聊天输入框未找到")
             return False
         self._随机等待(0.3, 0.8)
 
@@ -76,9 +81,9 @@ class 微信页(桌面基础页):
             if 聊天框:
                 聊天框.SendKeys("{Enter}")
             else:
-                print("[微信页] 发送按钮和 Enter 都失败")
+                logger.info("[微信页] 发送按钮和 Enter 都失败")
                 return False
 
         self._随机等待(1.0, 2.0)
-        print("[微信页] 已发送消息到当前聊天")
+        logger.info("[微信页] 已发送消息到当前聊天")
         return True

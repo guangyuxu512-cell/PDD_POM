@@ -8,8 +8,13 @@ from typing import Any
 from urllib.parse import parse_qs, unquote, urlparse
 
 from backend.config import 配置实例
+from backend.logging_config import get_logger
 from pages.base_page import 基础页
 from pdd_selectors.after_sale_page_selector import 售后页选择器
+
+
+logger = get_logger()
+
 
 详情按钮查询选择器 = (
     'button:not(:disabled), '
@@ -92,7 +97,7 @@ class 售后页(基础页):
         await 新页面.wait_for_load_state("domcontentloaded")
         await self._等待详情页区域(新页面)
         self._详情页 = 新页面
-        print(f"[售后页] 已切换到详情标签页: {标识文本}")
+        logger.info(f"[售后页] 已切换到详情标签页: {标识文本}")
 
     async def _点击弹窗提交按钮(self, 页面, 按钮列表: list[str]) -> bool:
         for 按钮文本 in 按钮列表:
@@ -105,7 +110,7 @@ class 售后页(基础页):
         await self.操作前延迟()
         await self.页面.goto(self.售后列表地址, wait_until="domcontentloaded")
         await self.页面加载延迟()
-        print(f"[售后页] 售后列表页加载完成: {self.页面.url}")
+        logger.info(f"[售后页] 售后列表页加载完成: {self.页面.url}")
 
     @staticmethod
     def _转换分转元(值: Any) -> float:
@@ -193,7 +198,7 @@ class 售后页(基础页):
                     return
                 if 仅待商家处理:
                     if not self._响应URL是否待商家处理(响应地址) and not self._列表数据是否待商家处理(列表数据):
-                        print(f"[售后页] 已忽略非待商家处理响应: {响应地址}")
+                        logger.info(f"[售后页] 已忽略非待商家处理响应: {响应地址}")
                         return
 
                 本次结果列表: list[dict[str, Any]] = []
@@ -248,7 +253,7 @@ class 售后页(基础页):
             if 后台任务列表:
                 await asyncio.gather(*后台任务列表, return_exceptions=True)
 
-        print(f"[售后页] API拦截抓取到 {len(结果容器)} 条售后单")
+        logger.info(f"[售后页] API拦截抓取到 {len(结果容器)} 条售后单")
         return 结果容器
 
     async def 导航并抓取售后列表(self) -> tuple[list[dict], int]:
@@ -308,7 +313,7 @@ class 售后页(基础页):
             """
         )
         结果 = int(数量 or 0)
-        print(f"[售后页] 待商家处理数量: {结果}")
+        logger.info(f"[售后页] 待商家处理数量: {结果}")
         return 结果
 
     async def 确保待商家处理已选中(self, 强制点击: bool = False) -> None:
@@ -346,7 +351,7 @@ class 售后页(基础页):
             raise RuntimeError("未找到「待商家处理」卡片，页面可能未正确加载")
 
         if 当前状态.get("已选中") and not 强制点击:
-            print("[售后页] 待商家处理卡片已选中，无需操作")
+            logger.info("[售后页] 待商家处理卡片已选中，无需操作")
             return
 
         点击成功 = await self.页面.evaluate(
@@ -389,9 +394,9 @@ class 售后页(基础页):
         )
 
         if not 验证:
-            print("[售后页] 警告: 点击后「待商家处理」仍未选中，可能需要重试")
+            logger.info("[售后页] 警告: 点击后「待商家处理」仍未选中，可能需要重试")
         else:
-            print("[售后页] 已成功切换到「待商家处理」")
+            logger.info("[售后页] 已成功切换到「待商家处理」")
 
     async def 批量抓取当前页(self, 最大重试: int = 3) -> list[dict]:
         """一次 JS evaluate 批量抓取当前页所有售后单行，带重试。"""
@@ -406,10 +411,10 @@ class 售后页(基础页):
                 break
             except Exception:
                 if 尝试次数 < 最大重试 - 1:
-                    print(f"[售后页] 第{尝试次数 + 1}次等待售后单行超时，重试...")
+                    logger.info(f"[售后页] 第{尝试次数 + 1}次等待售后单行超时，重试...")
                     await asyncio.sleep(1)
                 else:
-                    print("[售后页] 未检测到售后单行，当前页可能为空")
+                    logger.info("[售后页] 未检测到售后单行，当前页可能为空")
                     return []
 
         await asyncio.sleep(0.8)
@@ -502,7 +507,7 @@ class 售后页(基础页):
         await self.操作后延迟()
 
         列表 = list(结果 or [])
-        print(f"[售后页] DOM批量抓取到 {len(列表)} 条售后单")
+        logger.info(f"[售后页] DOM批量抓取到 {len(列表)} 条售后单")
         return 列表
 
     async def 搜索订单(self, 关键词: str) -> None:
@@ -620,7 +625,7 @@ class 售后页(基础页):
         )
         await self.操作后延迟()
         if 结果:
-            print(
+            logger.info(
                 f"[售后页] 第{行号}行: 订单={结果.get('订单号')}, "
                 f"类型={结果.get('售后类型')}, 退款={结果.get('退款金额')}"
             )
@@ -653,7 +658,7 @@ class 售后页(基础页):
                 except Exception:
                     continue
             if not 点击成功:
-                print(f"[售后页] 未找到列表备注按钮: {订单号}")
+                logger.info(f"[售后页] 未找到列表备注按钮: {订单号}")
                 return False
 
             await self.随机延迟(0.5, 1)
@@ -665,7 +670,7 @@ class 售后页(基础页):
                 except Exception:
                     continue
             else:
-                print(f"[售后页] 未找到列表备注输入框: {订单号}")
+                logger.info(f"[售后页] 未找到列表备注输入框: {订单号}")
                 return False
 
             await self.随机延迟(0.3, 0.8)
@@ -674,15 +679,15 @@ class 售后页(基础页):
                 try:
                     await self.安全点击(选择器)
                     await self.操作后延迟()
-                    print(f"[售后页] 列表备注已保存: {订单号} -> {内容[:30]}")
+                    logger.info(f"[售后页] 列表备注已保存: {订单号} -> {内容[:30]}")
                     return True
                 except Exception:
                     continue
 
-            print(f"[售后页] 未找到列表备注保存按钮: {订单号}")
+            logger.info(f"[售后页] 未找到列表备注保存按钮: {订单号}")
             return False
         except Exception as 异常:
-            print(f"[售后页] 列表添加备注失败: {异常}")
+            logger.info(f"[售后页] 列表添加备注失败: {异常}")
             return False
 
     async def 详情页添加备注(self, 内容: str) -> bool:
@@ -696,7 +701,7 @@ class 售后页(基础页):
                 except Exception:
                     continue
             else:
-                print("[售后页] 未找到详情备注按钮")
+                logger.info("[售后页] 未找到详情备注按钮")
                 return False
 
             await self.随机延迟(0.5, 1)
@@ -708,7 +713,7 @@ class 售后页(基础页):
                 except Exception:
                     continue
             else:
-                print("[售后页] 未找到详情备注输入框")
+                logger.info("[售后页] 未找到详情备注输入框")
                 return False
 
             await self.随机延迟(0.3, 0.8)
@@ -717,15 +722,15 @@ class 售后页(基础页):
                 try:
                     await self._点击目标页面元素(目标页面, 选择器)
                     await self.操作后延迟()
-                    print(f"[售后页] 详情备注已保存: {内容[:30]}")
+                    logger.info(f"[售后页] 详情备注已保存: {内容[:30]}")
                     return True
                 except Exception:
                     continue
 
-            print("[售后页] 未找到详情备注保存按钮")
+            logger.info("[售后页] 未找到详情备注保存按钮")
             return False
         except Exception as 异常:
-            print(f"[售后页] 详情添加备注失败: {异常}")
+            logger.info(f"[售后页] 详情添加备注失败: {异常}")
             return False
 
     async def 抓取退货物流信息(self) -> dict:
@@ -743,7 +748,7 @@ class 售后页(基础页):
                 continue
 
         if not 退货Tab点击成功:
-            print("[售后页] 未找到退货物流Tab，可能没有退货物流")
+            logger.info("[售后页] 未找到退货物流Tab，可能没有退货物流")
             return {"有退货物流": False}
 
         for 选择器 in 售后页选择器.查看全部按钮.所有选择器():
@@ -798,12 +803,12 @@ class 售后页(基础页):
                 """,
             )
         except Exception as 异常:
-            print(f"[售后页] 抓取退货物流失败: {异常}")
+            logger.info(f"[售后页] 抓取退货物流失败: {异常}")
             return {"有退货物流": False}
 
         结果字典 = dict(结果 or {"有退货物流": False})
         if 结果字典.get("有退货物流"):
-            print(
+            logger.info(
                 f"[售后页] 抓取退货物流成功: "
                 f"{结果字典.get('退货快递公司', '')} {结果字典.get('退货快递单号', '')}"
             )
@@ -949,10 +954,10 @@ class 售后页(基础页):
                 """
             )
             if 当前首行订单号 and 当前首行订单号 != 旧首行订单号:
-                print(f"[售后页] 翻页DOM已刷新: {旧首行订单号} → {当前首行订单号}")
+                logger.info(f"[售后页] 翻页DOM已刷新: {旧首行订单号} → {当前首行订单号}")
                 break
         else:
-            print("[售后页] 翻页DOM刷新超时，尝试继续抓取")
+            logger.info("[售后页] 翻页DOM刷新超时，尝试继续抓取")
 
         return await self.批量抓取当前页()
 

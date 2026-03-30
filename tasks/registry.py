@@ -14,6 +14,10 @@ from typing import Any, Optional, Type
 from pydantic import BaseModel
 
 
+from backend.logging_config import get_logger
+
+logger = get_logger()
+
 任务注册表: dict[str, dict[str, Any]] = {}
 排除模块 = {
     "__init__",
@@ -80,7 +84,7 @@ def register_task(
             "timeout": int(timeout),
             "retry_policy": dict(retry_policy) if retry_policy else None,
         }
-        print(f"[任务注册] {名称} - {描述}")
+        logger.info(f"[任务注册] {名称} - {描述}")
         return 任务类
 
     return 装饰器
@@ -200,7 +204,7 @@ def 初始化任务注册表() -> None:
     自动导入 tasks 目录下的任务模块，触发装饰器注册。
     """
     if 任务注册表:
-        print(f"[任务注册表初始化完成] 已注册 {len(任务注册表)} 个任务")
+        logger.info(f"[任务注册表初始化完成] 已注册 {len(任务注册表)} 个任务")
         return
 
     for 模块名 in _列出任务模块():
@@ -210,7 +214,7 @@ def 初始化任务注册表() -> None:
         else:
             importlib.import_module(完整模块名)
 
-    print(f"[任务注册表初始化完成] 已注册 {len(任务注册表)} 个任务")
+    logger.info(f"[任务注册表初始化完成] 已注册 {len(任务注册表)} 个任务")
 
 
 __all__ = [

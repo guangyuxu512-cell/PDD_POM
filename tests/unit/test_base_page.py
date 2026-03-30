@@ -2,7 +2,7 @@
 基础页单元测试
 """
 import pytest
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 
 class 测试_基础页:
@@ -56,6 +56,29 @@ class 测试_基础页:
         await 基础.安全填写("#input", "abc")
         # 现在使用真人模拟器，可能有打错字的情况，所以 >= 3
         assert 模拟页面.keyboard.type.call_count >= 3
+
+    @pytest.mark.asyncio
+    async def test_检查并处理登录态_失效时抛出异常(self, 模拟页面):
+        from pages.base_page import 基础页
+
+        with patch("pages.base_page.登录态监控实例.检查登录态", new=AsyncMock(return_value=False)), \
+                patch("pages.base_page.登录态监控实例.触发失效告警", new=AsyncMock()) as 模拟告警:
+            基础 = 基础页(模拟页面, 店铺ID="shop-1", 店铺名称="店铺A")
+            with pytest.raises(RuntimeError, match="登录态已失效"):
+                await 基础.检查并处理登录态()
+
+        模拟告警.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_安全点击_浏览器关闭时抛出恢复异常(self, 模拟页面):
+        from pages.base_page import 基础页
+
+        基础 = 基础页(模拟页面, 店铺ID="shop-1")
+        基础.检查并处理登录态 = AsyncMock(return_value=True)
+        模拟页面.wait_for_selector.side_effect = RuntimeError("Target closed")
+
+        with pytest.raises(RuntimeError, match="浏览器上下文已关闭，需要恢复"):
+            await 基础.安全点击("#btn")
 
     @pytest.mark.asyncio
     async def test_截图(self, 模拟页面):

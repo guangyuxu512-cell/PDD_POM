@@ -8,6 +8,10 @@ import shutil
 from typing import List
 
 
+from backend.logging_config import get_logger
+
+logger = get_logger()
+
 class 用户目录工厂:
     """浏览器用户数据目录管理工厂"""
 
@@ -53,7 +57,7 @@ class 用户目录工厂:
             shutil.rmtree(店铺目录)
             return True
         except Exception as e:
-            print(f"✗ 删除目录失败: {e}")
+            logger.info(f"✗ 删除目录失败: {e}")
             return False
 
     def 列出全部(self) -> List[str]:

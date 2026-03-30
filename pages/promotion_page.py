@@ -6,8 +6,12 @@ import inspect
 import random
 import time
 
+from backend.logging_config import get_logger
 from pages.base_page import 基础页
 from pdd_selectors.promotion_page_selector import 推广页选择器
+
+
+logger = get_logger()
 
 
 class 推广页(基础页):
@@ -27,13 +31,13 @@ class 推广页(基础页):
     async def 导航到全站推广页(self) -> None:
         """打开全站推广页。"""
         await self.页面.goto(self.全站推广URL, wait_until="domcontentloaded")
-        print(f"[推广页] 全站推广页加载完成: {self.页面.url}")
+        logger.info(f"[推广页] 全站推广页加载完成: {self.页面.url}")
         await self._随机等待()
 
     async def 返回商品列表页(self) -> None:
         """返回商品列表页。"""
         await self.页面.go_back(wait_until="domcontentloaded")
-        print(f"[推广页] 已返回商品列表页: {self.页面.url}")
+        logger.info(f"[推广页] 已返回商品列表页: {self.页面.url}")
         await self._随机等待()
 
     async def 关闭广告弹窗(self) -> bool:
@@ -58,7 +62,7 @@ class 推广页(基础页):
                             )
                         except Exception:
                             await self.页面.keyboard.press("Escape")
-                    print(f"[推广页] 已关闭广告弹窗: {选择器}")
+                    logger.info(f"[推广页] 已关闭广告弹窗: {选择器}")
                     已关闭 = True
                     break
                 except Exception:
@@ -78,11 +82,11 @@ class 推广页(基础页):
         for 选择器 in 推广页选择器.添加推广商品按钮.所有选择器():
             try:
                 await self.页面.click(选择器, timeout=10000)
-                print(f"[推广页] 已点击添加推广商品: {选择器}")
+                logger.info(f"[推广页] 已点击添加推广商品: {选择器}")
                 await self._随机等待()
                 return True
             except Exception as 异常:
-                print(f"[推广页] 添加推广商品点击失败({选择器}): {异常}")
+                logger.info(f"[推广页] 添加推广商品点击失败({选择器}): {异常}")
         return False
 
     async def 输入商品ID(self, 商品ID字符串: str) -> bool:
@@ -95,11 +99,11 @@ class 推广页(基础页):
                 await self.页面.keyboard.press("Control+A")
                 await self._随机等待()
                 await 输入框.fill(商品ID字符串)
-                print(f"[推广页] 已输入商品ID: {商品ID字符串}")
+                logger.info(f"[推广页] 已输入商品ID: {商品ID字符串}")
                 await self._随机等待()
                 return True
             except Exception as 异常:
-                print(f"[推广页] 商品ID输入失败({选择器}): {异常}")
+                logger.info(f"[推广页] 商品ID输入失败({选择器}): {异常}")
         return False
 
     async def 点击查询(self) -> bool:
@@ -108,11 +112,11 @@ class 推广页(基础页):
         for 选择器 in 推广页选择器.查询按钮.所有选择器():
             try:
                 await self.页面.click(选择器, timeout=10000)
-                print(f"[推广页] 已点击查询按钮: {选择器}")
+                logger.info(f"[推广页] 已点击查询按钮: {选择器}")
                 await self._随机等待()
                 return True
             except Exception as 异常:
-                print(f"[推广页] 查询按钮点击失败({选择器}): {异常}")
+                logger.info(f"[推广页] 查询按钮点击失败({选择器}): {异常}")
         return False
 
     async def 商品行是否存在(self, 商品ID: str) -> bool:
@@ -122,10 +126,10 @@ class 推广页(基础页):
             try:
                 元素 = await self.页面.query_selector(选择器)
                 if 元素 is not None:
-                    print(f"[推广页] 已找到商品行: {商品ID}")
+                    logger.info(f"[推广页] 已找到商品行: {商品ID}")
                     return True
             except Exception as 异常:
-                print(f"[推广页] 检查商品行失败({选择器}): {异常}")
+                logger.info(f"[推广页] 检查商品行失败({选择器}): {异常}")
         return False
 
     async def 获取全局优先起量状态(self) -> str:
@@ -149,11 +153,11 @@ class 推广页(基础页):
         for 选择器 in 推广页选择器.全局优先起量开关.所有选择器():
             try:
                 await self.页面.click(选择器, timeout=10000)
-                print(f"[推广页] 已点击全局优先起量开关: {选择器}")
+                logger.info(f"[推广页] 已点击全局优先起量开关: {选择器}")
                 await self._随机等待()
                 return True
             except Exception as 异常:
-                print(f"[推广页] 点击全局优先起量开关失败({选择器}): {异常}")
+                logger.info(f"[推广页] 点击全局优先起量开关失败({选择器}): {异常}")
         return False
 
     async def 确认关闭全局起量(self) -> bool:
@@ -164,17 +168,17 @@ class 推广页(基础页):
             try:
                 await self.页面.wait_for_selector(选择器, timeout=5000)
                 await self.页面.click(选择器, timeout=5000)
-                print(f"[推广页] 已确认关闭全局起量: {选择器}")
+                logger.info(f"[推广页] 已确认关闭全局起量: {选择器}")
                 await self._确认弹窗后等待()
                 return True
             except Exception as 异常:
                 最后异常 = 异常
-                print(f"[推广页] 确认关闭全局起量失败({选择器}): {异常}")
+                logger.info(f"[推广页] 确认关闭全局起量失败({选择器}): {异常}")
         try:
             await self.截图("全局起量确认弹窗失败")
         except Exception:
             pass
-        print(f"[推广页] 全局起量确认弹窗处理失败: {最后异常}")
+        logger.info(f"[推广页] 全局起量确认弹窗处理失败: {最后异常}")
         return False
 
     async def 点击更多设置(self, 商品ID: str) -> bool:
@@ -183,11 +187,11 @@ class 推广页(基础页):
         for 选择器 in 推广页选择器.获取更多设置按钮(商品ID).所有选择器():
             try:
                 await self.页面.click(选择器, timeout=10000)
-                print(f"[推广页] 已点击更多设置: {商品ID}")
+                logger.info(f"[推广页] 已点击更多设置: {商品ID}")
                 await self._随机等待()
                 return True
             except Exception as 异常:
-                print(f"[推广页] 点击更多设置失败({选择器}): {异常}")
+                logger.info(f"[推广页] 点击更多设置失败({选择器}): {异常}")
         return False
 
     async def 点击预算日限额(self) -> bool:
@@ -196,11 +200,11 @@ class 推广页(基础页):
         for 选择器 in 推广页选择器.预算日限额菜单项.所有选择器():
             try:
                 await self.页面.click(选择器, timeout=10000)
-                print(f"[推广页] 已点击预算日限额: {选择器}")
+                logger.info(f"[推广页] 已点击预算日限额: {选择器}")
                 await self._随机等待()
                 return True
             except Exception as 异常:
-                print(f"[推广页] 点击预算日限额失败({选择器}): {异常}")
+                logger.info(f"[推广页] 点击预算日限额失败({选择器}): {异常}")
         return False
 
     async def 输入日限额(self, 金额: float) -> bool:
@@ -214,11 +218,11 @@ class 推广页(基础页):
                 await self.页面.keyboard.press("Control+A")
                 await self._随机等待()
                 await 输入框.fill(文本值)
-                print(f"[推广页] 已输入日限额: {文本值}")
+                logger.info(f"[推广页] 已输入日限额: {文本值}")
                 await self._随机等待()
                 return True
             except Exception as 异常:
-                print(f"[推广页] 输入日限额失败({选择器}): {异常}")
+                logger.info(f"[推广页] 输入日限额失败({选择器}): {异常}")
         return False
 
     async def 确认日限额(self) -> bool:
@@ -227,11 +231,11 @@ class 推广页(基础页):
         for 选择器 in 推广页选择器.日限额确认按钮.所有选择器():
             try:
                 await self.页面.click(选择器, timeout=10000)
-                print(f"[推广页] 已确认日限额: {选择器}")
+                logger.info(f"[推广页] 已确认日限额: {选择器}")
                 await self._随机等待()
                 return True
             except Exception as 异常:
-                print(f"[推广页] 确认日限额失败({选择器}): {异常}")
+                logger.info(f"[推广页] 确认日限额失败({选择器}): {异常}")
         return False
 
     async def 点击修改投产铅笔按钮(self, 商品ID: str) -> bool:
@@ -240,11 +244,11 @@ class 推广页(基础页):
         for 选择器 in 推广页选择器.获取修改投产铅笔按钮(商品ID).所有选择器():
             try:
                 await self.页面.click(选择器, timeout=10000)
-                print(f"[推广页] 已点击修改投产铅笔按钮: {商品ID}")
+                logger.info(f"[推广页] 已点击修改投产铅笔按钮: {商品ID}")
                 await self._随机等待()
                 return True
             except Exception as 异常:
-                print(f"[推广页] 点击修改投产铅笔按钮失败({选择器}): {异常}")
+                logger.info(f"[推广页] 点击修改投产铅笔按钮失败({选择器}): {异常}")
         return False
 
     async def 等待投产弹窗(self) -> bool:
@@ -253,11 +257,11 @@ class 推广页(基础页):
         for 选择器 in 推广页选择器.投产比输入框.所有选择器():
             try:
                 await self.页面.wait_for_selector(选择器, timeout=10000)
-                print(f"[推广页] 投产弹窗已出现: {选择器}")
+                logger.info(f"[推广页] 投产弹窗已出现: {选择器}")
                 await self._随机等待()
                 return True
             except Exception as 异常:
-                print(f"[推广页] 等待投产弹窗失败({选择器}): {异常}")
+                logger.info(f"[推广页] 等待投产弹窗失败({选择器}): {异常}")
         return False
 
     async def 获取极速起量高级版状态(self, 商品ID: str) -> str:
@@ -278,11 +282,11 @@ class 推广页(基础页):
         for 选择器 in 推广页选择器.获取极速起量高级版开关(商品ID).所有选择器():
             try:
                 await self.页面.click(选择器, timeout=10000)
-                print(f"[推广页] 已点击极速起量高级版开关: {商品ID}")
+                logger.info(f"[推广页] 已点击极速起量高级版开关: {商品ID}")
                 await self._随机等待()
                 return True
             except Exception as 异常:
-                print(f"[推广页] 点击极速起量高级版开关失败({选择器}): {异常}")
+                logger.info(f"[推广页] 点击极速起量高级版开关失败({选择器}): {异常}")
         return False
 
     async def 确认关闭极速起量(self, 商品ID: str) -> bool:
@@ -293,17 +297,17 @@ class 推广页(基础页):
             try:
                 await self.页面.wait_for_selector(选择器, timeout=3000)
                 await self.页面.click(选择器, timeout=3000)
-                print(f"[推广页] 已确认关闭极速起量: 商品ID={商品ID}, 选择器={选择器}")
+                logger.info(f"[推广页] 已确认关闭极速起量: 商品ID={商品ID}, 选择器={选择器}")
                 await self._确认弹窗后等待()
                 return True
             except Exception as 异常:
                 最后异常 = 异常
-                print(f"[推广页] 极速起量确认失败(商品ID={商品ID}, 选择器={选择器}): {异常}")
+                logger.info(f"[推广页] 极速起量确认失败(商品ID={商品ID}, 选择器={选择器}): {异常}")
         try:
             await self.截图("极速起量确认弹窗未找到")
         except Exception:
             pass
-        print(f"[推广页] 极速起量确认弹窗处理失败: 商品ID={商品ID}, error={最后异常}")
+        logger.info(f"[推广页] 极速起量确认弹窗处理失败: 商品ID={商品ID}, error={最后异常}")
         return False
 
     async def 输入投产比(self, 投产比: float) -> bool:
@@ -317,11 +321,11 @@ class 推广页(基础页):
                 await self.页面.keyboard.press("Control+A")
                 await self._随机等待()
                 await 输入框.fill(文本值)
-                print(f"[推广页] 已输入投产比: {文本值}")
+                logger.info(f"[推广页] 已输入投产比: {文本值}")
                 await self._随机等待()
                 return True
             except Exception as 异常:
-                print(f"[推广页] 输入投产比失败({选择器}): {异常}")
+                logger.info(f"[推广页] 输入投产比失败({选择器}): {异常}")
         return False
 
     async def 确认投产比设置(self, 商品ID: str) -> bool:
@@ -330,11 +334,11 @@ class 推广页(基础页):
         for 选择器 in 推广页选择器.获取投产设置确认按钮(商品ID).所有选择器():
             try:
                 await self.页面.click(选择器, timeout=10000)
-                print(f"[推广页] 已确认投产比设置: {商品ID}")
+                logger.info(f"[推广页] 已确认投产比设置: {商品ID}")
                 await self._随机等待()
                 return True
             except Exception as 异常:
-                print(f"[推广页] 确认投产比设置失败({选择器}): {异常}")
+                logger.info(f"[推广页] 确认投产比设置失败({选择器}): {异常}")
         return False
 
     async def 点击开启推广(self) -> bool:
@@ -348,7 +352,7 @@ class 推广页(基础页):
         for 选择器 in 推广页选择器.开启推广按钮.所有选择器():
             try:
                 await self.页面.click(选择器, timeout=10000)
-                print(f"[推广页] 已点击开启推广: {选择器}")
+                logger.info(f"[推广页] 已点击开启推广: {选择器}")
                 await self._随机等待()
                 return True
             except Exception:
@@ -363,11 +367,11 @@ class 推广页(基础页):
                             "(selector) => document.querySelector(selector)?.click()",
                             选择器,
                         )
-                    print(f"[推广页] 已通过 JS 点击开启推广: {选择器}")
+                    logger.info(f"[推广页] 已通过 JS 点击开启推广: {选择器}")
                     await self._随机等待()
                     return True
                 except Exception as 异常:
-                    print(f"[推广页] 点击开启推广失败({选择器}): {异常}")
+                    logger.info(f"[推广页] 点击开启推广失败({选择器}): {异常}")
         return False
 
     async def _按钮是否仍可见(self) -> bool:
@@ -387,7 +391,7 @@ class 推广页(基础页):
                 if 元素 is not None:
                     return True
             except Exception as 异常:
-                print(f"[推广页] 检查开启推广按钮可见性失败({选择器}): {异常}")
+                logger.info(f"[推广页] 检查开启推广按钮可见性失败({选择器}): {异常}")
         return False
 
     async def 等待推广成功(self, 超时秒数: int = 15) -> bool:
@@ -400,28 +404,28 @@ class 推广页(基础页):
                 try:
                     元素 = await self.页面.query_selector(选择器)
                     if 元素 is not None:
-                        print(f"[推广页] 已命中推广成功Toast: {选择器}")
+                        logger.info(f"[推广页] 已命中推广成功Toast: {选择器}")
                         return True
                 except Exception as 异常:
-                    print(f"[推广页] 检查推广成功Toast失败({选择器}): {异常}")
+                    logger.info(f"[推广页] 检查推广成功Toast失败({选择器}): {异常}")
 
             当前地址 = str(getattr(self.页面, "url", "") or "")
             if "promotion/list" in 当前地址 and "create" not in 当前地址:
-                print(f"[推广页] 已通过URL检测到推广成功: {当前地址}")
+                logger.info(f"[推广页] 已通过URL检测到推广成功: {当前地址}")
                 return True
 
             if not await self._按钮是否仍可见():
-                print("[推广页] 已通过开启推广按钮消失检测到推广成功")
+                logger.info("[推广页] 已通过开启推广按钮消失检测到推广成功")
                 return True
 
             for 选择器 in 推广页选择器.推广中状态文案.所有选择器():
                 try:
                     元素 = await self.页面.query_selector(选择器)
                     if 元素 is not None:
-                        print(f"[推广页] 已检测到推广中状态: {选择器}")
+                        logger.info(f"[推广页] 已检测到推广中状态: {选择器}")
                         return True
                 except Exception as 异常:
-                    print(f"[推广页] 检查推广中状态失败({选择器}): {异常}")
+                    logger.info(f"[推广页] 检查推广中状态失败({选择器}): {异常}")
 
             await asyncio.sleep(0.5)
 
@@ -429,5 +433,5 @@ class 推广页(基础页):
             await self.截图("推广成功检测超时")
         except Exception:
             pass
-        print("[推广页] 推广成功检测超时")
+        logger.info("[推广页] 推广成功检测超时")
         return False

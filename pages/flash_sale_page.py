@@ -1,6 +1,10 @@
 """限时限量页的页面对象模型。"""
+from backend.logging_config import get_logger
 from pages.base_page import 基础页
 from pdd_selectors.flash_sale_page_selector import 限时限量页选择器
+
+
+logger = get_logger()
 
 
 class 限时限量页(基础页):
@@ -13,7 +17,7 @@ class 限时限量页(基础页):
     async def 导航到创建页(self) -> None:
         """打开限时限量创建页。"""
         await self.页面.goto(self.创建页地址, wait_until="domcontentloaded")
-        print(f"[限时限量页] 创建页加载完成: {self.页面.url}")
+        logger.info(f"[限时限量页] 创建页加载完成: {self.页面.url}")
         await self.页面加载延迟()
 
     async def 点击展开更多设置(self) -> None:
@@ -24,11 +28,11 @@ class 限时限量页(基础页):
             try:
                 await self.页面.click(选择器, timeout=10000)
                 await self.操作后延迟()
-                print(f"[限时限量页] 展开更多设置完成: {选择器}")
+                logger.info(f"[限时限量页] 展开更多设置完成: {选择器}")
                 return
             except Exception as 异常:
                 最后异常 = 异常
-                print(f"[限时限量页] 展开更多设置失败({选择器}): {异常}")
+                logger.info(f"[限时限量页] 展开更多设置失败({选择器}): {异常}")
         raise RuntimeError(f"展开更多设置失败: {最后异常}")
 
     async def 勾选自动创建(self) -> None:
@@ -39,11 +43,11 @@ class 限时限量页(基础页):
             try:
                 await self.页面.click(选择器, timeout=10000)
                 await self.操作后延迟()
-                print(f"[限时限量页] 自动创建勾选完成: {选择器}")
+                logger.info(f"[限时限量页] 自动创建勾选完成: {选择器}")
                 return
             except Exception as 异常:
                 最后异常 = 异常
-                print(f"[限时限量页] 自动创建勾选失败({选择器}): {异常}")
+                logger.info(f"[限时限量页] 自动创建勾选失败({选择器}): {异常}")
         raise RuntimeError(f"自动创建勾选失败: {最后异常}")
 
     async def 点击选择商品(self) -> None:
@@ -54,11 +58,11 @@ class 限时限量页(基础页):
             try:
                 await self.页面.click(选择器, timeout=10000)
                 await self.操作后延迟()
-                print(f"[限时限量页] 选择商品弹窗已打开: {选择器}")
+                logger.info(f"[限时限量页] 选择商品弹窗已打开: {选择器}")
                 return
             except Exception as 异常:
                 最后异常 = 异常
-                print(f"[限时限量页] 选择商品按钮点击失败({选择器}): {异常}")
+                logger.info(f"[限时限量页] 选择商品按钮点击失败({选择器}): {异常}")
         raise RuntimeError(f"选择商品按钮点击失败: {最后异常}")
 
     async def 弹窗输入商品ID(self, 商品ID: str) -> None:
@@ -73,11 +77,11 @@ class 限时限量页(基础页):
                 await self.随机延迟(0.2, 0.5)
                 await 输入框.fill(商品ID)
                 await self.操作后延迟()
-                print(f"[限时限量页] 弹窗商品ID填写完成: {选择器}")
+                logger.info(f"[限时限量页] 弹窗商品ID填写完成: {选择器}")
                 return
             except Exception as 异常:
                 最后异常 = 异常
-                print(f"[限时限量页] 弹窗商品ID填写失败({选择器}): {异常}")
+                logger.info(f"[限时限量页] 弹窗商品ID填写失败({选择器}): {异常}")
         raise RuntimeError(f"弹窗商品ID填写失败: {最后异常}")
 
     async def 弹窗点击查询(self) -> None:
@@ -88,11 +92,11 @@ class 限时限量页(基础页):
             try:
                 await self.页面.click(选择器, timeout=10000)
                 await self.操作后延迟()
-                print(f"[限时限量页] 弹窗查询完成: {选择器}")
+                logger.info(f"[限时限量页] 弹窗查询完成: {选择器}")
                 return
             except Exception as 异常:
                 最后异常 = 异常
-                print(f"[限时限量页] 弹窗查询失败({选择器}): {异常}")
+                logger.info(f"[限时限量页] 弹窗查询失败({选择器}): {异常}")
         raise RuntimeError(f"弹窗查询失败: {最后异常}")
 
     async def 弹窗等待结果(self) -> None:
@@ -103,11 +107,11 @@ class 限时限量页(基础页):
             try:
                 await self.页面.wait_for_selector(选择器, timeout=10000)
                 await self.操作后延迟()
-                print(f"[限时限量页] 弹窗查询结果已出现: {选择器}")
+                logger.info(f"[限时限量页] 弹窗查询结果已出现: {选择器}")
                 return
             except Exception as 异常:
                 最后异常 = 异常
-                print(f"[限时限量页] 弹窗查询结果等待失败({选择器}): {异常}")
+                logger.info(f"[限时限量页] 弹窗查询结果等待失败({选择器}): {异常}")
         raise RuntimeError(f"弹窗查询结果等待失败: {最后异常}")
 
     async def 弹窗勾选第一行(self) -> None:
@@ -118,11 +122,11 @@ class 限时限量页(基础页):
             try:
                 await self.页面.click(选择器, timeout=10000)
                 await self.操作后延迟()
-                print(f"[限时限量页] 弹窗第一行勾选完成: {选择器}")
+                logger.info(f"[限时限量页] 弹窗第一行勾选完成: {选择器}")
                 return
             except Exception as 异常:
                 最后异常 = 异常
-                print(f"[限时限量页] 弹窗第一行勾选失败({选择器}): {异常}")
+                logger.info(f"[限时限量页] 弹窗第一行勾选失败({选择器}): {异常}")
         raise RuntimeError(f"弹窗第一行勾选失败: {最后异常}")
 
     async def 弹窗点击确认选择(self) -> None:
@@ -133,11 +137,11 @@ class 限时限量页(基础页):
             try:
                 await self.页面.click(选择器, timeout=10000)
                 await self.操作后延迟()
-                print(f"[限时限量页] 弹窗确认选择完成: {选择器}")
+                logger.info(f"[限时限量页] 弹窗确认选择完成: {选择器}")
                 return
             except Exception as 异常:
                 最后异常 = 异常
-                print(f"[限时限量页] 弹窗确认选择失败({选择器}): {异常}")
+                logger.info(f"[限时限量页] 弹窗确认选择失败({选择器}): {异常}")
         raise RuntimeError(f"弹窗确认选择失败: {最后异常}")
 
     async def 输入商品折扣(self, 商品ID: str, 折扣值: float) -> bool:
@@ -153,11 +157,11 @@ class 限时限量页(基础页):
                 await self.随机延迟(0.2, 0.5)
                 await 输入框.fill(文本值)
                 await self.操作后延迟()
-                print(f"[限时限量页] 商品折扣填写完成: 商品ID={商品ID}, 选择器={选择器}")
+                logger.info(f"[限时限量页] 商品折扣填写完成: 商品ID={商品ID}, 选择器={选择器}")
                 return True
             except Exception as 异常:
                 最后异常 = 异常
-                print(f"[限时限量页] 商品折扣填写失败(商品ID={商品ID}, 选择器={选择器}): {异常}")
+                logger.info(f"[限时限量页] 商品折扣填写失败(商品ID={商品ID}, 选择器={选择器}): {异常}")
         raise RuntimeError(f"商品折扣填写失败: 商品ID={商品ID}, error={最后异常}")
 
     async def 点击创建(self) -> None:
@@ -168,11 +172,11 @@ class 限时限量页(基础页):
             try:
                 await self.页面.click(选择器, timeout=10000)
                 await self.操作后延迟()
-                print(f"[限时限量页] 创建按钮点击完成: {选择器}")
+                logger.info(f"[限时限量页] 创建按钮点击完成: {选择器}")
                 return
             except Exception as 异常:
                 最后异常 = 异常
-                print(f"[限时限量页] 创建按钮点击失败({选择器}): {异常}")
+                logger.info(f"[限时限量页] 创建按钮点击失败({选择器}): {异常}")
         raise RuntimeError(f"创建按钮点击失败: {最后异常}")
 
     async def 等待创建成功(self) -> bool:
@@ -182,8 +186,8 @@ class 限时限量页(基础页):
             try:
                 await self.页面.wait_for_selector(选择器, timeout=10000)
                 await self.操作后延迟()
-                print(f"[限时限量页] 创建成功提示已出现: {选择器}")
+                logger.info(f"[限时限量页] 创建成功提示已出现: {选择器}")
                 return True
             except Exception as 异常:
-                print(f"[限时限量页] 创建成功提示等待失败({选择器}): {异常}")
+                logger.info(f"[限时限量页] 创建成功提示等待失败({选择器}): {异常}")
         return False

@@ -71,3 +71,19 @@ class 测试_启动入口:
             响应 = 客户端.get("/api/not-found")
 
         assert 响应.status_code == 404
+
+    def test_创建应用_暴露根健康检查端点(self):
+        """根路径健康检查应返回纯状态对象，便于探针接入。"""
+        from backend import main as 启动入口模块
+
+        with patch("tasks.task_registry.初始化任务注册表"), \
+                patch("backend.main.初始化数据库", new=AsyncMock()), \
+                patch("backend.main.关闭数据库", new=AsyncMock()), \
+                patch("backend.services.heartbeat_service.心跳服务实例.启动", new=AsyncMock()), \
+                patch("backend.services.heartbeat_service.心跳服务实例.停止", new=AsyncMock()), \
+                patch.object(启动入口模块.配置实例, "AGENT_CALLBACK_URL", None):
+            with TestClient(启动入口模块.创建应用()) as 客户端:
+                响应 = 客户端.get("/health")
+
+        assert 响应.status_code == 200
+        assert 响应.json() == {"status": "ok"}

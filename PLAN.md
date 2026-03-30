@@ -1,5 +1,44 @@
 # 前端开发进度
 
+## Prompt 125：登录态监控、结构化日志、依赖锁定、健康检查与浏览器自动恢复 ✅
+
+- [x] 新增 `browser/session_monitor.py`
+- [x] 新增 `browser/recovery.py`
+- [x] 新增 `backend/logging_config.py`
+- [x] 新增 `backend/services/metrics_service.py`
+- [x] 更新 `browser/manager.py`
+- [x] 更新 `pages/base_page.py`
+- [x] 更新 `tasks/execute_task.py`
+- [x] 更新 `backend/main.py`
+- [x] 更新 `backend/api/system_api.py`
+- [x] 更新 `backend/services/system_service.py`
+- [x] 更新 `backend/services/task_service.py`
+- [x] 更新 `tasks/celery_app.py`
+- [x] 批量替换 `backend/`、`browser/`、`pages/`、`tasks/` 中剩余 `print()` 为统一日志调用
+- [x] 更新 `requirements.txt`
+- [x] 新增 `requirements-dev.txt`
+- [x] 生成 `requirements-lock.txt`
+- [x] 更新 `docs/deployment.md`
+- [x] 更新 `backend.spec`
+- [x] 更新 `celery-worker.spec`
+- [x] 新增/更新测试：
+  - `tests/unit/test_session_monitor.py`
+  - `tests/unit/test_browser_recovery.py`
+  - `tests/unit/test_requirements_files.py`
+  - `tests/unit/test_base_page.py`
+  - `tests/unit/test_browser_manager.py`
+  - `tests/unit/test_execute_task.py`
+  - `tests/unit/test_system_api.py`
+  - `tests/unit/test_startup_entry.py`
+- [x] 定向验证通过：
+  - `python -m pytest -c tests/pytest.ini tests/unit/test_session_monitor.py tests/unit/test_browser_recovery.py tests/unit/test_requirements_files.py tests/unit/test_base_page.py tests/unit/test_browser_manager.py tests/unit/test_execute_task.py tests/unit/test_system_api.py tests/unit/test_startup_entry.py -q`
+  - `40 passed`
+- [x] 编译验证通过：
+  - `python -m compileall backend browser pages tasks`
+- [x] 全量验证通过：
+  - `python -m pytest -c tests/pytest.ini tests/ -v`
+  - `473 passed, 16 warnings`
+
 ## 项目初始化 ✅
 
 - [x] 创建 Vite + Vue3 + TypeScript 项目

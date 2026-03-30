@@ -4,8 +4,12 @@ from __future__ import annotations
 import json
 from typing import Any
 
+from backend.logging_config import get_logger
 from backend.models.database import 获取连接
 from backend.models.rule_model import 规则模型
+
+
+logger = get_logger()
 
 
 默认动作列表 = [{"type": "默认", "action": "人工处理"}]
@@ -348,7 +352,7 @@ class 规则服务:
                 if self._评估条件(规则数据.get("conditions") or {}, 数据):
                     return 规则数据
             except Exception as 异常:
-                print(f"[规则服务] 跳过非法规则 {规则数据.get('id')}: {异常}")
+                logger.info(f"[规则服务] 跳过非法规则 {规则数据.get('id')}: {异常}")
         return None
 
     async def 匹配规则(self, platform: str, business: str, shop_id: str, 数据: dict) -> list[dict]:

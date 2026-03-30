@@ -5,8 +5,12 @@ import re
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
+from backend.logging_config import get_logger
 from pages.base_page import 基础页
 from pdd_selectors.publish_product_page_selector import 发布商品页选择器
+
+
+logger = get_logger()
 
 
 class 发布商品页(基础页):
@@ -25,12 +29,12 @@ class 发布商品页(基础页):
     async def 初始化页面(self) -> None:
         """等待页面初始加载并关闭可能的弹窗。"""
         await self.页面.wait_for_load_state("domcontentloaded")
-        print(f"[发布商品页] 初始化页面: load_state完成, URL: {self.页面.url}")
+        logger.info(f"[发布商品页] 初始化页面: load_state完成, URL: {self.页面.url}")
         await self.随机延迟(1, 2)
-        print(f"[发布商品页] 初始化页面: 准备关闭弹窗, URL: {self.页面.url}")
+        logger.info(f"[发布商品页] 初始化页面: 准备关闭弹窗, URL: {self.页面.url}")
         await self.关闭所有弹窗()
-        print(f"[发布商品页] 初始化页面: 关闭弹窗完成, URL: {self.页面.url}")
-        print(f"[发布商品页] 页面标题: {await self._获取页面标题()}")
+        logger.info(f"[发布商品页] 初始化页面: 关闭弹窗完成, URL: {self.页面.url}")
+        logger.info(f"[发布商品页] 页面标题: {await self._获取页面标题()}")
 
     async def 关闭所有弹窗(self, 最大尝试次数: int = 3) -> None:
         """优先尝试关闭按钮，其次再检查弹窗文本按钮。"""
@@ -46,7 +50,7 @@ class 发布商品页(基础页):
                 try:
                     元素 = await self.页面.query_selector(选择器)
                     if 元素:
-                        print(f"[发布商品页] 关闭弹窗: 第{次数}次, 匹配到: {选择器}")
+                        logger.info(f"[发布商品页] 关闭弹窗: 第{次数}次, 匹配到: {选择器}")
                         await 元素.click()
                         await self.随机延迟(0.3, 0.8)
                         已处理 = True
@@ -68,7 +72,7 @@ class 发布商品页(基础页):
                     continue
 
             if not 弹窗存在:
-                print("[发布商品页] 无弹窗容器，退出")
+                logger.info("[发布商品页] 无弹窗容器，退出")
                 break
 
             if not 已处理:
@@ -76,7 +80,7 @@ class 发布商品页(基础页):
                     try:
                         定位器 = self.页面.locator(选择器).first
                         if await 定位器.count() > 0:
-                            print(f"[发布商品页] 关闭弹窗: 第{次数}次, 匹配到: {选择器}")
+                            logger.info(f"[发布商品页] 关闭弹窗: 第{次数}次, 匹配到: {选择器}")
                             await 定位器.click()
                             await self.随机延迟(0.3, 0.8)
                             已处理 = True
@@ -85,7 +89,7 @@ class 发布商品页(基础页):
                         continue
 
             if not 已处理:
-                print("[发布商品页] 弹窗容器存在但未找到关闭按钮，退出")
+                logger.info("[发布商品页] 弹窗容器存在但未找到关闭按钮，退出")
                 break
 
     def 从URL提取新商品ID(self) -> str:
@@ -106,7 +110,7 @@ class 发布商品页(基础页):
 
     async def 输入商品标题(self, 标题: str) -> None:
         """输入商品标题。"""
-        print(f"[发布商品页] 输入商品标题: 开始, URL: {self.页面.url}")
+        logger.info(f"[发布商品页] 输入商品标题: 开始, URL: {self.页面.url}")
         await self.操作前延迟()
         最后异常 = None
         for 选择器 in 发布商品页选择器.商品标题输入框.所有选择器():
@@ -117,7 +121,7 @@ class 发布商品页(基础页):
                 await self.随机延迟(0.2, 0.5)
                 await 标题输入框.fill(标题)
                 await self.操作后延迟()
-                print(f"[发布商品页] 输入商品标题: 完成, URL: {self.页面.url}")
+                logger.info(f"[发布商品页] 输入商品标题: 完成, URL: {self.页面.url}")
                 return
             except Exception as 异常:
                 最后异常 = 异常
@@ -125,7 +129,7 @@ class 发布商品页(基础页):
 
     async def 修改标题(self, 新标题: str) -> None:
         """清空并填写商品标题。"""
-        print(f"[发布商品页] 修改标题: 开始, URL: {self.页面.url}")
+        logger.info(f"[发布商品页] 修改标题: 开始, URL: {self.页面.url}")
         最后异常 = None
         for 选择器 in 发布商品页选择器.商品标题输入框.所有选择器():
             try:
@@ -134,7 +138,7 @@ class 发布商品页(基础页):
                 await self.页面.keyboard.press("Control+A")
                 await 标题输入框.fill(新标题)
                 await self.随机延迟(0.3, 0.8)
-                print(f"[发布商品页] 修改标题: 完成, URL: {self.页面.url}")
+                logger.info(f"[发布商品页] 修改标题: 完成, URL: {self.页面.url}")
                 return
             except Exception as 异常:
                 最后异常 = 异常
@@ -185,7 +189,7 @@ class 发布商品页(基础页):
                 continue
 
         if not 图片列表:
-            print("[发布商品页] 拖拽主图: 未找到图片元素，跳过")
+            logger.info("[发布商品页] 拖拽主图: 未找到图片元素，跳过")
             return
 
         if 源索引 < 0 or 目标索引 < 0 or 源索引 >= len(图片列表) or 目标索引 >= len(图片列表):
@@ -194,7 +198,7 @@ class 发布商品页(基础页):
         源框 = await 图片列表[源索引].bounding_box()
         目标框 = await 图片列表[目标索引].bounding_box()
         if not 源框 or not 目标框:
-            print("[发布商品页] 拖拽主图: 无法获取元素位置，跳过")
+            logger.info("[发布商品页] 拖拽主图: 无法获取元素位置，跳过")
             return
 
         起点X = 源框["x"] + 源框["width"] / 2
@@ -217,7 +221,7 @@ class 发布商品页(基础页):
 
         await self.页面.mouse.up()
         await self.操作后延迟()
-        print(f"[发布商品页] 拖拽主图: 第{源索引+1}张 → 第{目标索引+1}张 完成")    
+        logger.info(f"[发布商品页] 拖拽主图: 第{源索引+1}张 → 第{目标索引+1}张 完成")    
 
     async def 随机调整主图到第一位(self) -> str:
         """随机将第 2~5 张主图拖到第 1 位。"""
@@ -263,14 +267,14 @@ class 发布商品页(基础页):
 
     async def 点击提交并上架(self) -> None:
         """点击提交并上架按钮。"""
-        print(f"[发布商品页] 点击提交并上架: 开始, URL: {self.页面.url}")
+        logger.info(f"[发布商品页] 点击提交并上架: 开始, URL: {self.页面.url}")
         await self.操作前延迟()
         最后异常 = None
         for 选择器 in 发布商品页选择器.提交并上架按钮.所有选择器():
             try:
                 await self.页面.click(选择器, timeout=10000)
                 await self.页面加载延迟()
-                print(f"[发布商品页] 点击提交并上架: 完成, URL: {self.页面.url}")
+                logger.info(f"[发布商品页] 点击提交并上架: 完成, URL: {self.页面.url}")
                 return
             except Exception as 异常:
                 最后异常 = 异常
@@ -278,11 +282,11 @@ class 发布商品页(基础页):
 
     async def 等待发布成功(self) -> bool:
         """等待发布成功提示或成功页 URL。"""
-        print(f"[发布商品页] 等待发布成功: 开始, URL: {self.页面.url}")
+        logger.info(f"[发布商品页] 等待发布成功: 开始, URL: {self.页面.url}")
         当前URL = getattr(self.页面, "url", "") or ""
         if 发布商品页选择器.发布成功页URL特征 in 当前URL:
             await self.随机延迟(1.0, 2.0)
-            print(f"[发布商品页] 等待发布成功: 已命中成功URL, URL: {self.页面.url}")
+            logger.info(f"[发布商品页] 等待发布成功: 已命中成功URL, URL: {self.页面.url}")
             return True
 
         try:
@@ -291,7 +295,7 @@ class 发布商品页(基础页):
                 timeout=10000,
             )
             await self.随机延迟(1.0, 2.0)
-            print(f"[发布商品页] 等待发布成功: wait_for_url命中成功页, URL: {self.页面.url}")
+            logger.info(f"[发布商品页] 等待发布成功: wait_for_url命中成功页, URL: {self.页面.url}")
             return True
         except Exception:
             pass
@@ -301,20 +305,20 @@ class 发布商品页(基础页):
                 提交成功文本 = self.页面.locator(选择器).first
                 if await 提交成功文本.count() > 0:
                     await self.随机延迟(1.0, 2.0)
-                    print(f"[发布商品页] 等待发布成功: 文本检测结果=True, URL: {self.页面.url}")
+                    logger.info(f"[发布商品页] 等待发布成功: 文本检测结果=True, URL: {self.页面.url}")
                     return True
             except Exception:
                 continue
 
-        print(f"[发布商品页] 等待发布成功: 文本检测结果=False, URL: {self.页面.url}")
+        logger.info(f"[发布商品页] 等待发布成功: 文本检测结果=False, URL: {self.页面.url}")
         return False
 
     async def 是否发布成功(self) -> bool:
         """检测是否已进入发布成功页。"""
-        print(f"[发布商品页] 是否发布成功: 开始, URL: {self.页面.url}")
+        logger.info(f"[发布商品页] 是否发布成功: 开始, URL: {self.页面.url}")
         当前URL = getattr(self.页面, "url", "") or ""
         if 发布商品页选择器.发布成功页URL特征 in 当前URL:
-            print(f"[发布商品页] 是否发布成功: 已命中成功URL, URL: {self.页面.url}")
+            logger.info(f"[发布商品页] 是否发布成功: 已命中成功URL, URL: {self.页面.url}")
             return True
 
         try:
@@ -322,7 +326,7 @@ class 发布商品页(基础页):
                 re.compile(rf".*/{re.escape(发布商品页选择器.发布成功页URL特征)}.*"),
                 timeout=10000,
             )
-            print(f"[发布商品页] 是否发布成功: wait_for_url命中成功页, URL: {self.页面.url}")
+            logger.info(f"[发布商品页] 是否发布成功: wait_for_url命中成功页, URL: {self.页面.url}")
             return True
         except Exception:
             pass
@@ -332,12 +336,12 @@ class 发布商品页(基础页):
                 提交成功文本 = self.页面.locator(选择器).first
                 是否成功 = await 提交成功文本.count() > 0
                 if 是否成功:
-                    print(f"[发布商品页] 是否发布成功: 文本检测结果=True, URL: {self.页面.url}")
+                    logger.info(f"[发布商品页] 是否发布成功: 文本检测结果=True, URL: {self.页面.url}")
                     return True
             except Exception:
                 continue
 
-        print(f"[发布商品页] 是否发布成功: 文本检测结果=False, URL: {self.页面.url}")
+        logger.info(f"[发布商品页] 是否发布成功: 文本检测结果=False, URL: {self.页面.url}")
         return False
 
     def 从成功页提取商品ID(self) -> str:
@@ -355,13 +359,13 @@ class 发布商品页(基础页):
 
     async def 关闭当前标签页(self) -> None:
         """关闭当前标签页。"""
-        print(f"[发布商品页] 关闭当前标签页: 开始, URL: {self.页面.url}")
+        logger.info(f"[发布商品页] 关闭当前标签页: 开始, URL: {self.页面.url}")
         await self.操作前延迟()
         await self.页面.close()
-        print(f"[发布商品页] 关闭当前标签页: 完成, URL: {self.页面.url}")
+        logger.info(f"[发布商品页] 关闭当前标签页: 完成, URL: {self.页面.url}")
 
     async def 关闭页面(self) -> None:
         """关闭当前标签页。"""
-        print(f"[发布商品页] 关闭页面: 开始, URL: {self.页面.url}")
+        logger.info(f"[发布商品页] 关闭页面: 开始, URL: {self.页面.url}")
         await self.页面.close()
-        print(f"[发布商品页] 关闭页面: 完成, URL: {self.页面.url}")
+        logger.info(f"[发布商品页] 关闭页面: 完成, URL: {self.页面.url}")

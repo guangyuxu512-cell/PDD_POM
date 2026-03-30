@@ -18,6 +18,10 @@ from backend.models.after_sale_config_model import 初始化售后配置表, 售
 from backend.models.after_sale_queue_model import 初始化售后队列表, 售后队列建表SQL
 
 
+from backend.logging_config import get_logger
+
+logger = get_logger()
+
 数据库路径 = Path("data/ecom.db")
 数据库忙等待毫秒 = 5000
 数据库日志模式 = "WAL"
@@ -377,14 +381,14 @@ async def 初始化数据库() -> None:
 
         await 规则服务实例.初始化默认售后规则()
     except Exception as 异常:
-        print(f"[数据库初始化] 默认规则初始化失败（忽略）: {异常}")
+        logger.info(f"[数据库初始化] 默认规则初始化失败（忽略）: {异常}")
 
     try:
         from backend.services.after_sale_config_service import 售后配置服务实例
 
         await 售后配置服务实例.从规则服务迁移()
     except Exception as 异常:
-        print(f"[数据库初始化] 售后配置迁移失败（忽略）: {异常}")
+        logger.info(f"[数据库初始化] 售后配置迁移失败（忽略）: {异常}")
 
 
 async def 关闭数据库() -> None:

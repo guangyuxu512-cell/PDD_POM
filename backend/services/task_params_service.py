@@ -15,6 +15,10 @@ from openpyxl import load_workbook
 from backend.models.database import 获取连接
 
 
+from backend.logging_config import get_logger
+
+logger = get_logger()
+
 允许状态集合 = {"pending", "running", "success", "failed", "skipped"}
 
 科学计数法正则 = re.compile(r"^[+-]?\d+\.?\d*[eE][+\-]?\d+$")
@@ -739,7 +743,7 @@ class 任务参数服务:
         for 已有记录 in 已有记录列表:
             已有参数 = self._解析JSON(已有记录["params"])
             if str(已有参数.get("source_task_param_id") or "").strip() == 源记录ID文本:
-                print(f"[任务参数服务] 后续任务已存在: {新任务名}, source_id={源记录ID文本}")
+                logger.info(f"[任务参数服务] 后续任务已存在: {新任务名}, source_id={源记录ID文本}")
                 return await self.根据ID获取(int(已有记录["id"]))
 
         新参数 = dict(基础参数)
@@ -767,7 +771,7 @@ class 任务参数服务:
                 "enabled": True,
             }
         )
-        print(f"[任务参数服务] 已创建后续任务: {新任务名}, source_id={源记录ID文本}")
+        logger.info(f"[任务参数服务] 已创建后续任务: {新任务名}, source_id={源记录ID文本}")
         return 新记录
 
     async def 启用(self, 记录ID: int) -> Optional[Dict[str, Any]]:

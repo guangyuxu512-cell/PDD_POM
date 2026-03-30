@@ -12,6 +12,10 @@ from typing import Any
 from tasks.celery_app import 获取Worker事件循环
 
 
+from backend.logging_config import get_logger
+
+logger = get_logger()
+
 def 在线程中执行临时协程(协程) -> Any:
     """当当前线程已有运行中的事件循环时，退回到临时线程执行协程。"""
     结果容器: dict[str, Any] = {}
@@ -60,7 +64,7 @@ def 运行异步任务(协程) -> Any:
         事件循环 = 获取Worker事件循环()
         asyncio.set_event_loop(事件循环)
     except Exception as e:
-        print(f"[Celery] 获取 Worker 事件循环失败，回退到临时事件循环: {e}")
+        logger.info(f"[Celery] 获取 Worker 事件循环失败，回退到临时事件循环: {e}")
         return asyncio.run(协程)
 
     try:

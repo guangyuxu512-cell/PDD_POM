@@ -17,11 +17,13 @@ from backend.models.data_structure import (
     Redis连接测试请求,
 )
 from backend.config import 配置实例
+from backend.logging_config import get_logger
 from backend.services.system_service import 系统服务实例
 
 
 # 创建路由
 路由 = APIRouter(prefix="/api/system", tags=["系统配置"])
+日志记录器 = get_logger()
 
 
 @路由.get("/config", summary="获取系统配置")
@@ -104,7 +106,7 @@ async def 测试Redis连接(
                 else:
                     await asyncio.wait_for(客户端.close(), timeout=5)
             except Exception as e:
-                print(f"[系统接口] 关闭 Redis 连接失败（忽略）: {e}")
+                日志记录器.warning(f"关闭 Redis 连接失败（忽略）: {e}")
 
 
 @路由.get("/health", summary="健康检查")
@@ -120,3 +122,13 @@ async def 健康检查() -> 统一响应:
         return 成功(data=健康状态)
     except Exception as e:
         return 失败(f"健康检查失败: {str(e)}")
+
+
+@路由.get("/metrics", summary="运行指标")
+async def 获取运行指标() -> 统一响应:
+    """返回基础运行指标。"""
+    try:
+        指标数据 = await 系统服务实例.获取指标()
+        return 成功(data=指标数据)
+    except Exception as e:
+        return 失败(f"获取运行指标失败: {str(e)}")

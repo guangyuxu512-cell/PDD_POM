@@ -7,6 +7,7 @@ from typing import Optional, Any, Dict
 from fastapi import APIRouter, Query, Request
 from pydantic import BaseModel, Field
 
+from backend.logging_config import get_logger
 from backend.models.data_structure import (
     统一响应,
     成功,
@@ -18,6 +19,9 @@ from backend.services.execute_service import 执行服务实例
 from backend.services.flow_params_service import 流程参数服务实例
 from backend.services.run_service import 运行服务实例
 from backend.services.task_service import 任务服务实例, 任务服务
+
+
+logger = get_logger()
 
 
 class 内部执行请求(BaseModel):
@@ -81,9 +85,9 @@ async def 触发任务(request: Request, 请求: 任务执行请求 = None) -> �
     try:
         # 打印原始请求体，看 Agent 到底发了什么
         body = await request.body()
-        print(f"[调试] 原始请求体: {body.decode('utf-8', errors='replace')}")
+        logger.info(f"[调试] 原始请求体: {body.decode('utf-8', errors='replace')}")
 
-        print(f"[调试] 收到请求: shop_id='{请求.shop_id}', task_name='{请求.task_name}', repr='{repr(请求.task_name)}'")
+        logger.info(f"[调试] 收到请求: shop_id='{请求.shop_id}', task_name='{请求.task_name}', repr='{repr(请求.task_name)}'")
         任务 = await 任务服务实例.触发任务(
             shop_id=请求.shop_id,
             task_name=请求.task_name,

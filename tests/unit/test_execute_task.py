@@ -511,3 +511,54 @@ class 测试_执行任务:
 
         assert 结果["status"] == "completed"
         模拟投递下一步.assert_not_called()
+
+    def test_continue策略_浏览器关闭时触发一次恢复性重试(self):
+        假任务对象 = SimpleNamespace(
+            request=SimpleNamespace(id="celery-10", retries=0),
+            retry=MagicMock(),
+        )
+        客户端 = MagicMock()
+        客户端.post.side_effect = [
+            假HTTP响应(
+                {
+                    "code": 0,
+                    "data": {
+                        "task_id": "task-log-10",
+                        "status": "failed",
+                        "error": "Target closed",
+                    },
+                }
+            ),
+            假HTTP响应(
+                {
+                    "code": 0,
+                    "data": {
+                        "task_id": "task-log-10",
+                        "status": "completed",
+                        "result": "成功",
+                    },
+                }
+            ),
+        ]
+        客户端上下文 = MagicMock()
+        客户端上下文.__enter__.return_value = 客户端
+        客户端上下文.__exit__.return_value = False
+
+        with patch("tasks.execute_task.初始化Worker环境"), \
+                patch("tasks.execute_task.获取任务类"), \
+                patch("tasks.execute_task.httpx.Client", return_value=客户端上下文), \
+                patch("tasks.execute_task._尝试恢复浏览器", return_value=True) as 模拟恢复, \
+                patch("tasks.execute_task.同步更新批次店铺状态"):
+            结果 = 执行任务函数(
+                假任务对象,
+                batch_id="batch-1",
+                shop_id="shop-1",
+                task_name="登录",
+                on_fail="continue",
+                step_index=1,
+                total_steps=1,
+            )
+
+        assert 结果["status"] == "completed"
+        assert 客户端.post.call_count == 2
+        模拟恢复.assert_called_once()

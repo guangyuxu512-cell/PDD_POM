@@ -1,4 +1,5 @@
 """发布换图商品任务模块"""
+from backend.logging_config import get_logger
 from backend.config import 配置实例
 from backend.services.task_params_service import 任务参数服务实例
 from browser.anti_detection import 真人模拟器
@@ -9,6 +10,9 @@ from pages.publish_product_page import 发布商品页
 from pages.product_list_page import 商品列表页
 from tasks.base_task import 基础任务
 from tasks.registry import register_task
+
+
+logger = get_logger()
 
 
 @register_task(
@@ -42,7 +46,7 @@ class 发布换图商品任务(基础任务):
                 错误信息=错误信息,
             )
         except Exception as e:
-            print(f"[发布换图商品任务] 回填任务参数失败: {e}")
+            logger.info(f"[发布换图商品任务] 回填任务参数失败: {e}")
 
     async def _安全截图并关闭(self, 发布页对象: 发布商品页 | None) -> None:
         """安全截图并关闭发布页。"""

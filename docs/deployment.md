@@ -9,19 +9,22 @@
   - 仓库未通过 `pyproject.toml` 显式锁定版本
   - 当前环境缓存痕迹显示为 Python `3.12`
 - 框架与库：
-  - `fastapi`
-  - `uvicorn[standard]`
-  - `playwright`
-  - `celery`
-  - `redis>=5.0.0`
-  - `httpx`
-  - `python-dotenv`
-  - `pydantic`
-  - `pydantic-settings`
-  - `aiosqlite`
-  - `cryptography`
-  - `pytest`
-  - `pytest-asyncio`
+  - `fastapi>=0.115.0,<1.0`
+  - `uvicorn[standard]>=0.30.6,<1.0`
+  - `playwright>=1.40.0,<2.0`
+  - `celery>=5.3.4,<6.0`
+  - `celery-redbeat>=2.2.0,<3.0`
+  - `redis>=5.0.1,<6.0`
+  - `httpx>=0.28.1,<1.0`
+  - `python-dotenv>=1.0.1,<2.0`
+  - `pydantic>=2.12.5,<3.0`
+  - `pydantic-settings>=2.13.1,<3.0`
+  - `aiosqlite>=0.22.1,<1.0`
+  - `cryptography>=45.0.6,<46.0`
+  - `nest_asyncio>=1.6.0,<2.0`
+  - `openpyxl>=3.1.2,<4.0`
+  - `uiautomation>=2.0.0,<3.0`
+  - `loguru>=0.7.0,<1.0`
 
 ### 1.2 前端
 
@@ -73,7 +76,13 @@
 - 安装后端依赖：
 
 ```bash
-pip install -r requirements.txt
+pip install -r requirements.txt -r requirements-dev.txt
+```
+
+- 生产环境安装锁定依赖：
+
+```bash
+pip install -r requirements-lock.txt
 ```
 
 - 安装前端依赖：
@@ -124,6 +133,8 @@ cd frontend && npm run build
   - 浏览器用户目录
 - `data/screenshots/`
   - 截图输出目录
+- `data/logs/`
+  - 应用日志、错误日志与轮转归档
 - Redis
   - Celery broker/backend
 - 本地 Chrome
@@ -183,6 +194,10 @@ cd frontend && npm run build
 
 - 当前仓库主要表现为本地部署 + 局域网访问 + 外部 Agent 协作模式。
 - 需要本地可用的 Chrome、Redis、SQLite 文件目录与 `.env` 配置。
+- 负载均衡或探针可直接访问：
+  - `GET /health`
+  - `GET /api/system/health`
+  - `GET /api/system/metrics`
 - `Dockerfile`：当前项目暂无此内容
 - `docker-compose.yml`：当前项目暂无此内容
 - 群晖部署脚本：当前项目暂无此内容

@@ -11,6 +11,10 @@ from browser.captcha_recognition import 验证码识别器
 from browser.anti_detection import 真人模拟器
 
 
+from backend.logging_config import get_logger
+
+logger = get_logger()
+
 class 滑块处理器:
     """滑块验证码处理器，完成滑块验证码的识别和滑动"""
 
@@ -63,7 +67,7 @@ class 滑块处理器:
             return True
 
         except Exception as e:
-            print(f"滑块验证码处理失败: {e}")
+            logger.info(f"滑块验证码处理失败: {e}")
             return False
 
     async def _截图验证码元素(self, 页面: Page, 选择器: str) -> bytes:

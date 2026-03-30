@@ -29,6 +29,10 @@ from tasks.registry import 获取任务元数据, 获取任务类, 初始化任�
 from tasks.celery_app import celery_app
 
 
+from backend.logging_config import get_logger
+
+logger = get_logger()
+
 执行状态频道 = "execute:status"
 当前批次键 = "execute:current"
 批次键前缀 = "execute:batch"
@@ -190,20 +194,20 @@ def 发送批次完成回调(批次数据: Dict[str, Any]) -> bool:
     请求头 = 构建Agent请求头()
 
     if not 请求头:
-        print(f"[执行服务] 批次完成回调已跳过：未配置 X_RPA_KEY, batch_id={批次数据['batch_id']}")
+        logger.info(f"[执行服务] 批次完成回调已跳过：未配置 X_RPA_KEY, batch_id={批次数据['batch_id']}")
         return False
 
-    print(f"[执行服务] 开始发送批次完成回调: batch_id={批次数据['batch_id']}, url={回调地址}")
+    logger.info(f"[执行服务] 开始发送批次完成回调: batch_id={批次数据['batch_id']}, url={回调地址}")
 
     try:
         with httpx.Client(timeout=批次回调超时秒) as 客户端:
             响应 = 客户端.post(回调地址, json=回调载荷, headers=请求头)
             响应.raise_for_status()
             校验业务响应(响应)
-        print(f"[执行服务] 批次完成回调成功: batch_id={批次数据['batch_id']}")
+        logger.info(f"[执行服务] 批次完成回调成功: batch_id={批次数据['batch_id']}")
         return True
     except Exception as e:
-        print(f"[执行服务] 批次完成回调失败（忽略）: batch_id={批次数据['batch_id']}, error={e}")
+        logger.info(f"[执行服务] 批次完成回调失败（忽略）: batch_id={批次数据['batch_id']}, error={e}")
         return False
 
 
@@ -232,7 +236,7 @@ def 尝试发送批次完成回调(
             return
         发送批次完成回调(批次数据)
     except Exception as e:
-        print(f"[执行服务] 标记批次完成回调失败（忽略）: batch_id={批次ID}, error={e}")
+        logger.info(f"[执行服务] 标记批次完成回调失败（忽略）: batch_id={批次ID}, error={e}")
     finally:
         if 需要关闭客户端:
             客户端.close()
@@ -491,7 +495,7 @@ def 同步写入运行实例状态(批次数据: Dict[str, Any]) -> bool:
             连接.commit()
             return True
     except Exception as e:
-        print(f"[执行服务] 同步运行实例状态失败（忽略）: batch_id={运行ID}, error={e}")
+        logger.info(f"[执行服务] 同步运行实例状态失败（忽略）: batch_id={运行ID}, error={e}")
         return False
 
 

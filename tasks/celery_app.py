@@ -16,7 +16,11 @@ from celery.signals import worker_init, worker_shutdown
 import httpx
 
 from backend.config import 配置实例
+from backend.logging_config import get_logger
 
+
+
+日志记录器 = get_logger()
 
 
 Worker环境已初始化 = False
@@ -138,7 +142,7 @@ def 注册Worker机器() -> None:
     """向 Agent 注册当前 Worker 机器信息。"""
     请求头 = 构建Worker注册请求头()
     if not 请求头:
-        print("[Celery] Worker 机器注册已跳过：未配置 X_RPA_KEY")
+        日志记录器.warning("Worker 机器注册已跳过：未配置 X_RPA_KEY")
         return
 
     注册地址 = 获取Worker注册地址()
@@ -152,9 +156,13 @@ def 注册Worker机器() -> None:
             响应 = 客户端.post(注册地址, json=请求体, headers=请求头)
             响应.raise_for_status()
             校验业务响应(响应)
-        print(f"[Celery] Worker 机器注册成功: machine_id={请求体['machine_id']}, url={注册地址}")
+        日志记录器.success(
+            f"Worker 机器注册成功: machine_id={请求体['machine_id']}, url={注册地址}"
+        )
     except Exception as e:
-        print(f"[Celery] Worker 机器注册失败（忽略）: machine_id={请求体['machine_id']}, error={e}")
+        日志记录器.warning(
+            f"Worker 机器注册失败（忽略）: machine_id={请求体['machine_id']}, error={e}"
+        )
 
 
 def 初始化Worker环境() -> None:
@@ -186,7 +194,7 @@ def 初始化Worker环境() -> None:
 
         注册Worker机器()
         Worker环境已初始化 = True
-        print("[Celery] Worker 环境初始化完成")
+        日志记录器.success("Worker 环境初始化完成")
 
 
 def 关闭Worker环境() -> None:
@@ -203,7 +211,7 @@ def 关闭Worker环境() -> None:
             if 待关闭事件循环 is not None and not 待关闭事件循环.is_closed() and not 待关闭事件循环.is_running():
                 待关闭事件循环.close()
         except Exception as e:
-            print(f"[Celery] Worker 事件循环关闭失败（忽略）: {e}")
+            日志记录器.warning(f"Worker 事件循环关闭失败（忽略）: {e}")
 
     Worker线程本地 = threading.local()
     Worker事件循环 = None
@@ -217,7 +225,7 @@ def Worker启动时初始化(**kwargs) -> None:
         # 中文注释：信号钩子里只做最佳努力初始化，异常只记录，避免 Worker 启动即退出。
         初始化Worker环境()
     except Exception as e:
-        print(f"[Celery] Worker 启动初始化失败（忽略）: {e}")
+        日志记录器.warning(f"Worker 启动初始化失败（忽略）: {e}")
 
 
 @worker_shutdown.connect
@@ -227,4 +235,4 @@ def Worker关闭时清理(**kwargs) -> None:
         # 中文注释：关闭信号属于收尾逻辑，异常不应反向影响 Worker 的退出流程。
         关闭Worker环境()
     except Exception as e:
-        print(f"[Celery] Worker 关闭清理失败（忽略）: {e}")
+        日志记录器.warning(f"Worker 关闭清理失败（忽略）: {e}")

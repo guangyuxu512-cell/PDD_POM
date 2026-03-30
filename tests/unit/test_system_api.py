@@ -6,7 +6,7 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from backend.api.system_api import 测试Redis连接
+from backend.api.system_api import 测试Redis连接, 健康检查, 获取运行指标
 from backend.config import 配置实例
 from backend.models.data_structure import Redis连接测试请求
 
@@ -62,3 +62,47 @@ class 测试_系统接口:
         assert 响应.code == 0
         assert 响应.msg == "Redis 连接成功"
         模拟客户端.aclose.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_健康检查_返回结构化信息(self):
+        with patch(
+            "backend.api.system_api.系统服务实例.健康检查",
+            new=AsyncMock(
+                return_value={
+                    "status": "healthy",
+                    "version": "0.1.0",
+                    "uptime_seconds": 12,
+                    "checks": {"redis": {"status": "ok"}},
+                    "timestamp": "2026-03-31T10:00:00+08:00",
+                }
+            ),
+        ):
+            响应 = await 健康检查()
+
+        assert 响应.code == 0
+        assert 响应.data["status"] == "healthy"
+        assert "checks" in 响应.data
+
+    @pytest.mark.asyncio
+    async def test_获取运行指标_返回统一响应(self):
+        with patch(
+            "backend.api.system_api.系统服务实例.获取指标",
+            new=AsyncMock(
+                return_value={
+                    "tasks_total": 10,
+                    "tasks_success": 8,
+                    "tasks_failed": 2,
+                    "tasks_running": 1,
+                    "avg_task_duration_ms": 500.0,
+                    "browser_instances_active": 1,
+                    "browser_instances_max": 5,
+                    "redis_memory_used_mb": 12.3,
+                    "uptime_seconds": 30,
+                }
+            ),
+        ):
+            响应 = await 获取运行指标()
+
+        assert 响应.code == 0
+        assert 响应.data["tasks_total"] == 10
+        assert 响应.data["browser_instances_max"] == 5

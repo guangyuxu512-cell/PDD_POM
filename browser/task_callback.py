@@ -11,6 +11,10 @@ import httpx
 from backend.config import 配置实例
 
 
+from backend.logging_config import get_logger
+
+logger = get_logger()
+
 # 全局回调地址
 回调地址: Optional[str] = None
 
@@ -24,7 +28,7 @@ def 设置回调地址(地址: str) -> None:
     """
     global 回调地址
     回调地址 = 地址
-    print(f"✓ 回调地址已设置: {地址}")
+    logger.info(f"✓ 回调地址已设置: {地址}")
 
 
 def 构建请求头() -> Optional[Dict[str, str]]:
@@ -59,7 +63,7 @@ async def _回调(数据: dict) -> None:
 
     请求头 = 构建请求头()
     if not 请求头:
-        print("⚠ 回调已跳过：未配置 X_RPA_KEY")
+        logger.info("⚠ 回调已跳过：未配置 X_RPA_KEY")
         return
 
     try:
@@ -69,7 +73,7 @@ async def _回调(数据: dict) -> None:
             校验业务响应(响应)
     except Exception as e:
         # 回调失败静默处理，不影响任务执行
-        print(f"⚠ 回调失败（静默）: {e}")
+        logger.info(f"⚠ 回调失败（静默）: {e}")
 
 
 async def 上报(步骤: str, shop_id: str = None, **额外数据) -> None:
@@ -102,7 +106,7 @@ async def 上报(步骤: str, shop_id: str = None, **额外数据) -> None:
         except Exception as e:
             # 查询失败，使用 shop_id 前 8 位
             shop_name = shop_id[:8] if len(shop_id) >= 8 else shop_id
-            print(f"⚠ 查询店铺名称失败: {e}")
+            logger.info(f"⚠ 查询店铺名称失败: {e}")
 
     # 通过日志服务推送 SSE 日志给前端
     try:
@@ -117,7 +121,7 @@ async def 上报(步骤: str, shop_id: str = None, **额外数据) -> None:
         )
     except Exception as e:
         # 日志推送失败不影响任务执行
-        print(f"⚠ 日志推送失败（静默）: {e}")
+        logger.info(f"⚠ 日志推送失败（静默）: {e}")
 
 
 def 自动回调(任务名: str) -> Callable:
