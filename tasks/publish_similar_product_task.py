@@ -7,7 +7,7 @@ from backend.services.task_params_service import 任务参数服务实例
 from browser.task_callback import 自动回调, 上报
 from pages.publish_product_page import 发布商品页
 from pages.product_list_page import 商品列表页
-from selectors.publish_product_page_selector import 发布商品页选择器
+from pdd_selectors.publish_product_page_selector import 发布商品页选择器
 from tasks.base_task import 基础任务
 from tasks.registry import register_task
 

@@ -492,14 +492,14 @@ class 测试_售后页:
         assert 结果 is False
 
     def test_下一页按钮选择器_优先BeastCore分页(self):
-        from selectors.after_sale_page_selector import 售后页选择器
+        from pdd_selectors.after_sale_page_selector import 售后页选择器
 
         assert 售后页选择器.下一页按钮.主选择器 == '//li[@data-testid="beast-core-pagination-next"]'
         assert "//li[contains(@class, 'PGT_next')]" in 售后页选择器.下一页按钮.备选选择器
         assert "//li[contains(@class, 'ant-pagination-next')]" in 售后页选择器.下一页按钮.备选选择器
 
     def test_待商家处理数量选择器_返回3个候选(self):
-        from selectors.after_sale_page_selector import 售后页选择器
+        from pdd_selectors.after_sale_page_selector import 售后页选择器
 
         assert len(售后页选择器.待商家处理数量.所有选择器()) == 3
 

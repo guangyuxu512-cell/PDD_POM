@@ -7,7 +7,7 @@ import random
 import time
 
 from pages.base_page import 基础页
-from selectors.promotion_page_selector import 推广页选择器
+from pdd_selectors.promotion_page_selector import 推广页选择器
 
 
 class 推广页(基础页):

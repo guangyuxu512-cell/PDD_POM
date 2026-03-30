@@ -1,5 +1,5 @@
 """推广页元素选择器。"""
-from selectors.selector_config import 选择器配置
+from pdd_selectors.selector_config import 选择器配置
 
 
 class 推广页选择器:

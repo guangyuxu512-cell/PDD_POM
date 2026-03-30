@@ -10,7 +10,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from selectors.selector_config import 选择器配置
+from pdd_selectors.selector_config import 选择器配置
 
 
 class 测试_选择器提取:
@@ -67,7 +67,7 @@ class 测试_选择器提取:
     @pytest.mark.asyncio
     async def test_商品列表页输入框按选择器列表回退(self, monkeypatch):
         from pages.product_list_page import 商品列表页
-        from selectors.product_list_page_selector import 商品列表页选择器
+        from pdd_selectors.product_list_page_selector import 商品列表页选择器
 
         模拟页面 = MagicMock()
         失败输入框 = MagicMock()

@@ -5,7 +5,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from selectors.selector_config import 选择器配置
+from pdd_selectors.selector_config import 选择器配置
 
 
 class 测试_限时限量页:
@@ -49,7 +49,7 @@ class 测试_限时限量页:
     @pytest.mark.asyncio
     async def test_点击展开更多设置_按选择器回退(self, 模拟页面, monkeypatch):
         from pages.flash_sale_page import 限时限量页
-        from selectors.flash_sale_page_selector import 限时限量页选择器
+        from pdd_selectors.flash_sale_page_selector import 限时限量页选择器
 
         async def 点击副作用(选择器, timeout=10000):
             if 选择器 == "bad-selector":
@@ -73,7 +73,7 @@ class 测试_限时限量页:
     @pytest.mark.asyncio
     async def test_弹窗输入商品ID_前后延迟并填写(self, 模拟页面, monkeypatch):
         from pages.flash_sale_page import 限时限量页
-        from selectors.flash_sale_page_selector import 限时限量页选择器
+        from pdd_selectors.flash_sale_page_selector import 限时限量页选择器
 
         失败输入框 = MagicMock()
         失败输入框.click = AsyncMock(side_effect=RuntimeError("bad"))
@@ -105,7 +105,7 @@ class 测试_限时限量页:
     @pytest.mark.asyncio
     async def test_输入商品折扣_清空后输入(self, 模拟页面, monkeypatch):
         from pages.flash_sale_page import 限时限量页
-        from selectors.flash_sale_page_selector import 限时限量页选择器
+        from pdd_selectors.flash_sale_page_selector import 限时限量页选择器
 
         输入框 = MagicMock()
         输入框.click = AsyncMock()
@@ -131,7 +131,7 @@ class 测试_限时限量页:
         页面对象.操作后延迟.assert_awaited_once()
 
     def test_商品行折扣输入框_主选择器带placeholder精确匹配(self):
-        from selectors.flash_sale_page_selector import 限时限量页选择器
+        from pdd_selectors.flash_sale_page_selector import 限时限量页选择器
 
         选择器 = 限时限量页选择器.商品行折扣输入框("1001")
         assert '@placeholder="1～9.7"' in 选择器.主选择器
@@ -140,7 +140,7 @@ class 测试_限时限量页:
     @pytest.mark.asyncio
     async def test_等待创建成功_成功与失败路径(self, 模拟页面, monkeypatch):
         from pages.flash_sale_page import 限时限量页
-        from selectors.flash_sale_page_selector import 限时限量页选择器
+        from pdd_selectors.flash_sale_page_selector import 限时限量页选择器
 
         monkeypatch.setattr(限时限量页选择器, "创建成功提示", 选择器配置("success-tip"))
 

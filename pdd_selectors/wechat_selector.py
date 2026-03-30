@@ -1,5 +1,5 @@
 """微信桌面版选择器。"""
-from selectors.desktop_selector_config import 桌面选择器配置
+from pdd_selectors.desktop_selector_config import 桌面选择器配置
 
 
 class 微信选择器:

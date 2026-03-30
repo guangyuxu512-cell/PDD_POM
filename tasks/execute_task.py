@@ -5,8 +5,6 @@
 """
 from __future__ import annotations
 
-import asyncio
-import threading
 from typing import Any, Dict, List, Optional
 
 import httpx
@@ -20,42 +18,6 @@ from backend.services.execute_service import (
     获取队列名称,
 )
 from tasks.registry import 获取任务类
-
-
-def _在线程中执行临时协程(协程):
-    """当当前线程已有运行中的事件循环时，退回到临时线程执行协程。"""
-    结果容器: dict[str, object] = {}
-    完成事件 = threading.Event()
-
-    def _执行():
-        try:
-            结果容器["result"] = asyncio.run(协程)
-        except Exception as e:
-            结果容器["error"] = e
-        finally:
-            完成事件.set()
-
-    线程 = threading.Thread(target=_执行, daemon=True)
-    线程.start()
-    完成事件.wait()
-
-    if "error" in 结果容器:
-        raise RuntimeError(f"临时线程执行协程失败: {结果容器['error']}") from 结果容器["error"]  # type: ignore[index]
-
-    return 结果容器.get("result")
-
-
-def _运行异步任务(协程):
-    """兼容旧测试与其它调用方：在同步上下文中执行异步协程。"""
-    try:
-        当前事件循环 = asyncio.get_running_loop()
-    except RuntimeError:
-        当前事件循环 = None
-
-    if 当前事件循环 is not None:
-        return _在线程中执行临时协程(协程)
-
-    return asyncio.run(协程)
 
 
 def _解析重试次数(on_fail: str) -> int:

@@ -5,7 +5,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from selectors.selector_config import 选择器配置
+from pdd_selectors.selector_config import 选择器配置
 
 
 class 测试_推广页:
@@ -77,7 +77,7 @@ class 测试_推广页:
     @pytest.mark.asyncio
     async def test_点击预算日限额_按选择器回退(self, 模拟页面, monkeypatch):
         from pages.promotion_page import 推广页
-        from selectors.promotion_page_selector import 推广页选择器
+        from pdd_selectors.promotion_page_selector import 推广页选择器
 
         async def 点击副作用(选择器, timeout=10000):
             if 选择器 == "bad-selector":
@@ -103,7 +103,7 @@ class 测试_推广页:
     @pytest.mark.asyncio
     async def test_确认关闭全局起量_等待确认按钮后点击(self, 模拟页面, monkeypatch):
         from pages.promotion_page import 推广页
-        from selectors.promotion_page_selector import 推广页选择器
+        from pdd_selectors.promotion_page_selector import 推广页选择器
 
         monkeypatch.setattr(
             推广页选择器,
@@ -125,7 +125,7 @@ class 测试_推广页:
     @pytest.mark.asyncio
     async def test_确认关闭极速起量_优先命中商品绑定按钮(self, 模拟页面, monkeypatch):
         from pages.promotion_page import 推广页
-        from selectors.promotion_page_selector import 推广页选择器
+        from pdd_selectors.promotion_page_selector import 推广页选择器
 
         monkeypatch.setattr(
             推广页选择器,
@@ -145,13 +145,13 @@ class 测试_推广页:
         页面对象._确认弹窗后等待.assert_awaited_once()
 
     def test_极速起量确认关闭选择器_主选择器优先商品绑定(self):
-        from selectors.promotion_page_selector import 推广页选择器
+        from pdd_selectors.promotion_page_selector import 推广页选择器
 
         选择器 = 推广页选择器.获取极速起量高级版关闭确认按钮("123")
         assert 选择器.主选择器 == '//button[contains(@data-testid, "assist_close") and contains(@data-testid, "123")]'
 
     def test_极速起量确认关闭选择器_三个候选顺序正确(self):
-        from selectors.promotion_page_selector import 推广页选择器
+        from pdd_selectors.promotion_page_selector import 推广页选择器
 
         选择器列表 = 推广页选择器.获取极速起量高级版关闭确认按钮("123").所有选择器()
         assert 'contains(@data-testid, "assist_close") and contains(@data-testid, "123")' in 选择器列表[0]
@@ -161,7 +161,7 @@ class 测试_推广页:
     @pytest.mark.asyncio
     async def test_确认关闭极速起量_商品绑定失败后回退_popover(self, 模拟页面, monkeypatch):
         from pages.promotion_page import 推广页
-        from selectors.promotion_page_selector import 推广页选择器
+        from pdd_selectors.promotion_page_selector import 推广页选择器
 
         monkeypatch.setattr(
             推广页选择器,
@@ -191,7 +191,7 @@ class 测试_推广页:
     @pytest.mark.asyncio
     async def test_确认关闭极速起量_前两种失败后回退_flex确定按钮(self, 模拟页面, monkeypatch):
         from pages.promotion_page import 推广页
-        from selectors.promotion_page_selector import 推广页选择器
+        from pdd_selectors.promotion_page_selector import 推广页选择器
 
         monkeypatch.setattr(
             推广页选择器,
@@ -220,7 +220,7 @@ class 测试_推广页:
     @pytest.mark.asyncio
     async def test_确认关闭极速起量_双形态都失败时截图并返回False(self, 模拟页面, monkeypatch):
         from pages.promotion_page import 推广页
-        from selectors.promotion_page_selector import 推广页选择器
+        from pdd_selectors.promotion_page_selector import 推广页选择器
 
         monkeypatch.setattr(
             推广页选择器,
@@ -243,7 +243,7 @@ class 测试_推广页:
     @pytest.mark.asyncio
     async def test_点击开启推广_点击失败时使用JS兜底(self, 模拟页面, monkeypatch):
         from pages.promotion_page import 推广页
-        from selectors.promotion_page_selector import 推广页选择器
+        from pdd_selectors.promotion_page_selector import 推广页选择器
 
         monkeypatch.setattr(推广页选择器, "开启推广按钮", 选择器配置("bad-button", ["good-button"]))
 
@@ -264,7 +264,7 @@ class 测试_推广页:
     @pytest.mark.asyncio
     async def test_等待推广成功_toast命中即返回成功(self, 模拟页面, monkeypatch):
         from pages.promotion_page import 推广页
-        from selectors.promotion_page_selector import 推广页选择器
+        from pdd_selectors.promotion_page_selector import 推广页选择器
 
         模拟页面.url = "https://yingxiao.pinduoduo.com/goods/promotion/create"
         monkeypatch.setattr(推广页选择器, "推广成功Toast提示", 选择器配置("toast-success", ["toast-opened"]))
@@ -289,7 +289,7 @@ class 测试_推广页:
     @pytest.mark.asyncio
     async def test_等待推广成功_开启推广按钮消失即返回成功(self, 模拟页面, monkeypatch):
         from pages.promotion_page import 推广页
-        from selectors.promotion_page_selector import 推广页选择器
+        from pdd_selectors.promotion_page_selector import 推广页选择器
 
         模拟页面.url = "https://yingxiao.pinduoduo.com/goods/promotion/create"
         monkeypatch.setattr(推广页选择器, "推广成功Toast提示", 选择器配置("toast-success"))
@@ -308,7 +308,7 @@ class 测试_推广页:
     @pytest.mark.asyncio
     async def test_等待推广成功_超时后截图返回False(self, 模拟页面, monkeypatch):
         from pages.promotion_page import 推广页
-        from selectors.promotion_page_selector import 推广页选择器
+        from pdd_selectors.promotion_page_selector import 推广页选择器
 
         模拟页面.url = "https://yingxiao.pinduoduo.com/goods/promotion/create"
         monkeypatch.setattr(推广页选择器, "推广成功Toast提示", 选择器配置("toast-success"))

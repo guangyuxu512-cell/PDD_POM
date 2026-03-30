@@ -6,7 +6,7 @@ from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
 from pages.base_page import 基础页
-from selectors.publish_product_page_selector import 发布商品页选择器
+from pdd_selectors.publish_product_page_selector import 发布商品页选择器
 
 
 class 发布商品页(基础页):

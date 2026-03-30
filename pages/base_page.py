@@ -26,7 +26,7 @@ if "selectors" in sys.modules and not hasattr(sys.modules["selectors"], "__path_
     sys.modules["selectors"] = 选择器模块
     选择器规格.loader.exec_module(选择器模块)
 
-from selectors.base_page_selector import 基础页选择器
+from pdd_selectors.base_page_selector import 基础页选择器
 
 
 class 基础页:

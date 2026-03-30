@@ -60,7 +60,7 @@ const loadConfig = async () => {
 
 const handleSave = async () => {
   await put('/api/system/config', config.value)
-  alert('配置保存成功\n机器码修改后需重启 Worker 生效')
+  alert('配置保存成功\n核心配置（Redis 地址、机器码等）修改后需重启后端服务和 Worker 生效')
 }
 
 const testRedis = async () => {

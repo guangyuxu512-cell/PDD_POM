@@ -9,7 +9,7 @@ except ImportError:  # pragma: no cover - 依赖缺失时走兜底
     uia = None
 
 from pages.desktop_base_page import 桌面基础页
-from selectors.wechat_selector import 微信选择器
+from pdd_selectors.wechat_selector import 微信选择器
 
 
 class 微信页(桌面基础页):

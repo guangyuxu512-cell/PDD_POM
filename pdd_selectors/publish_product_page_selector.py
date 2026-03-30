@@ -1,4 +1,4 @@
-from selectors.selector_config import 选择器配置
+from pdd_selectors.selector_config import 选择器配置
 
 
 class 发布商品页选择器:

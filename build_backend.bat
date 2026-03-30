@@ -17,13 +17,12 @@ python -m PyInstaller --noconfirm --clean --onefile --name backend ^
   --hidden-import=tasks ^
   --hidden-import=browser ^
   --hidden-import=pages ^
-  --hidden-import=selectors ^
+  --hidden-import=pdd_selectors ^
   --collect-all backend ^
   --collect-all tasks ^
   --collect-all browser ^
   --collect-all pages ^
-  --collect-all selectors ^
-  --add-data ".env;." ^
+  --collect-all pdd_selectors ^
   --add-data "data;data" ^
   scripts\pyinstaller_entry.py
 if errorlevel 1 goto :error
@@ -37,13 +36,12 @@ python -m PyInstaller --noconfirm --clean --onefile --name celery-worker ^
   --hidden-import=tasks ^
   --hidden-import=browser ^
   --hidden-import=pages ^
-  --hidden-import=selectors ^
+  --hidden-import=pdd_selectors ^
   --collect-all backend ^
   --collect-all tasks ^
   --collect-all browser ^
   --collect-all pages ^
-  --collect-all selectors ^
-  --add-data ".env;." ^
+  --collect-all pdd_selectors ^
   --add-data "data;data" ^
   scripts\pyinstaller_celery_entry.py
 if errorlevel 1 goto :error

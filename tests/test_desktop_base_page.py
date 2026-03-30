@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from selectors.desktop_selector_config import 桌面选择器配置
+from pdd_selectors.desktop_selector_config import 桌面选择器配置
 
 
 class 假值模式:

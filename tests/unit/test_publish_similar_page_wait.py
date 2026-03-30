@@ -76,7 +76,7 @@ class 测试_发布相似商品任务发布页等待:
         模拟发布页,
     ):
         from tasks.publish_similar_product_task import 发布相似商品任务
-        from selectors.publish_product_page_selector import 发布商品页选择器
+        from pdd_selectors.publish_product_page_selector import 发布商品页选择器
 
         模拟页面.expect_popup.return_value = 模拟弹窗上下文(模拟发布页面)
         with patch("tasks.publish_similar_product_task.上报", new_callable=AsyncMock) as 模拟上报, \

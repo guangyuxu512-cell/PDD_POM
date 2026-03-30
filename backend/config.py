@@ -3,8 +3,22 @@
 
 使用 pydantic-settings 从 .env 文件读取配置。
 """
+import sys
+from pathlib import Path
 from typing import Optional
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+def _解析env路径() -> Path:
+    """根据运行模式解析 .env 文件路径。"""
+    if getattr(sys, "frozen", False):
+        # 打包后：exe 所在目录
+        return Path(sys.executable).resolve().parent / ".env"
+    # 开发环境：项目根目录（config.py 所在目录的上级）
+    return Path(__file__).resolve().parent.parent / ".env"
+
+
+_ENV_PATH = _解析env路径()
 
 
 class 配置(BaseSettings):
@@ -57,7 +71,7 @@ class 配置(BaseSettings):
     FEISHU_BITABLE_TABLE_ID: Optional[str] = None
 
     model_config = SettingsConfigDict(
-        env_file=".env",
+        env_file=str(_ENV_PATH),
         env_file_encoding="utf-8",
         case_sensitive=True,
         extra="ignore"

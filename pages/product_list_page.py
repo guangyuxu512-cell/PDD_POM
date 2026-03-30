@@ -4,7 +4,7 @@ import inspect
 from pathlib import Path
 
 from pages.base_page import 基础页
-from selectors.product_list_page_selector import 商品列表页选择器
+from pdd_selectors.product_list_page_selector import 商品列表页选择器
 
 
 class 商品列表页(基础页):

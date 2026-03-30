@@ -2,8 +2,8 @@
 import json
 from pathlib import Path
 from pages.base_page import 基础页
-from selectors.base_page_selector import 基础页选择器
-from selectors.login_page_selector import 登录页选择器
+from pdd_selectors.base_page_selector import 基础页选择器
+from pdd_selectors.login_page_selector import 登录页选择器
 from backend.config import 配置实例
 
 

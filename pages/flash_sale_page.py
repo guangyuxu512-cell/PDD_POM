@@ -1,6 +1,6 @@
 """限时限量页的页面对象模型。"""
 from pages.base_page import 基础页
-from selectors.flash_sale_page_selector import 限时限量页选择器
+from pdd_selectors.flash_sale_page_selector import 限时限量页选择器
 
 
 class 限时限量页(基础页):

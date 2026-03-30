@@ -29,7 +29,7 @@ try:
 except ImportError:  # pragma: no cover - 依赖缺失时走兜底
     uia = None
 
-from selectors.desktop_selector_config import 桌面选择器配置
+from pdd_selectors.desktop_selector_config import 桌面选择器配置
 
 
 class 桌面基础页:

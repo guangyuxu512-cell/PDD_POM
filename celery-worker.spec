@@ -3,17 +3,23 @@ from PyInstaller.utils.hooks import collect_data_files
 from PyInstaller.utils.hooks import collect_submodules
 
 datas = []
-hiddenimports = ['tasks', 'browser']
+hiddenimports = ['tasks', 'browser', 'backend', 'pages', 'pdd_selectors']
 datas += collect_data_files('tasks')
 datas += collect_data_files('browser')
+datas += collect_data_files('backend')
+datas += collect_data_files('pages')
+datas += collect_data_files('pdd_selectors')
 hiddenimports += collect_submodules('tasks')
 hiddenimports += collect_submodules('browser')
+hiddenimports += collect_submodules('backend')
+hiddenimports += collect_submodules('pages')
+hiddenimports += collect_submodules('pdd_selectors')
 hiddenimports += collect_submodules('celery')
 hiddenimports += collect_submodules('kombu')
 
 
 a = Analysis(
-    ['entry_celery.py'],
+    ['scripts/pyinstaller_celery_entry.py'],
     pathex=[],
     binaries=[],
     datas=datas,

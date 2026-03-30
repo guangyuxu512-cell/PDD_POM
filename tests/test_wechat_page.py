@@ -60,7 +60,7 @@ class 测试_微信页:
 
     def test_发送消息到当前聊天_发送按钮失败时回退Enter(self, monkeypatch):
         from pages.wechat_page import 微信页
-        from selectors.wechat_selector import 微信选择器
+        from pdd_selectors.wechat_selector import 微信选择器
 
         聊天框 = 假控件()
         页面对象 = 微信页()

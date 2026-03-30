@@ -1,5 +1,5 @@
 """拼多多后台售后管理页选择器。"""
-from selectors.selector_config import 选择器配置
+from pdd_selectors.selector_config import 选择器配置
 
 
 class 售后页选择器:

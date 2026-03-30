@@ -8,7 +8,7 @@ import shutil
 from typing import Dict, Any
 from pathlib import Path
 
-from backend.config import 配置实例
+from backend.config import 配置实例, _ENV_PATH
 from backend.models.database import 获取连接
 
 
@@ -34,54 +34,30 @@ class 系统服务:
 
     def __init__(self):
         """初始化系统服务"""
-        self._env文件路径 = Path(".env")
+        self._env文件路径 = _ENV_PATH
         self._数据库路径 = Path(配置实例.DATA_DIR) / "ecom.db"
-
-    def _脱敏redis_url(self, url: str) -> str:
-        """
-        脱敏 Redis URL 中的密码
-
-        参数:
-            url: Redis URL
-
-        返回:
-            str: 脱敏后的 URL
-        """
-        # 匹配 redis://:password@host 或 redis://user:password@host
-        # 将密码部分替换为 ***
-        pattern = r"(redis://[^:]*:)([^@]+)(@)"
-        return re.sub(pattern, r"\1***\3", url)
-
-    def _脱敏api_key(self, key: str) -> str:
-        """
-        脱敏 API Key，只显示前4位
-
-        参数:
-            key: API Key
-
-        返回:
-            str: 脱敏后的 Key
-        """
-        if not key or len(key) <= 4:
-            return "***"
-        return key[:4] + "***"
 
     async def 获取配置(self) -> Dict[str, Any]:
         """
         读取当前系统配置
 
         返回:
-            Dict[str, Any]: 系统配置（脱敏后）
+            Dict[str, Any]: 系统配置
         """
         配置 = {
-            "redis_url": self._脱敏redis_url(配置实例.REDIS_URL),
+            "redis_url": 配置实例.REDIS_URL,
             "agent_machine_id": 配置实例.AGENT_MACHINE_ID or "",
             "captcha_provider": 配置实例.CAPTCHA_PROVIDER,
-            "captcha_api_key": self._脱敏api_key(配置实例.CAPTCHA_API_KEY) if 配置实例.CAPTCHA_API_KEY else None,
-            "default_proxy": 配置实例.DEFAULT_PROXY,
+            "captcha_api_key": 配置实例.CAPTCHA_API_KEY or "",
+            "default_proxy": 配置实例.DEFAULT_PROXY or "",
             "max_browser_instances": 配置实例.MAX_BROWSER_INSTANCES,
-            "chrome_path": 配置实例.CHROME_PATH,
+            "chrome_path": 配置实例.CHROME_PATH or "",
             "log_level": 配置实例.LOG_LEVEL,
+            "feishu_webhook_url": 配置实例.FEISHU_WEBHOOK_URL or "",
+            "feishu_app_id": 配置实例.FEISHU_APP_ID or "",
+            "feishu_app_secret": 配置实例.FEISHU_APP_SECRET or "",
+            "feishu_bitable_app_token": 配置实例.FEISHU_BITABLE_APP_TOKEN or "",
+            "feishu_bitable_table_id": 配置实例.FEISHU_BITABLE_TABLE_ID or "",
         }
         return 配置
 

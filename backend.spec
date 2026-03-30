@@ -6,15 +6,19 @@ datas = []
 hiddenimports = ['backend', 'uvicorn.logging', 'uvicorn.protocols.http']
 datas += collect_data_files('backend')
 datas += collect_data_files('tasks')
+datas += collect_data_files('pages')
+datas += collect_data_files('pdd_selectors')
 hiddenimports += collect_submodules('backend')
 hiddenimports += collect_submodules('tasks')
 hiddenimports += collect_submodules('celery')
 hiddenimports += collect_submodules('kombu')
 hiddenimports += collect_submodules('browser')
+hiddenimports += collect_submodules('pages')
+hiddenimports += collect_submodules('pdd_selectors')
 
 
 a = Analysis(
-    ['entry_backend.py'],
+    ['scripts/pyinstaller_entry.py'],
     pathex=[],
     binaries=[],
     datas=datas,

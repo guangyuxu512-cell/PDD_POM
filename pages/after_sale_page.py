@@ -9,7 +9,7 @@ from urllib.parse import parse_qs, unquote, urlparse
 
 from backend.config import 配置实例
 from pages.base_page import 基础页
-from selectors.after_sale_page_selector import 售后页选择器
+from pdd_selectors.after_sale_page_selector import 售后页选择器
 
 详情按钮查询选择器 = (
     'button:not(:disabled), '
