@@ -2,7 +2,7 @@ const { app, BrowserWindow, dialog } = require('electron')
 const fs = require('fs')
 const http = require('http')
 const path = require('path')
-const { spawn } = require('child_process')
+const { spawn, execSync } = require('child_process')
 const dotenv = require('dotenv')
 
 let mainWindow = null
@@ -29,9 +29,10 @@ function ensurePackagedFileExists(filePath, label) {
   }
 }
 
-function createProcessEnv() {
+function createProcessEnv(extraEnv = {}) {
   return {
     ...process.env,
+    ...extraEnv,
     PYTHONPATH: rootDir,
     PYTHONUTF8: '1',
     PYTHONIOENCODING: 'utf-8',
@@ -87,20 +88,25 @@ function startBackend() {
 
 function startCelery() {
   const workerArgs = ['-m', 'celery', '-A', 'tasks.celery_app', 'worker', '-P', 'solo', '-l', process.env.CELERY_LOG_LEVEL || 'INFO']
-  if (process.env.CELERY_QUEUES) {
-    workerArgs.push('-Q', process.env.CELERY_QUEUES)
-  }
+
+  // 自动拼接队列名，确保监听 celery 和 worker.{机器码}
+  const machineId = (process.env.AGENT_MACHINE_ID || '').trim() || 'default'
+  const queues = process.env.CELERY_QUEUES || `celery,worker.${machineId}`
+  const celeryEnv = createProcessEnv({
+    CELERY_QUEUES: queues,
+  })
+  workerArgs.push('-Q', queues)
 
   if (isDev) {
     celeryProcess = spawn(pythonExe, workerArgs, {
       cwd: rootDir,
-      env: createProcessEnv(),
+      env: celeryEnv,
     })
   } else {
     ensurePackagedFileExists(packagedCeleryExe, 'Celery Worker 程序')
     celeryProcess = spawn(packagedCeleryExe, [], {
       cwd: rootDir,
-      env: createProcessEnv(),
+      env: celeryEnv,
     })
   }
 
@@ -203,6 +209,10 @@ async function createWindow() {
 
 app.whenReady().then(async () => {
   try {
+    if (process.platform === 'win32') {
+      try { execSync('chcp 65001', { stdio: 'ignore' }) } catch {}
+    }
+
     startBackend()
     startCelery()
     await waitForUrl(`${backendBaseUrl}/openapi.json`)

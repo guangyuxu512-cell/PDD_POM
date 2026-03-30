@@ -2555,3 +2555,24 @@
 - [ ] 当前执行环境下，`python scripts/prepare_dist.py` 在 `get-pip` / 依赖安装阶段超时，30 分钟内未完成
 - [ ] 当前执行环境下，`cd electron && npm run pack` 未通过：
   - 失败原因：`electron-builder` 启动 `app-builder.exe` 时 `spawn EPERM`
+
+## Prompt 121：Electron 启动补齐 UTF-8 控制台与 Worker 队列 ✅
+
+- [x] 更新 `electron/main.js`
+- [x] `app.whenReady()` 在 Windows 下启动前执行 `execSync('chcp 65001', { stdio: 'ignore' })`
+- [x] `startCelery()` 自动补齐默认监听队列 `celery,worker.{AGENT_MACHINE_ID}`
+- [x] 将拼接后的 `CELERY_QUEUES` 注入 Worker 进程环境，覆盖开发模式和打包模式
+- [x] 新增 `tests/unit/test_electron_main.py`
+- [x] 静态回归覆盖 UTF-8 代码页切换、默认队列监听和打包模式队列透传
+- [x] 为恢复全量回归，补齐兼容导出：
+  - `tasks/bridge_task.py` 重新暴露 `_运行异步任务`
+  - `tasks/execute_task.py` 重新暴露 `_运行异步任务`
+- [x] 定向验证通过：
+  - `python -m pytest -c tests/pytest.ini tests/unit/test_electron_main.py tests/unit/test_celery_bridge.py tests/unit/test_thread_pool_event_loop.py -v`
+  - `node --check electron/main.js`
+- [x] 全量验证通过：`python -m pytest -c tests/pytest.ini tests/ -v`
+- [x] 全量验证结果：`450 passed, 16 warnings`
+- [ ] 已尝试执行：`cd electron && npx electron .`
+- [ ] 当前执行环境下未完成 GUI 验收：
+  - stdout 仅看到 dotenv 注入日志
+  - Electron 进程因 `platform_channel.cc(83)` 的 `拒绝访问 (0x5)` 提前退出

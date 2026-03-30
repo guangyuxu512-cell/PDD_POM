@@ -11,6 +11,7 @@ import httpx
 
 from backend.config import 配置实例
 from tasks.celery_app import celery_app, 初始化Worker环境
+from tasks.async_utils import 运行异步任务 as _运行异步任务
 from backend.services.execute_service import (
     同步更新批次店铺状态,
     同步检查取消标记,

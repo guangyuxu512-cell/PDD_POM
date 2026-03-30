@@ -1,5 +1,38 @@
 ## 任务摘要
 
+补齐 Electron 主进程启动链路：Windows 启动前切换 UTF-8 控制台代码页，Celery 默认同时监听 `celery` 和 `worker.{AGENT_MACHINE_ID}`，并补回两处存量 `_运行异步任务` 兼容导出以恢复全量回归。
+
+## 改动文件列表
+
+- `electron/main.js`
+- `tests/unit/test_electron_main.py`
+- `tasks/bridge_task.py`
+- `tasks/execute_task.py`
+
+## 改动说明
+
+- `electron/main.js`：新增 `execSync` 导入，`app.whenReady()` 里在 Windows 下先执行 `chcp 65001`；`startCelery()` 统一生成 `queues` 并注入 `CELERY_QUEUES`，让开发模式和打包模式都监听 `celery` 与 `worker.{machine_id}`。
+- `tests/unit/test_electron_main.py`：新增静态回归，覆盖默认队列、打包模式队列透传和 UTF-8 代码页切换/容错。
+- `tasks/bridge_task.py`：恢复 `_运行异步任务` 本地包装，兼容现有桥接测试和 patch 点。
+- `tasks/execute_task.py`：重新暴露 `_运行异步任务`，兼容线程池事件循环测试对旧符号的调用。
+
+## 影响范围
+
+- Electron 主进程启动流程
+- Celery Worker 队列监听配置
+- 桥接任务 / 执行任务的测试兼容层
+
+## 注意事项
+
+- 已执行 `python -m pytest -c tests/pytest.ini tests/ -v`，结果 `450 passed, 16 warnings`。
+- 已执行 `node --check electron/main.js`。
+- 已尝试 `cd electron && npx electron .`，但当前环境下 Electron 因 `platform_channel.cc(83)` 的 `拒绝访问 (0x5)` 提前退出，未能完成 GUI 验收。
+- `.pipeline/task.md` 为既有本地变更，本轮未修改。
+
+---
+
+## 任务摘要
+
 完成两项任务：（1）移除嵌入式 Python 源码打包方案，恢复 PyInstaller exe 方式；（2）将全部中文命名 `.py` 文件重命名为英文，并全量更新所有 import 引用。所有 448 条测试通过。
 
 ## 改动文件列表
