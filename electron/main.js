@@ -26,8 +26,8 @@ const taskkillExe = path.join(system32Dir, 'taskkill.exe')
 const netstatExe = path.join(system32Dir, 'netstat.exe')
 const findstrExe = path.join(system32Dir, 'findstr.exe')
 
-const packagedBackendExe = path.join(rootDir, 'python-backend', 'backend.exe')
-const packagedCeleryExe = path.join(rootDir, 'python-backend', 'celery-worker.exe')
+const packagedBackendExe = path.join(rootDir, 'python-backend', 'backend', 'backend.exe')
+const packagedCeleryExe = path.join(rootDir, 'python-backend', 'celery-worker', 'celery-worker.exe')
 
 function ensurePackagedFileExists(filePath, label) {
   if (!fs.existsSync(filePath)) {

@@ -1,5 +1,50 @@
 ## 任务摘要
 
+替换 PyInstaller 的 backend / celery-worker spec 为显式模块收集方案，并修正 Electron 打包 exe 路径到 `--onedir` 子目录结构。
+
+## 改动文件列表
+
+- `backend.spec`
+- `celery-worker.spec`
+- `electron/main.js`
+- `tests/unit/test_pyinstaller_spec_files.py`
+- `PLAN.md`
+- `改造进度.md`
+- `.pipeline/progress.md`
+
+## 改动说明
+
+- `backend.spec`：改为显式列出项目模块 `hiddenimports`，并为 `uvicorn`、`fastapi`、`starlette`、`celery`、`kombu`、`amqp`、`redis` 做 `collect_all`；同时把 `collect_all(...)` 前移到 `Analysis(...)` 之前，兼容当前 PyInstaller 6.17 的 `TOC` 处理。
+- `celery-worker.spec`：改为显式列出 Worker 依赖的项目模块 `hiddenimports`，并为 `celery`、`kombu`、`amqp`、`redis` 做 `collect_all`；同样前移合并逻辑，确保打包命令可直接通过。
+- `electron/main.js`：将打包模式下的 exe 路径改成 `python-backend/backend/backend.exe` 与 `python-backend/celery-worker/celery-worker.exe`，适配 `--onedir` 输出结构。
+- `tests/unit/test_pyinstaller_spec_files.py`：新增静态回归，覆盖两个 spec 的关键显式导入、`collect_submodules` 移除，以及 Electron 新旧打包路径差异。
+- `PLAN.md`：补充 Prompt 124 的实现、打包验收和回归结果。
+- `改造进度.md`：同步本轮改造内容、打包命令和启动验收情况。
+- `.pipeline/progress.md`：记录本轮 Builder 执行结果。
+
+## 影响范围
+
+- PyInstaller 后端打包配置
+- PyInstaller Celery Worker 打包配置
+- Electron 打包模式后端 / Worker 可执行文件定位
+- 打包相关静态回归
+
+## 注意事项
+
+- 已执行 `python -m pytest -c tests/pytest.ini tests/unit/test_pyinstaller_spec_files.py tests/unit/test_electron_main.py -v`，结果 `8 passed`。
+- 已执行 `node --check electron/main.js`。
+- 已按任务命令执行：
+  - `pyinstaller --noconfirm --distpath ./python-backend-dist backend.spec`
+  - `pyinstaller --noconfirm --distpath ./python-backend-dist celery-worker.spec`
+- 已执行 `python-backend-dist/backend/backend.exe` 短时启动验收，8 秒观测内进程保持运行，并输出 `Application startup complete`、`Uvicorn running on http://127.0.0.1:8000`。
+- 已执行 `python -m pytest -c tests/pytest.ini tests/ -v`，结果 `459 passed, 16 warnings`。
+- PyInstaller 仍有 `kombu.asynchronous.aws` 缺少 `botocore` 的构建告警，但本轮打包已成功，不影响当前验收。
+- `.pipeline/task.md` 为既有本地变更，本轮未修改。
+
+---
+
+## 任务摘要
+
 修复 PyInstaller 后端与 Celery 入口在冻结模式下错误覆盖 `sys.path` 的问题，并补齐 frozen / 非 frozen 分支回归测试。
 
 ## 改动文件列表

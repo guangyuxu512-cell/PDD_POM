@@ -2619,3 +2619,33 @@
 - [ ] 打包后运行 `python-backend-dist/backend/backend.exe` 仍有存量依赖问题：
   - 已不再报 `ModuleNotFoundError: No module named 'backend'`
   - 当前报错改为 `ModuleNotFoundError: No module named 'fastapi'`
+
+## Prompt 124：PyInstaller spec 显式收集与 onedir 路径修复 ✅
+
+- [x] 完全替换 `backend.spec`
+- [x] 后端 spec 改为显式 `hiddenimports` 收集 `tasks / backend / browser / pages / pdd_selectors` 关键模块
+- [x] 后端 spec 补齐第三方 `collect_all`：`uvicorn`、`fastapi`、`starlette`、`celery`、`kombu`、`amqp`、`redis`
+- [x] 完全替换 `celery-worker.spec`
+- [x] Worker spec 改为显式 `hiddenimports` 收集 `tasks / backend / browser / pages / pdd_selectors` 关键模块
+- [x] Worker spec 补齐第三方 `collect_all`：`celery`、`kombu`、`amqp`、`redis`
+- [x] 更新 `electron/main.js`
+- [x] 打包 exe 路径改为适配 `--onedir` 子目录结构：
+  - `python-backend/backend/backend.exe`
+  - `python-backend/celery-worker/celery-worker.exe`
+- [x] 新增 `tests/unit/test_pyinstaller_spec_files.py`
+- [x] 静态回归覆盖：
+  - 两个 spec 文件包含关键模块显式导入
+  - 两个 spec 文件不再使用 `collect_submodules`
+  - Electron 打包路径已切到 `--onedir` 子目录
+- [x] 定向验证通过：
+  - `python -m pytest -c tests/pytest.ini tests/unit/test_pyinstaller_spec_files.py tests/unit/test_electron_main.py -v`
+  - `node --check electron/main.js`
+- [x] 按任务命令完成打包验证：
+  - `pyinstaller --noconfirm --distpath ./python-backend-dist backend.spec`
+  - `pyinstaller --noconfirm --distpath ./python-backend-dist celery-worker.spec`
+- [x] `python-backend-dist/backend/backend.exe` 短时启动验收通过
+- [x] 观测结果：
+  - `Application startup complete`
+  - `Uvicorn running on http://127.0.0.1:8000`
+- [x] 全量验证通过：`python -m pytest -c tests/pytest.ini tests/ -v`
+- [x] 全量验证结果：`459 passed, 16 warnings`
