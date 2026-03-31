@@ -453,3 +453,46 @@
 - 产物目录已确认 `.env` 位于 `python-backend-dist/backend/.env`，`crash.log` 未生成。
 - 已执行 `python -m pytest -c tests/pytest.ini tests/ -v`，结果为 `479 passed, 16 warnings`。
 - 构建阶段仍有 `kombu.asynchronous.aws` 缺少 `botocore` 的 PyInstaller 警告，但不影响本轮验收。
+---
+
+## 任务摘要
+
+修复 PyInstaller 打包后中文日志乱码：新增 UTF-8 runtime hook，给 backend / celery 入口补双保险编码设置，并让 Electron 子进程日志管道显式按 `utf8` 解码，完成真实打包产物日志验收与全量回归。
+
+## 改动文件列表
+
+- `scripts/encoding_hook.py`
+- `scripts/pyinstaller_entry.py`
+- `scripts/pyinstaller_celery_entry.py`
+- `backend.spec`
+- `celery-worker.spec`
+- `electron/main.js`
+- `tests/unit/test_packaged_log_encoding.py`
+- `PLAN.md`
+- `改造进度.md`
+- `.pipeline/progress.md`
+
+## 改动说明
+
+- `scripts/encoding_hook.py`：新增 PyInstaller runtime hook，统一设置 `PYTHONUTF8=1` 与 `PYTHONIOENCODING=utf-8`；优先使用 `reconfigure()` 切换到 UTF-8，仅在原生标准流场景回退到 `TextIOWrapper`，避免破坏 pytest 或开发态捕获流。
+- `scripts/pyinstaller_entry.py`：冻结模式入口增加 UTF-8 双保险逻辑，确保 backend.exe 即使未被 runtime hook 接管，也会在启动最早阶段切换输出编码。
+- `scripts/pyinstaller_celery_entry.py`：为打包 Worker 入口补同样的 UTF-8 双保险逻辑。
+- `backend.spec`：注册 `runtime_hooks=['scripts/encoding_hook.py']`，并将 `('scripts/encoding_hook.py', 'scripts')` 纳入打包数据。
+- `celery-worker.spec`：同样注册 runtime hook，并将 hook 文件纳入打包数据。
+- `electron/main.js`：保留 `PYTHONUTF8`、`PYTHONIOENCODING` 环境变量；在 `pipeLogs()` 中对 `child.stdout` / `child.stderr` 显式调用 `setEncoding('utf8')`，避免 Node 默认按本地代码页解码子进程输出。
+- `tests/unit/test_packaged_log_encoding.py`：新增 runtime hook、backend/celery 入口编码切换、spec 注册和 Electron 日志管道的回归测试。
+- `PLAN.md`、`改造进度.md`、`.pipeline/progress.md`：同步记录本轮改造、打包验证和验收结果。
+
+## 影响范围
+
+- PyInstaller backend / celery-worker 运行时输出编码
+- Electron 主进程对子进程日志的解码方式
+- 打包相关 spec 配置与编码回归测试
+
+## 注意事项
+
+- 已执行 `pyinstaller --noconfirm --distpath ./python-backend-dist backend.spec` 与 `pyinstaller --noconfirm --distpath ./python-backend-dist celery-worker.spec`，构建成功。
+- 已执行 `python-backend-dist/backend/backend.exe` 并将输出重定向到 `startup-utf8.log`；按 UTF-8 读取时，中文日志正常，输出包含 `[任务注册]`、`✓ 回调地址已设置`、`后端启动完成，端口: 8000`。
+- 已执行 `python -m pytest -c tests/pytest.ini tests/ -v`，结果为 `484 passed, 16 warnings`。
+- 已尝试 `cd electron && npx electron .`，但当前环境仍因 `platform_channel.cc(83): 拒绝访问 (0x5)` 提前退出，未完成 GUI 侧最终验收。
+- PyInstaller 构建阶段仍有 `kombu.asynchronous.aws` 缺少 `botocore` 的警告，但不影响本轮编码修复结果。

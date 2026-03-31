@@ -2718,3 +2718,37 @@
   - 控制台输出 `Application startup complete`
 - [x] 全量验证通过：`python -m pytest -c tests/pytest.ini tests/ -v`
 - [x] 全量验证结果：`479 passed, 16 warnings`
+## Prompt 127：PyInstaller 打包后中文日志 UTF-8 修复 ✅
+- [x] 新增 `scripts/encoding_hook.py`
+- [x] PyInstaller runtime hook 统一设置 `PYTHONUTF8=1`、`PYTHONIOENCODING=utf-8`
+- [x] runtime hook 优先用 `reconfigure()`，仅在原生标准流场景回退到 `TextIOWrapper`，避免破坏测试与开发态捕获流
+- [x] 更新 `scripts/pyinstaller_entry.py`
+- [x] 冻结模式入口增加 UTF-8 双保险输出设置
+- [x] 更新 `scripts/pyinstaller_celery_entry.py`
+- [x] 冻结模式 Worker 入口增加 UTF-8 双保险输出设置
+- [x] 更新 `backend.spec`
+- [x] 注册 `runtime_hooks=['scripts/encoding_hook.py']`
+- [x] 将 `('scripts/encoding_hook.py', 'scripts')` 加入打包数据
+- [x] 更新 `celery-worker.spec`
+- [x] 注册 `runtime_hooks=['scripts/encoding_hook.py']`
+- [x] 将 `('scripts/encoding_hook.py', 'scripts')` 加入打包数据
+- [x] 更新 `electron/main.js`
+- [x] 保留 `PYTHONUTF8` / `PYTHONIOENCODING`
+- [x] `pipeLogs()` 显式设置 `child.stdout/stderr.setEncoding('utf8')`
+- [x] 新增 `tests/unit/test_packaged_log_encoding.py`
+- [x] 覆盖 runtime hook、两个入口、两个 spec 与 Electron 日志管道编码回归
+- [x] 定向验证通过：
+  - `python -m pytest -c tests/pytest.ini tests/unit/test_packaged_log_encoding.py tests/unit/test_pyinstaller_entry.py tests/unit/test_pyinstaller_spec_files.py tests/unit/test_electron_main.py -q`
+  - `node --check electron/main.js`
+- [x] 按任务命令完成打包验证：
+  - `pyinstaller --noconfirm --distpath ./python-backend-dist backend.spec`
+  - `pyinstaller --noconfirm --distpath ./python-backend-dist celery-worker.spec`
+- [x] `python-backend-dist/backend/backend.exe` 日志编码验收通过
+- [x] 观测结果：
+  - 以 UTF-8 读取 `startup-utf8.log` 时，中文日志正常显示
+  - 输出包含 `[任务注册]`、`✓ 回调地址已设置`、`后端启动完成，端口: 8000`
+- [x] 全量验证通过：`python -m pytest -c tests/pytest.ini tests/ -v`
+- [x] 全量验证结果：`484 passed, 16 warnings`
+- [ ] 当前环境下 Electron GUI 验收未完成：
+  - `cd electron && npx electron .`
+  - 进程在 `platform_channel.cc(83): 拒绝访问 (0x5)` 提前退出，且当前环境无法执行 `chcp`

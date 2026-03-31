@@ -46,6 +46,8 @@ function createProcessEnv(extraEnv = {}) {
 }
 
 function pipeLogs(label, child) {
+  child.stdout?.setEncoding('utf8')
+  child.stderr?.setEncoding('utf8')
   child.stdout?.on('data', (data) => {
     process.stdout.write(`[${label}] ${data}`)
   })

@@ -4,6 +4,7 @@ from PyInstaller.utils.hooks import collect_all
 
 额外二进制 = []
 额外数据 = [
+    ('scripts/encoding_hook.py', 'scripts'),
     ('pdd_selectors', 'pdd_selectors'),
     ('pages', 'pages'),
 ]
@@ -98,7 +99,7 @@ a = Analysis(
     hiddenimports=额外导入,
     hookspath=[],
     hooksconfig={},
-    runtime_hooks=[],
+    runtime_hooks=['scripts/encoding_hook.py'],
     excludes=[],
     noarchive=False,
     optimize=0,
