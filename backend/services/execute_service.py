@@ -52,6 +52,30 @@ logger = get_logger()
     "roi": ["roi", "投产比"],
 }
 
+# ── Redis 连接池（模块级单例）──
+_同步连接池 = redis.ConnectionPool.from_url(配置实例.REDIS_URL, decode_responses=True)
+_异步连接池 = aioredis.ConnectionPool.from_url(配置实例.REDIS_URL, decode_responses=True)
+_异步连接池事件循环标识: Optional[int] = None
+
+
+def _创建异步连接池() -> aioredis.ConnectionPool:
+    """创建异步 Redis 连接池。"""
+    return aioredis.ConnectionPool.from_url(配置实例.REDIS_URL, decode_responses=True)
+
+
+async def _获取当前异步连接池() -> aioredis.ConnectionPool:
+    """获取与当前事件循环匹配的异步 Redis 连接池。"""
+    global _异步连接池, _异步连接池事件循环标识
+
+    当前事件循环标识 = id(asyncio.get_running_loop())
+    if _异步连接池事件循环标识 in (None, 当前事件循环标识):
+        _异步连接池事件循环标识 = 当前事件循环标识
+        return _异步连接池
+
+    _异步连接池 = _创建异步连接池()
+    _异步连接池事件循环标识 = 当前事件循环标识
+    return _异步连接池
+
 
 def 批次状态键(batch_id: str) -> str:
     """生成批次状态缓存键。"""
@@ -544,8 +568,8 @@ def 更新店铺步骤状态(
 
 
 def 同步获取Redis客户端() -> redis.Redis:
-    """获取同步 Redis 客户端。"""
-    return redis.Redis.from_url(配置实例.REDIS_URL, decode_responses=True)
+    """获取同步 Redis 客户端（复用连接池）。"""
+    return redis.Redis(connection_pool=_同步连接池)
 
 
 def 同步读取批次状态(batch_id: str) -> Optional[Dict[str, Any]]:
@@ -651,7 +675,7 @@ async def 设置取消标记(batch_id: str) -> bool:
     if not str(batch_id or "").strip():
         return False
 
-    客户端 = aioredis.from_url(配置实例.REDIS_URL, decode_responses=True)
+    客户端 = aioredis.Redis(connection_pool=await _获取当前异步连接池())
     try:
         return bool(
             await 客户端.set(
@@ -661,11 +685,7 @@ async def 设置取消标记(batch_id: str) -> bool:
             )
         )
     finally:
-        关闭方法 = getattr(客户端, "aclose", None)
-        if callable(关闭方法):
-            await 关闭方法()
-        else:
-            await 客户端.close()
+        await 客户端.aclose()
 
 
 async def 检查取消标记(batch_id: str) -> bool:
@@ -673,15 +693,11 @@ async def 检查取消标记(batch_id: str) -> bool:
     if not str(batch_id or "").strip():
         return False
 
-    客户端 = aioredis.from_url(配置实例.REDIS_URL, decode_responses=True)
+    客户端 = aioredis.Redis(connection_pool=await _获取当前异步连接池())
     try:
         return await 客户端.get(批次取消键(batch_id)) == "1"
     finally:
-        关闭方法 = getattr(客户端, "aclose", None)
-        if callable(关闭方法):
-            await 关闭方法()
-        else:
-            await 客户端.close()
+        await 客户端.aclose()
 
 
 async def 清除取消标记(batch_id: str) -> bool:
@@ -689,15 +705,11 @@ async def 清除取消标记(batch_id: str) -> bool:
     if not str(batch_id or "").strip():
         return False
 
-    客户端 = aioredis.from_url(配置实例.REDIS_URL, decode_responses=True)
+    客户端 = aioredis.Redis(connection_pool=await _获取当前异步连接池())
     try:
         return bool(await 客户端.delete(批次取消键(batch_id)))
     finally:
-        关闭方法 = getattr(客户端, "aclose", None)
-        if callable(关闭方法):
-            await 关闭方法()
-        else:
-            await 客户端.close()
+        await 客户端.aclose()
 
 
 class 执行服务:
@@ -1188,16 +1200,12 @@ class 执行服务:
             await 连接.commit()
 
     async def _获取异步Redis客户端(self):
-        """获取异步 Redis 客户端。"""
-        return aioredis.from_url(配置实例.REDIS_URL, decode_responses=True)
+        """获取异步 Redis 客户端（复用连接池）。"""
+        return aioredis.Redis(connection_pool=await _获取当前异步连接池())
 
     async def _关闭异步Redis客户端(self, 客户端) -> None:
-        """关闭异步 Redis 客户端。"""
-        关闭方法 = getattr(客户端, "aclose", None)
-        if callable(关闭方法):
-            await 关闭方法()
-        else:
-            await 客户端.close()
+        """关闭异步 Redis 客户端（归还连接池）。"""
+        await 客户端.aclose()
 
     async def _获取批次状态(self, batch_id: str) -> Optional[Dict[str, Any]]:
         """读取单个批次状态。"""

@@ -11,6 +11,7 @@ dist_bundle/
 python-backend-dist/
 electron/dist/
 frontend/dist/
+tasks/_frozen_modules.py
 
 # Playwright 浏览器缓存
 playwright/.cache/

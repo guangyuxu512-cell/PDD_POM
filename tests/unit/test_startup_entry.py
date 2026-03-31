@@ -53,8 +53,13 @@ class 测试_启动入口:
 
         assert 首页响应.status_code == 200
         assert "<html>spa</html>" in 首页响应.text
+        assert 首页响应.headers["content-type"].startswith("text/html")
+        assert 首页响应.headers["cache-control"] == "no-cache, no-store, must-revalidate"
+        assert 首页响应.headers["pragma"] == "no-cache"
+        assert 首页响应.headers["expires"] == "0"
         assert 资源响应.status_code == 200
         assert "console.log('ok')" in 资源响应.text
+        assert 资源响应.headers.get("cache-control") != "no-cache, no-store, must-revalidate"
 
     def test_挂载前端静态资源_保留后端路径返回404(self, tmp_path: Path):
         """API 等后端保留路径不存在时，不应错误回退到前端首页。"""

@@ -12,6 +12,10 @@ def test_backend_spec_显式收集关键模块且移除_collect_submodules():
     spec内容 = 读取文件("backend.spec")
 
     assert "pathex=['.']" in spec内容
+    assert "from pathlib import Path" in spec内容
+    assert "_frozen_file = _tasks_dir / \"_frozen_modules.py\"" in spec内容
+    assert "MODULES = {_task_modules!r}" in spec内容
+    assert "'tasks._frozen_modules'" in spec内容
     assert "('.env', '.')" in spec内容
     assert "contents_directory='.'" in spec内容
     assert "'backend.api.task_api'" in spec内容
@@ -21,6 +25,12 @@ def test_backend_spec_显式收集关键模块且移除_collect_submodules():
     assert "'pdd_selectors.selector_config'" in spec内容
     assert "for pkg in ['uvicorn', 'fastapi', 'starlette', 'celery', 'kombu', 'amqp', 'redis']:" in spec内容
     assert "collect_submodules" not in spec内容
+
+
+def test_frozen_task_modules_会被_gitignore_忽略():
+    gitignore内容 = 读取文件(".gitignore")
+
+    assert "tasks/_frozen_modules.py" in gitignore内容
 
 
 def test_celery_worker_spec_显式收集关键模块且移除_collect_submodules():

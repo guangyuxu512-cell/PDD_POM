@@ -2861,3 +2861,52 @@
 - [x] 全量回归通过：
   - `python -m pytest -c tests/pytest.ini tests/ -q`
   - `494 passed, 16 warnings`
+## Prompt 133：SPA 首页禁缓存，确保 Electron 重启后拿到最新前端资源 ✅
+- [x] 更新 `backend/main.py`
+- [x] 仅在 SPA 回退到 `index.html` 时追加禁缓存响应头：
+  - `Cache-Control: no-cache, no-store, must-revalidate`
+  - `Pragma: no-cache`
+  - `Expires: 0`
+- [x] 保持 `/assets/` 下 hash 静态资源的缓存行为不变
+- [x] 更新 `tests/unit/test_startup_entry.py`
+- [x] 回归覆盖：
+  - SPA 回退首页带禁缓存头
+  - `/assets/app.js` 不被写入同样的禁缓存头
+- [x] 定向验证通过：
+  - `python -m pytest -c tests/pytest.ini tests/unit/test_startup_entry.py -v`
+  - `4 passed`
+- [x] 全量回归通过：
+  - `python -m pytest -c tests/pytest.ini tests/ -q`
+  - `494 passed, 16 warnings`
+## Prompt 134：SPA 禁缓存收口、Redis 连接池复用与 frozen task 清单自动生成 ✅
+- [x] 更新 `backend/main.py`
+- [x] SPA 回退到 `index.html` 时显式返回 `text/html`
+- [x] 为 SPA 回退响应补齐禁缓存头：
+  - `Cache-Control: no-cache, no-store, must-revalidate`
+  - `Pragma: no-cache`
+  - `Expires: 0`
+- [x] 保持 `/assets/` 下 hash 静态资源缓存行为不变
+- [x] 更新 `backend/services/execute_service.py`
+- [x] 新增模块级同步 `redis.ConnectionPool` 与异步 `redis.asyncio.ConnectionPool`
+- [x] `同步获取Redis客户端()`、取消标记相关异步函数与 `执行服务` 内部异步客户端统一改为复用连接池
+- [x] 异步连接池增加按事件循环重建逻辑，避免 pytest 多 event loop 复用导致的连接池失效
+- [x] 异步 Redis 客户端关闭逻辑统一改为 `await 客户端.aclose()`
+- [x] 更新 `tasks/registry.py`
+- [x] 移除硬编码 `_FROZEN_TASK_MODULES`
+- [x] frozen 模式改为读取 `tasks._frozen_modules.MODULES`
+- [x] `_frozen_modules.py` 缺失时记录 warning 并返回空列表
+- [x] 更新 `backend.spec`
+- [x] 构建阶段自动扫描 `tasks/` 生成 `tasks/_frozen_modules.py`
+- [x] `hiddenimports` 增加 `tasks._frozen_modules`
+- [x] 更新 `.gitignore`
+- [x] 忽略生成文件 `tasks/_frozen_modules.py`
+- [x] 更新测试：
+  - `tests/unit/test_startup_entry.py`
+  - `tests/unit/test_execute_service.py`
+  - `tests/unit/test_task_registry.py`
+  - `tests/unit/test_pyinstaller_spec_files.py`
+- [x] 定向验证通过：
+  - `python -m pytest -c tests/pytest.ini tests/unit/test_startup_entry.py tests/unit/test_execute_service.py tests/unit/test_task_registry.py tests/unit/test_task_registry_extension.py tests/unit/test_pyinstaller_spec_files.py -v`
+- [x] 全量回归通过：
+  - `python -m pytest -c tests/pytest.ini tests/ -q`
+  - `500 passed, 18 warnings`

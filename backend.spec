@@ -1,6 +1,26 @@
 # -*- mode: python ; coding: utf-8 -*-
 
 from PyInstaller.utils.hooks import collect_all
+import os
+from pathlib import Path
+
+# ── 自动生成 frozen task 模块列表 ──
+_tasks_dir = Path("tasks")
+_排除模块 = {
+    "__init__", "registry", "task_registry", "base_task",
+    "celery_app", "bridge_task", "execute_task", "scheduled_task",
+    "async_utils", "_frozen_modules",
+}
+_task_modules = sorted([
+    f.stem for f in _tasks_dir.glob("*.py")
+    if f.stem not in _排除模块 and not f.stem.startswith("_")
+])
+_frozen_file = _tasks_dir / "_frozen_modules.py"
+_frozen_file.write_text(
+    f"# 此文件由 backend.spec 自动生成，请勿手动编辑\nMODULES = {_task_modules!r}\n",
+    encoding="utf-8",
+)
+print(f"[spec] 已生成 {_frozen_file}，模块: {_task_modules}")
 
 额外二进制 = []
 额外数据 = [
@@ -19,6 +39,7 @@ from PyInstaller.utils.hooks import collect_all
     'tasks.celery_app',
     'tasks.execute_task',
     'tasks.flash_sale_task',
+    'tasks._frozen_modules',
     'tasks.login_task',
     'tasks.promotion_task',
     'tasks.publish_replace_image_task',

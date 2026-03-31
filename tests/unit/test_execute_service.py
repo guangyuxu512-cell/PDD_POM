@@ -26,6 +26,43 @@ class 假签名:
 class 测试_执行服务:
     """验证批次创建、校验与停止逻辑。"""
 
+    def test_同步获取Redis客户端_复用模块级连接池(self):
+        """同步 Redis 客户端应复用模块级 ConnectionPool。"""
+        假客户端 = object()
+
+        with patch("backend.services.execute_service.redis.Redis", return_value=假客户端) as 模拟Redis:
+            客户端 = 执行服务模块.同步获取Redis客户端()
+
+        assert 客户端 is 假客户端
+        模拟Redis.assert_called_once_with(connection_pool=执行服务模块._同步连接池)
+
+    @pytest.mark.asyncio
+    async def test_异步取消标记函数_复用模块级连接池并归还连接(self):
+        """异步取消标记相关函数应复用 ConnectionPool，并通过 aclose 归还连接。"""
+        假客户端 = AsyncMock()
+        假客户端.set.return_value = True
+        假客户端.get.return_value = "1"
+        假客户端.delete.return_value = 1
+
+        with patch("backend.services.execute_service.aioredis.Redis", return_value=假客户端) as 模拟Redis:
+            assert await 执行服务模块.设置取消标记("batch-1") is True
+            assert await 执行服务模块.检查取消标记("batch-1") is True
+            assert await 执行服务模块.清除取消标记("batch-1") is True
+
+        assert 模拟Redis.call_count == 3
+        模拟Redis.assert_called_with(connection_pool=执行服务模块._异步连接池)
+        assert 假客户端.aclose.await_count == 3
+
+    @pytest.mark.asyncio
+    async def test_异步Redis客户端_空批次ID时不会创建客户端(self):
+        """异常路径下，空批次 ID 应直接返回，不触发 Redis 客户端构造。"""
+        with patch("backend.services.execute_service.aioredis.Redis") as 模拟Redis:
+            assert await 执行服务模块.设置取消标记("") is False
+            assert await 执行服务模块.检查取消标记("") is False
+            assert await 执行服务模块.清除取消标记("") is False
+
+        模拟Redis.assert_not_called()
+
     @pytest.mark.asyncio
     async def test_创建批次_流程模式先写入状态再投递首步任务(self):
         """批次元数据应先落 Redis，再投递首步任务，且残留 flow_params 只保留最新一条。"""

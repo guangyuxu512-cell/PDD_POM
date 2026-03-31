@@ -671,3 +671,87 @@
 - `.pipeline/task.md` 为既有本地改动，本轮未修改。
 
 ---
+
+## 任务摘要
+
+给 SPA 回退到 `index.html` 的响应增加禁缓存头，确保 Electron 重启后能拿到最新前端页面，而不影响 `/assets/` 的 hash 静态资源缓存。
+
+## 改动文件列表
+
+- `backend/main.py`
+- `tests/unit/test_startup_entry.py`
+- `PLAN.md`
+- `改造进度.md`
+- `.pipeline/progress.md`
+
+## 改动说明
+
+- `backend/main.py`：在 `挂载前端静态资源(...)` 中，保持实际存在的静态文件和 `/assets/` 资源继续直接返回原始 `FileResponse`；仅在所有非 API 路径回退到 `index.html` 时，为响应追加 `Cache-Control: no-cache, no-store, must-revalidate`、`Pragma: no-cache` 和 `Expires: 0`，避免 Electron 或浏览器复用过期的 HTML 入口。
+- `tests/unit/test_startup_entry.py`：补充 SPA 首页回退响应头断言，同时确认 `/assets/app.js` 未被写入同样的禁缓存头，防止误伤可安全缓存的 hash 静态资源。
+- `PLAN.md`、`改造进度.md`、`.pipeline/progress.md`：同步记录本轮后端入口缓存头改造和验证结果。
+
+## 影响范围
+
+- FastAPI 挂载前端静态资源时的 SPA 回退路径
+- Electron 重启后前端 `index.html` 的缓存策略
+- 启动入口相关回归测试覆盖范围
+
+## 注意事项
+
+- 已执行 `python -m pytest -c tests/pytest.ini tests/unit/test_startup_entry.py -v`，结果为 `4 passed`。
+- 已执行 `python -m pytest -c tests/pytest.ini tests/ -q`，结果为 `494 passed, 16 warnings`。
+- 16 条 warning 仍来自既有第三方依赖 `celery` 与 `openpyxl` 的 `datetime.utcnow()` 弃用提示，不是本轮改动引入的问题。
+- 本轮只改后端 `index.html` 回退响应头，没有修改 `/assets/` 静态资源缓存策略，也没有调整前端构建产物本身。
+- `.pipeline/task.md` 为既有本地改动，本轮未修改。
+
+---
+
+## 任务摘要
+
+完成 SPA 回退禁缓存收口、Redis 连接池单例复用和 PyInstaller 冻结任务模块清单自动生成，并补齐对应回归测试。
+
+## 改动文件列表
+
+- `backend/main.py`
+- `backend/services/execute_service.py`
+- `tasks/registry.py`
+- `backend.spec`
+- `.gitignore`
+- `tests/unit/test_startup_entry.py`
+- `tests/unit/test_execute_service.py`
+- `tests/unit/test_task_registry.py`
+- `tests/unit/test_pyinstaller_spec_files.py`
+- `PLAN.md`
+- `改造进度.md`
+- `.pipeline/progress.md`
+
+## 改动说明
+
+- `backend/main.py`：在 `挂载前端静态资源(...)` 中继续保持真实静态文件和 `/assets/` 资源直接返回原始 `FileResponse`；仅在所有非 API 路径回退到 `index.html` 时，显式指定 `media_type="text/html"`，并追加 `Cache-Control: no-cache, no-store, must-revalidate`、`Pragma: no-cache`、`Expires: 0`，避免 Electron 或浏览器复用过期 HTML。
+- `backend/services/execute_service.py`：新增模块级同步 `redis.ConnectionPool` 与异步 `redis.asyncio.ConnectionPool`；`同步获取Redis客户端()`、取消标记相关异步函数和 `执行服务` 内部异步客户端统一改为复用连接池；为异步连接池补充按事件循环重建逻辑，避免 pytest 多 event loop 复用旧池导致的失败；异步客户端关闭统一改为 `await 客户端.aclose()`。
+- `tasks/registry.py`：删除硬编码 `_FROZEN_TASK_MODULES`；frozen 模式下改为从 `tasks._frozen_modules` 读取 `MODULES` 列表，缺失时记录 warning 并返回空列表；非 frozen 模式继续通过 `pkgutil` 动态扫描。
+- `backend.spec`：在构建阶段自动扫描 `tasks/` 目录生成 `tasks/_frozen_modules.py`，并把 `tasks._frozen_modules` 加入 `hiddenimports`，减少新增 task 后手动维护冻结模块列表的风险。
+- `.gitignore`：新增 `tasks/_frozen_modules.py` 忽略规则，避免构建阶段生成文件误提交。
+- `tests/unit/test_startup_entry.py`：补充 SPA 回退响应 `text/html` 与禁缓存头断言，同时确认 `/assets/app.js` 未被误加同样的禁缓存头。
+- `tests/unit/test_execute_service.py`：补充同步 / 异步 Redis 连接池复用断言，并覆盖空批次 ID 快速返回和取消标记相关异步客户端关闭路径。
+- `tests/unit/test_task_registry.py`：补充 frozen 模式读取 `tasks._frozen_modules.MODULES` 的回归，以及生成文件缺失时 warning + 空列表分支。
+- `tests/unit/test_pyinstaller_spec_files.py`：补充 `backend.spec` 自动生成 `_frozen_modules.py` 逻辑与 `.gitignore` 忽略项的静态断言。
+- `PLAN.md`、`改造进度.md`、`.pipeline/progress.md`：同步记录本轮 Builder 执行结果与验证情况。
+
+## 影响范围
+
+- FastAPI 挂载前端静态资源时的 SPA 回退入口缓存策略
+- 批次执行、取消标记和执行服务内部的 Redis 连接复用方式
+- PyInstaller 冻结模式下 task 自动发现与 `backend.spec` 构建流程
+- 启动入口、执行服务、任务注册和 spec 文件相关回归测试覆盖范围
+
+## 注意事项
+
+- 已执行 `python -m pytest -c tests/pytest.ini tests/unit/test_startup_entry.py tests/unit/test_execute_service.py tests/unit/test_task_registry.py tests/unit/test_task_registry_extension.py tests/unit/test_pyinstaller_spec_files.py -v`。
+- 已执行 `python -m pytest -c tests/pytest.ini tests/ -q`，结果为 `500 passed, 18 warnings`。
+- 18 条 warning 中，16 条仍来自既有第三方依赖 `celery` 与 `openpyxl` 的 `datetime.utcnow()` 弃用提示，不是本轮改动引入的问题。
+- 另外 2 条 warning 为 `PytestUnraisableExceptionWarning`，来自 `tests/unit/test_task_service.py` 中 Redis asyncio `StreamWriter.__del__` 在事件循环关闭后的清理时机，当前不影响测试通过，但值得后续单独处理。
+- 本轮按任务要求只调整了 `backend.spec`，未扩展修改 `celery-worker.spec`。
+- `.pipeline/task.md` 为既有本地改动，本轮未修改。
+
+---

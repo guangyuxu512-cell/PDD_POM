@@ -4,6 +4,9 @@
 from __future__ import annotations
 
 from copy import deepcopy
+import builtins
+import sys
+from types import ModuleType
 from unittest.mock import patch
 
 import pytest
@@ -95,6 +98,34 @@ class 测试_任务注册表:
         finally:
             注册表模块.清空任务注册表()
             注册表模块.任务注册表.update(原注册表)
+
+    def test_列出任务模块_frozen模式读取自动生成列表(self, monkeypatch):
+        """frozen 模式应优先读取 tasks._frozen_modules 中的 MODULES。"""
+        模拟模块 = ModuleType("tasks._frozen_modules")
+        模拟模块.MODULES = ["foo_task", "bar_task"]
+
+        monkeypatch.setitem(sys.modules, "tasks._frozen_modules", 模拟模块)
+        monkeypatch.setattr(sys, "frozen", True, raising=False)
+
+        assert 注册表模块._列出任务模块() == ["foo_task", "bar_task"]
+
+    def test_列出任务模块_frozen模式缺少生成文件时返回空列表(self, monkeypatch):
+        """异常路径下，缺少 _frozen_modules.py 应回退为空列表。"""
+        真实导入 = builtins.__import__
+
+        def 假导入(name, globals=None, locals=None, fromlist=(), level=0):
+            if name == "tasks._frozen_modules":
+                raise ImportError("missing")
+            return 真实导入(name, globals, locals, fromlist, level)
+
+        monkeypatch.delitem(sys.modules, "tasks._frozen_modules", raising=False)
+        monkeypatch.setattr(sys, "frozen", True, raising=False)
+
+        with patch("builtins.__import__", side_effect=假导入), \
+                patch.object(注册表模块.logger, "warning") as 模拟告警:
+            assert 注册表模块._列出任务模块() == []
+
+        模拟告警.assert_called_once()
 
 
 class 测试_可用任务接口:

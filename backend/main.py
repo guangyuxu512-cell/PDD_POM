@@ -151,7 +151,11 @@ def 挂载前端静态资源(app: FastAPI, 前端构建目录: Path | None = Non
             if 目标文件.exists() and 目标文件.is_file():
                 return FileResponse(str(目标文件))
 
-        return FileResponse(str(前端目录 / "index.html"))
+        响应 = FileResponse(str(前端目录 / "index.html"), media_type="text/html")
+        响应.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+        响应.headers["Pragma"] = "no-cache"
+        响应.headers["Expires"] = "0"
+        return 响应
 
 
 # 全局 app 实例（uvicorn 直接引用）

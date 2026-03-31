@@ -169,21 +169,15 @@ def 清空任务注册表() -> None:
     """清空注册表，供测试场景使用。"""
     任务注册表.clear()
 
-
-_FROZEN_TASK_MODULES = [
-    "after_sale_task",
-    "flash_sale_task",
-    "login_task",
-    "promotion_task",
-    "publish_replace_image_task",
-    "publish_similar_product_task",
-]
-
-
 def _列出任务模块() -> list[str]:
     """列出 tasks 目录下需要自动导入的任务模块。"""
     if getattr(sys, "frozen", False):
-        return _FROZEN_TASK_MODULES
+        try:
+            from tasks._frozen_modules import MODULES
+            return list(MODULES)
+        except ImportError:
+            logger.warning("[任务注册] 未找到 _frozen_modules.py，回退到硬编码列表")
+            return []
 
     模块目录 = Path(__file__).resolve().parent
     模块列表: list[str] = []
