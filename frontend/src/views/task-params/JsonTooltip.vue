@@ -1,4 +1,4 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 import { computed } from 'vue'
 
 import { useTaskParamsContext } from './useTaskParamsStore'
@@ -20,7 +20,7 @@ const { jsonTooltip, keepJsonTooltipOpen, hideJsonTooltip } = useJsonTooltip()
   <Teleport to="body">
     <div
       v-if="jsonTooltip.visible"
-      class="fixed z-50 max-w-md rounded-md border border-gray-200 bg-white p-3 shadow-lg"
+      class="fixed z-50 max-w-md rounded-md border border-brand-200/50 bg-white p-3 shadow-lg"
       :style="{
         left: `${jsonTooltip.left}px`,
         top: `${jsonTooltip.top}px`,

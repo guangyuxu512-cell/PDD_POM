@@ -1,4 +1,4 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 import { onMounted, onUnmounted, ref } from 'vue'
 
 import { get, post } from '../api'
@@ -30,9 +30,9 @@ const config = ref<SystemConfig>({
 })
 const showCloseAllConfirm = ref(false)
 const inputClass =
-  'w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-gray-400 focus:outline-none focus:ring-1 focus:ring-gray-400'
+  'w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500'
 const primaryButtonClass =
-  'rounded-md bg-gray-900 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-gray-800'
+  'rounded-md bg-brand-900 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-brand-700'
 const dangerButtonClass =
   'rounded-md bg-rose-600 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-rose-700'
 
@@ -119,7 +119,7 @@ onUnmounted(() => {
       <p class="text-xs text-gray-500">统一查看运行中的浏览器实例，支持重新初始化与批量关闭。</p>
     </div>
 
-    <section class="rounded-md border border-gray-200 bg-white p-5 shadow-sm">
+    <section class="rounded-md border border-brand-200/50 bg-white p-5 shadow-sm">
       <div class="space-y-1">
         <h2 class="text-lg font-semibold text-gray-900">初始化配置</h2>
         <p class="text-xs text-gray-500">用于控制浏览器初始化时的实例上限、Chrome 路径和默认代理。</p>
@@ -147,7 +147,7 @@ onUnmounted(() => {
       </div>
     </section>
 
-    <section class="rounded-md border border-gray-200 bg-white p-5 shadow-sm">
+    <section class="rounded-md border border-brand-200/50 bg-white p-5 shadow-sm">
       <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div class="space-y-1">
           <h2 class="text-lg font-semibold text-gray-900">运行中实例</h2>
@@ -159,7 +159,7 @@ onUnmounted(() => {
         </button>
       </div>
 
-      <div v-if="instances.length === 0" class="mt-5 rounded-md border border-dashed border-gray-200 bg-gray-50 px-6 py-12 text-center text-sm text-gray-500">
+      <div v-if="instances.length === 0" class="mt-5 rounded-md border border-dashed border-brand-200/50 bg-gray-50 px-6 py-12 text-center text-sm text-gray-500">
         暂无数据
       </div>
       <div v-else class="mt-5 grid gap-4 lg:grid-cols-2">

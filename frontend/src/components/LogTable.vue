@@ -1,4 +1,4 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 import StatusBadge from './StatusBadge.vue'
 
 interface Log {
@@ -23,9 +23,9 @@ withDefaults(defineProps<Props>(), {
 </script>
 
 <template>
-  <div class="overflow-hidden rounded-md border border-gray-200 bg-white shadow-sm">
+  <div class="overflow-hidden rounded-md border border-brand-200/50 bg-white shadow-sm">
     <div v-if="loading" class="flex min-h-[220px] flex-col items-center justify-center gap-3 text-gray-500">
-      <span class="h-8 w-8 animate-spin rounded-full border-2 border-gray-200 border-t-gray-400" />
+      <span class="h-8 w-8 animate-spin rounded-full border-2 border-brand-200/50 border-t-gray-400" />
       <p class="text-sm">加载中...</p>
     </div>
 
@@ -35,7 +35,7 @@ withDefaults(defineProps<Props>(), {
 
     <div v-else class="overflow-x-auto">
       <table class="min-w-full table-fixed">
-        <thead class="bg-gray-50/60 text-xs font-medium uppercase tracking-wider text-gray-500">
+        <thead class="bg-brand-50 text-xs font-medium uppercase tracking-wider text-gray-500">
           <tr>
             <th class="w-44 px-4 py-3 text-right font-medium">时间</th>
             <th v-if="showShop" class="w-36 px-4 py-3 text-left font-medium">店铺</th>

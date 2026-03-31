@@ -15,12 +15,10 @@ const navItems = [
 </script>
 
 <template>
-  <div class="flex h-screen bg-gray-50">
-    <aside class="flex w-52 flex-shrink-0 flex-col border-r border-gray-200 bg-white">
+  <div class="flex h-screen bg-brand-50">
+    <aside class="flex w-56 flex-shrink-0 flex-col bg-brand-950">
       <div class="px-4 py-5">
-        <span class="text-sm font-semibold tracking-tight text-gray-900">
-          自动化工作台
-        </span>
+        <h1 class="text-base font-semibold text-white tracking-wide">PDD 自动化</h1>
       </div>
 
       <nav class="flex-1 space-y-0.5 px-2">
@@ -28,11 +26,11 @@ const navItems = [
           v-for="item in navItems"
           :key="item.path"
           :to="item.path"
-          class="flex items-center gap-2.5 rounded-md px-2.5 py-1.5 text-sm transition-colors"
+          class="flex items-center gap-3 rounded-md px-3 py-2.5 text-sm transition-colors"
           :class="
             route.path.startsWith(item.path)
-              ? 'bg-gray-100 font-medium text-gray-900'
-              : 'text-gray-500 hover:bg-gray-50 hover:text-gray-700'
+              ? 'bg-brand-900 font-medium text-white'
+              : 'text-brand-200/80 hover:bg-brand-900 hover:text-white'
           "
         >
           <span class="text-base leading-none">{{ item.icon }}</span>
@@ -41,7 +39,7 @@ const navItems = [
       </nav>
     </aside>
 
-    <main class="flex-1 overflow-auto bg-gray-50">
+    <main class="flex-1 overflow-y-auto bg-brand-50 p-6">
       <router-view />
     </main>
 

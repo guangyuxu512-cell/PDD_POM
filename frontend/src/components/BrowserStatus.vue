@@ -1,4 +1,4 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 interface BrowserInstance {
   id: string
   shop_id: string
@@ -30,7 +30,7 @@ const getRuntime = (createdAt: string) => {
 </script>
 
 <template>
-  <div class="rounded-md border border-gray-200 bg-white p-4 shadow-sm">
+  <div class="rounded-md border border-brand-200/50 bg-white p-4 shadow-sm">
     <div class="flex items-start justify-between gap-3">
       <div class="space-y-1">
         <div class="flex items-center gap-2">

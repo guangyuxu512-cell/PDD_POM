@@ -1,4 +1,4 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 import StatusBadge from '../../components/StatusBadge.vue'
 import type { TaskParam } from '../../api/types'
 import { useTaskParamsContext } from './useTaskParamsStore'
@@ -13,9 +13,9 @@ const store = useTaskParamsContext()
 </script>
 
 <template>
-  <div class="overflow-x-auto rounded-md border border-gray-200 bg-white shadow-sm">
-    <table class="min-w-[1088px] w-full table-fixed divide-y divide-gray-200">
-      <thead class="bg-gray-50/60 text-xs font-medium uppercase tracking-wider text-gray-500">
+  <div class="overflow-x-auto rounded-md border border-brand-200/50 bg-white shadow-sm">
+    <table class="min-w-[1088px] w-full table-fixed divide-y divide-brand-200/50">
+      <thead class="bg-brand-50 text-xs font-medium uppercase tracking-wider text-brand-700">
         <tr>
           <th class="w-16 px-4 py-3 text-center">ID</th>
           <th class="w-32 px-4 py-3 text-left">店铺</th>
@@ -27,7 +27,7 @@ const store = useTaskParamsContext()
           <th class="w-36 px-4 py-3 text-right">执行时间</th>
         </tr>
       </thead>
-      <tbody class="divide-y divide-gray-100 text-sm text-gray-900">
+      <tbody class="divide-y divide-brand-200/50 text-sm text-gray-900">
         <tr v-if="loading">
           <td colspan="8" class="px-4 py-8 text-center text-sm text-gray-400">加载中...</td>
         </tr>

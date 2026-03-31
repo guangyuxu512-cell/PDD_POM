@@ -1,4 +1,4 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 import {
   Listbox,
   ListboxButton,
@@ -44,7 +44,7 @@ const deletingShopId = ref<string | null>(null)
 const platformStore = usePlatformStore()
 const formPlatform = ref(platformStore.currentPlatform)
 const inputClass =
-  'w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-gray-400 focus:outline-none focus:ring-1 focus:ring-gray-400'
+  'w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500'
 
 const formData = ref<ShopFormModel>({
   name: '',
@@ -61,6 +61,11 @@ const formData = ref<ShopFormModel>({
 const selectedFormPlatform = computed(
   () => platformStore.platforms.find((platform) => platform.id === formPlatform.value) || platformStore.platforms[0],
 )
+
+const currentPlatformLabel = computed(() => {
+  const p = platformStore.platforms.find(pl => pl.id === platformStore.currentPlatform)
+  return p ? `${p.icon} ${p.name}` : '选择平台'
+})
 
 function createEmptyForm(): ShopFormModel {
   return {
@@ -257,25 +262,47 @@ watch(() => platformStore.currentPlatform, () => {
       </div>
 
       <div class="flex flex-col gap-3 sm:flex-row sm:items-center">
-        <div class="flex gap-1 rounded-md bg-gray-100 p-0.5">
-          <button
-            v-for="p in platformStore.platforms"
-            :key="p.id"
-            type="button"
-            :class="[
-              'rounded-md px-3 py-2 text-sm transition',
-              platformStore.currentPlatform === p.id
-                ? 'bg-white text-gray-900 shadow-sm rounded-md font-medium'
-                : 'text-gray-500 hover:text-gray-700',
-            ]"
-            @click="platformStore.setPlatform(p.id)"
-          >
-            {{ p.icon }} {{ p.name }}
-          </button>
-        </div>
+        <Listbox :model-value="platformStore.currentPlatform" @update:model-value="platformStore.setPlatform($event)">
+          <div class="relative w-44">
+            <ListboxButton class="flex w-full items-center justify-between rounded-md border border-brand-200 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm transition hover:border-brand-500">
+              <span class="truncate">{{ currentPlatformLabel }}</span>
+              <svg class="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
+              </svg>
+            </ListboxButton>
+            <transition
+              enter-active-class="transition duration-100 ease-out"
+              enter-from-class="scale-95 opacity-0"
+              enter-to-class="scale-100 opacity-100"
+              leave-active-class="transition duration-75 ease-in"
+              leave-from-class="scale-100 opacity-100"
+              leave-to-class="scale-95 opacity-0"
+            >
+              <ListboxOptions class="absolute z-20 mt-2 w-full rounded-md border border-brand-200 bg-white py-1 shadow-lg focus:outline-none">
+                <ListboxOption
+                  v-for="p in platformStore.platforms"
+                  :key="p.id"
+                  v-slot="{ active, selected }"
+                  :value="p.id"
+                  as="template"
+                >
+                  <li
+                    :class="[
+                      'cursor-pointer px-3 py-2 text-sm',
+                      active ? 'bg-brand-50 text-brand-900' : 'text-gray-700',
+                      selected ? 'font-medium text-brand-900' : '',
+                    ]"
+                  >
+                    {{ p.icon }} {{ p.name }}
+                  </li>
+                </ListboxOption>
+              </ListboxOptions>
+            </transition>
+          </div>
+        </Listbox>
         <button
           type="button"
-          class="rounded-md bg-gray-900 px-3 py-2 text-sm font-medium text-white transition hover:bg-gray-800"
+          class="rounded-md bg-brand-900 px-3 py-2 text-sm font-medium text-white transition hover:bg-brand-700"
           @click="openAddModal"
         >
           新增店铺
@@ -283,17 +310,17 @@ watch(() => platformStore.currentPlatform, () => {
       </div>
     </div>
 
-    <div v-if="shops.length === 0" class="rounded-md border border-gray-200 bg-white px-6 py-14 text-center shadow-sm">
+    <div v-if="shops.length === 0" class="rounded-md border border-brand-200/50 bg-white px-6 py-14 text-center shadow-sm">
       <p class="text-sm text-gray-500">当前平台下暂无店铺数据。</p>
     </div>
-    <div v-else class="overflow-hidden rounded-md border border-gray-200 bg-white shadow-sm">
+    <div v-else class="overflow-hidden rounded-md border border-brand-200/50 bg-white shadow-sm">
       <div
-        class="hidden grid-cols-[minmax(0,2.2fr)_minmax(0,1.2fr)_minmax(0,1.4fr)_auto] gap-4 bg-gray-50/60 px-4 py-3 text-xs font-medium uppercase tracking-wider text-gray-500 lg:grid"
+        class="hidden grid-cols-[minmax(0,2.2fr)_minmax(0,1.2fr)_minmax(0,1.4fr)_auto] gap-4 bg-brand-700/10 px-4 py-3 text-xs font-medium uppercase tracking-wider text-brand-700 lg:grid"
       >
-        <span>店铺</span>
-        <span>邮箱</span>
-        <span>连接信息</span>
-        <span class="text-right">操作</span>
+        <span class="text-center">店铺</span>
+        <span class="text-center">邮箱</span>
+        <span class="text-center">连接信息</span>
+        <span class="text-center">操作</span>
       </div>
 
       <ShopCard
@@ -344,7 +371,7 @@ watch(() => platformStore.currentPlatform, () => {
                     leave-to-class="scale-95 opacity-0"
                   >
                     <ListboxOptions
-                      class="absolute z-10 mt-2 max-h-60 w-full overflow-auto rounded-md border border-gray-200 bg-white py-1 shadow-lg focus:outline-none"
+                      class="absolute z-10 mt-2 max-h-60 w-full overflow-auto rounded-md border border-brand-200/50 bg-white py-1 shadow-lg focus:outline-none"
                     >
                       <ListboxOption
                         v-for="p in platformStore.platforms"
@@ -461,7 +488,7 @@ watch(() => platformStore.currentPlatform, () => {
         </button>
         <button
           type="button"
-          class="rounded-md bg-gray-900 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:bg-gray-400"
+          class="rounded-md bg-brand-900 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-brand-700 disabled:cursor-not-allowed disabled:bg-gray-400"
           :disabled="isSaving"
           @click="handleSave"
         >

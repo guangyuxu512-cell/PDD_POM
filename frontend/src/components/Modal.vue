@@ -50,12 +50,12 @@ const emit = defineEmits<{
             leave-to="scale-95 opacity-0"
           >
             <DialogPanel
-              class="modal-container flex max-h-[90vh] w-full flex-col overflow-hidden rounded-md border border-gray-200 bg-white shadow-lg"
+              class="modal-container flex max-h-[90vh] w-full flex-col overflow-hidden rounded-md border border-brand-200/50 bg-white shadow-lg"
               :style="{ maxWidth: props.width || '500px' }"
             >
               <div
                 v-if="props.title"
-                class="modal-header flex items-center justify-between border-b border-gray-100 px-5 py-4"
+                class="modal-header flex items-center justify-between border-b border-brand-200/30 px-5 py-4"
               >
                 <DialogTitle class="text-lg font-semibold text-gray-900">
                   {{ props.title }}
@@ -77,7 +77,7 @@ const emit = defineEmits<{
 
               <div
                 v-if="$slots.footer"
-                class="modal-footer flex items-center justify-end gap-2 border-t border-gray-100 px-5 py-3"
+                class="modal-footer flex items-center justify-end gap-2 border-t border-brand-200/30 px-5 py-3"
               >
                 <slot name="footer" />
               </div>

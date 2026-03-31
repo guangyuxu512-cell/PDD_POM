@@ -1,4 +1,4 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 import {
   Dialog,
   DialogPanel,
@@ -38,7 +38,7 @@ const iconToneClasses = computed(() => {
     return 'border-amber-200 bg-amber-50 text-amber-600'
   }
 
-  return 'border-gray-200 bg-gray-50 text-gray-600'
+  return 'border-brand-200/50 bg-gray-50 text-gray-600'
 })
 
 const confirmButtonClasses = computed(() => {
@@ -49,7 +49,7 @@ const confirmButtonClasses = computed(() => {
     return `${baseClasses} bg-rose-600 text-white hover:bg-rose-700`
   }
 
-  return `${baseClasses} bg-gray-900 text-white hover:bg-gray-800`
+  return `${baseClasses} bg-brand-900 text-white hover:bg-brand-700`
 })
 
 function handleClose() {
@@ -85,7 +85,7 @@ function handleClose() {
             leave-to="scale-95 opacity-0"
           >
             <DialogPanel
-              class="confirm-container w-full max-w-md rounded-md border border-gray-200 bg-white shadow-lg"
+              class="confirm-container w-full max-w-md rounded-md border border-brand-200/50 bg-white shadow-lg"
             >
               <div class="flex flex-col gap-4 px-5 py-5">
                 <div

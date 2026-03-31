@@ -1,4 +1,4 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 import { onMounted, ref } from 'vue'
 
 import { get, post, put } from '../api'
@@ -40,12 +40,12 @@ const config = ref<SystemConfig>({
 const testingRedis = ref(false)
 const testingFeishu = ref(false)
 const inputClass =
-  'w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-gray-400 focus:outline-none focus:ring-1 focus:ring-gray-400'
-const sectionClass = 'rounded-md border border-gray-200 bg-white p-5 shadow-sm'
+  'w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500'
+const sectionClass = 'rounded-md border border-brand-200/50 bg-white p-5 shadow-sm'
 const secondaryButtonClass =
   'rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60'
 const primaryButtonClass =
-  'rounded-md bg-gray-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-gray-800'
+  'rounded-md bg-brand-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-brand-700'
 
 const loadConfig = async () => {
   const data = await get<any>('/api/system/config')

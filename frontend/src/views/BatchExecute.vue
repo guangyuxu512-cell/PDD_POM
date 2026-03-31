@@ -1,4 +1,4 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 
 import { createBatch, createBatchStatusEventSource, stopBatch } from '../api/execute'
@@ -35,11 +35,11 @@ const selectedTaskName = ref('')
 const selectedShopIds = ref<string[]>([])
 const concurrency = ref(1)
 const inputClass =
-  'w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-gray-400 focus:outline-none focus:ring-1 focus:ring-gray-400'
+  'w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500'
 const secondaryButtonClass =
   'rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60'
 const primaryButtonClass =
-  'rounded-md bg-gray-900 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:bg-gray-400'
+  'rounded-md bg-brand-900 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-brand-700 disabled:cursor-not-allowed disabled:bg-gray-400'
 const dangerButtonClass =
   'rounded-md bg-rose-600 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-rose-700 disabled:cursor-not-allowed disabled:bg-rose-300'
 
@@ -350,7 +350,7 @@ onUnmounted(() => {
     </header>
 
     <div class="grid gap-6 xl:grid-cols-[minmax(320px,380px)_minmax(0,1fr)]">
-      <section class="rounded-md border border-gray-200 bg-white p-5 shadow-sm">
+      <section class="rounded-md border border-brand-200/50 bg-white p-5 shadow-sm">
         <div class="space-y-1">
           <h2 class="text-lg font-semibold text-gray-900">执行配置</h2>
           <p class="text-xs text-gray-500">流程和任务选项会自动读取后端当前可用的数据。</p>
@@ -405,7 +405,7 @@ onUnmounted(() => {
             </select>
           </div>
 
-          <section class="rounded-md border border-gray-200 bg-gray-50/70 p-4">
+          <section class="rounded-md border border-brand-200/50 bg-gray-50/70 p-4">
             <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
               <div class="space-y-1">
                 <h3 class="text-sm font-medium text-gray-900">目标店铺</h3>
@@ -421,14 +421,14 @@ onUnmounted(() => {
               <label
                 v-for="shop in shops"
                 :key="shop.id"
-                class="flex items-start gap-3 rounded-md border border-gray-200 bg-white px-3 py-3 transition hover:bg-gray-50"
+                class="flex items-start gap-3 rounded-md border border-brand-200/50 bg-white px-3 py-3 transition hover:bg-gray-50"
               >
                 <input
                   v-model="selectedShopIds"
                   type="checkbox"
                   :value="shop.id"
                   :disabled="hasActiveBatch || isStarting"
-                  class="mt-0.5 h-4 w-4 rounded border-gray-300 text-gray-900 focus:ring-gray-400"
+                  class="mt-0.5 h-4 w-4 rounded border-gray-300 text-gray-900 focus:ring-brand-500"
                 />
                 <div class="min-w-0">
                   <p class="truncate text-sm font-medium text-gray-900">{{ shop.name }}</p>
@@ -449,7 +449,7 @@ onUnmounted(() => {
         </div>
       </section>
 
-      <section class="rounded-md border border-gray-200 bg-white p-5 shadow-sm">
+      <section class="rounded-md border border-brand-200/50 bg-white p-5 shadow-sm">
         <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div class="space-y-1">
             <h2 class="text-lg font-semibold text-gray-900">执行状态</h2>
@@ -464,10 +464,10 @@ onUnmounted(() => {
         </div>
 
         <template v-else>
-          <div class="mt-5 overflow-hidden rounded-md border border-gray-200">
+          <div class="mt-5 overflow-hidden rounded-md border border-brand-200/50">
             <div class="overflow-x-auto">
               <table class="min-w-full">
-                <thead class="bg-gray-50/60 text-xs font-medium uppercase tracking-wider text-gray-500">
+                <thead class="bg-brand-50 text-xs font-medium uppercase tracking-wider text-gray-500">
                   <tr>
                     <th class="px-4 py-3 text-left font-medium">店铺名称</th>
                     <th class="px-4 py-3 text-left font-medium">当前步骤</th>
@@ -500,7 +500,7 @@ onUnmounted(() => {
                         </button>
                       </td>
                     </tr>
-                    <tr v-if="isShopDetailOpen(shop.shop_id)" class="border-b border-gray-100 bg-gray-50/60">
+                    <tr v-if="isShopDetailOpen(shop.shop_id)" class="border-b border-gray-100 bg-brand-50">
                       <td colspan="6" class="px-4 py-4">
                         <div class="space-y-4">
                           <div class="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
@@ -508,10 +508,10 @@ onUnmounted(() => {
                             <span class="text-xs text-gray-500">{{ getDetailSummary(shop) }}</span>
                           </div>
 
-                          <div class="overflow-hidden rounded-md border border-gray-200 bg-white">
+                          <div class="overflow-hidden rounded-md border border-brand-200/50 bg-white">
                             <div class="overflow-x-auto">
                               <table class="min-w-full">
-                                <thead class="bg-gray-50/60 text-xs font-medium uppercase tracking-wider text-gray-500">
+                                <thead class="bg-brand-50 text-xs font-medium uppercase tracking-wider text-gray-500">
                                   <tr>
                                     <th class="w-14 px-4 py-3 text-center font-medium">#</th>
                                     <th class="px-4 py-3 text-left font-medium">步骤</th>

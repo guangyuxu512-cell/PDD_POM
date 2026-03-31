@@ -1,4 +1,4 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 
 import { del, get } from '../api'
@@ -33,7 +33,7 @@ const realtimeMode = ref(false)
 const loading = ref(false)
 const showClearConfirm = ref(false)
 const inputClass =
-  'rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-gray-400 focus:outline-none focus:ring-1 focus:ring-gray-400'
+  'rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500'
 const secondaryButtonClass =
   'rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm text-gray-700 transition hover:bg-gray-50'
 const dangerButtonClass =
@@ -159,7 +159,7 @@ onUnmounted(() => {
       </div>
     </div>
 
-    <div class="grid gap-3 rounded-md border border-gray-200 bg-white p-4 shadow-sm lg:grid-cols-[repeat(3,minmax(0,1fr))_minmax(0,1.4fr)_auto]">
+    <div class="grid gap-3 rounded-md border border-brand-200/50 bg-white p-4 shadow-sm lg:grid-cols-[repeat(3,minmax(0,1fr))_minmax(0,1.4fr)_auto]">
       <select v-model="filters.shop" :class="inputClass">
         <option value="">全部店铺</option>
         <option v-for="shop in shopList" :key="shop" :value="shop">{{ shop }}</option>
@@ -184,14 +184,14 @@ onUnmounted(() => {
         placeholder="关键词搜索..."
         @keyup.enter="handleSearch"
       />
-      <button type="button" class="rounded-md bg-gray-900 px-3 py-2 text-sm font-medium text-white transition hover:bg-gray-800" @click="handleSearch">
+      <button type="button" class="rounded-md bg-brand-900 px-3 py-2 text-sm font-medium text-white transition hover:bg-brand-700" @click="handleSearch">
         搜索
       </button>
     </div>
 
     <LogTable :logs="paginatedLogs" :loading="loading" show-shop />
 
-    <div class="flex flex-col gap-3 rounded-md border border-gray-200 bg-white px-4 py-3 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+    <div class="flex flex-col gap-3 rounded-md border border-brand-200/50 bg-white px-4 py-3 shadow-sm sm:flex-row sm:items-center sm:justify-between">
       <span class="text-xs text-gray-500">第 {{ currentPage }} / {{ totalPages }} 页，共 {{ filteredLogs.length }} 条</span>
       <div class="flex gap-2">
         <button type="button" :class="secondaryButtonClass" :disabled="currentPage === 1" @click="currentPage--">上一页</button>

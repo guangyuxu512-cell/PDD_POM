@@ -1,4 +1,4 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 import { onMounted, onUnmounted, ref } from 'vue'
 
 import { del, get, post } from '../api'
@@ -34,11 +34,11 @@ const triggerForm = ref({
   task_name: '登录',
 })
 const inputClass =
-  'w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-gray-400 focus:outline-none focus:ring-1 focus:ring-gray-400'
+  'w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500'
 const secondaryButtonClass =
   'rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm text-gray-700 transition hover:bg-gray-50'
 const primaryButtonClass =
-  'rounded-md bg-gray-900 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-gray-800'
+  'rounded-md bg-brand-900 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-brand-700'
 
 let refreshTimer: number | null = null
 
@@ -161,10 +161,10 @@ onUnmounted(() => {
       </div>
     </div>
 
-    <div class="overflow-hidden rounded-md border border-gray-200 bg-white shadow-sm">
+    <div class="overflow-hidden rounded-md border border-brand-200/50 bg-white shadow-sm">
       <div class="overflow-x-auto">
         <table class="min-w-full">
-          <thead class="bg-gray-50/60 text-xs font-medium uppercase tracking-wider text-gray-500">
+          <thead class="bg-brand-50 text-xs font-medium uppercase tracking-wider text-gray-500">
             <tr>
               <th class="px-4 py-3 text-left font-medium">任务 ID</th>
               <th class="px-4 py-3 text-left font-medium">店铺</th>

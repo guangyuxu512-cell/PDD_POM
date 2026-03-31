@@ -1,4 +1,4 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 import {
   Listbox,
   ListboxButton,
@@ -303,14 +303,14 @@ onMounted(() => {
         </p>
       </div>
       <button
-        class="inline-flex items-center justify-center rounded-md bg-gray-900 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-gray-800"
+        class="inline-flex items-center justify-center rounded-md bg-brand-900 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-brand-700"
         @click="openCreateModal"
       >
         新建定时任务
       </button>
     </header>
 
-    <section class="rounded-md border border-gray-200 bg-white px-4 py-3 shadow-sm">
+    <section class="rounded-md border border-brand-200/50 bg-white px-4 py-3 shadow-sm">
       <p class="inline-stats text-sm text-gray-500">
         共 <strong class="font-semibold text-gray-900">{{ totalSchedules }}</strong> 条计划 ·
         <strong class="font-semibold text-gray-900">{{ enabledSchedules }}</strong> 条启用 ·
@@ -318,7 +318,7 @@ onMounted(() => {
       </p>
     </section>
 
-    <section class="rounded-md border border-gray-200 bg-white shadow-sm">
+    <section class="rounded-md border border-brand-200/50 bg-white shadow-sm">
       <div class="flex flex-col gap-2 border-b border-gray-100 px-5 py-4 sm:flex-row sm:items-start sm:justify-between">
         <div class="space-y-1">
           <h2 class="text-sm font-medium text-gray-900">任务列表</h2>
@@ -338,7 +338,7 @@ onMounted(() => {
       </div>
       <div v-else class="overflow-x-auto">
         <table class="schedule-table min-w-[1040px] w-full table-fixed divide-y divide-gray-200">
-          <thead class="bg-gray-50/60 text-xs font-medium uppercase tracking-wider text-gray-500">
+          <thead class="bg-brand-50 text-xs font-medium uppercase tracking-wider text-gray-500">
             <tr>
               <th class="w-20 px-4 py-3 text-center">开关</th>
               <th class="w-44 px-4 py-3 text-left">任务名称</th>
@@ -365,7 +365,7 @@ onMounted(() => {
                     :disabled="actioningId === schedule.id"
                     @change="toggleSchedule(schedule)"
                   />
-                  <span class="switch-slider relative h-6 w-11 rounded-full bg-gray-200 transition after:absolute after:left-0.5 after:top-0.5 after:h-5 after:w-5 after:rounded-full after:bg-white after:shadow-sm after:transition-all peer-checked:bg-gray-900 peer-checked:after:translate-x-5 peer-disabled:opacity-50" />
+                  <span class="switch-slider relative h-6 w-11 rounded-full bg-gray-200 transition after:absolute after:left-0.5 after:top-0.5 after:h-5 after:w-5 after:rounded-full after:bg-white after:shadow-sm after:transition-all peer-checked:bg-brand-500 peer-checked:after:translate-x-5 peer-disabled:opacity-50" />
                 </label>
               </td>
               <td class="px-4 py-3">
@@ -425,7 +425,7 @@ onMounted(() => {
                 v-model="form.name"
                 type="text"
                 placeholder="例如：每日巡检"
-                class="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-gray-400 focus:outline-none focus:ring-1 focus:ring-gray-400"
+                class="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
               />
             </label>
 
@@ -433,7 +433,7 @@ onMounted(() => {
               <span class="text-xs font-medium text-gray-600">流程模板</span>
               <Listbox v-model="form.flowId">
                 <div class="relative">
-                  <ListboxButton class="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-left text-sm text-gray-900 focus:border-gray-400 focus:outline-none focus:ring-1 focus:ring-gray-400">
+                  <ListboxButton class="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-left text-sm text-gray-900 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500">
                     {{ form.flowId ? getFlowName(form.flowId) : '请选择流程' }}
                   </ListboxButton>
                   <transition
@@ -444,7 +444,7 @@ onMounted(() => {
                     leave-from-class="scale-100 opacity-100"
                     leave-to-class="scale-95 opacity-0"
                   >
-                    <ListboxOptions class="absolute z-20 mt-2 max-h-64 w-full overflow-auto rounded-md border border-gray-200 bg-white py-1 shadow-lg">
+                    <ListboxOptions class="absolute z-20 mt-2 max-h-64 w-full overflow-auto rounded-md border border-brand-200/50 bg-white py-1 shadow-lg">
                       <ListboxOption disabled value="" v-slot="{ active }">
                         <li :class="['cursor-not-allowed px-3 py-2 text-sm text-gray-300', active ? 'bg-gray-50' : '']">
                           请选择流程
@@ -478,7 +478,7 @@ onMounted(() => {
               <span class="text-xs font-medium text-gray-600">并发数</span>
               <Listbox v-model="form.concurrency">
                 <div class="relative">
-                  <ListboxButton class="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-left text-sm text-gray-900 focus:border-gray-400 focus:outline-none focus:ring-1 focus:ring-gray-400">
+                  <ListboxButton class="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-left text-sm text-gray-900 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500">
                     {{ form.concurrency }}
                   </ListboxButton>
                   <transition
@@ -489,7 +489,7 @@ onMounted(() => {
                     leave-from-class="scale-100 opacity-100"
                     leave-to-class="scale-95 opacity-0"
                   >
-                    <ListboxOptions class="absolute z-20 mt-2 w-full overflow-auto rounded-md border border-gray-200 bg-white py-1 shadow-lg">
+                    <ListboxOptions class="absolute z-20 mt-2 w-full overflow-auto rounded-md border border-brand-200/50 bg-white py-1 shadow-lg">
                       <ListboxOption v-for="count in [1, 2, 3, 5, 10]" :key="count" :value="count" v-slot="{ active, selected }">
                         <li
                           :class="[
@@ -511,7 +511,7 @@ onMounted(() => {
               <span class="text-xs font-medium text-gray-600">上轮未完成策略</span>
               <Listbox v-model="form.overlapPolicy">
                 <div class="relative">
-                  <ListboxButton class="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-left text-sm text-gray-900 focus:border-gray-400 focus:outline-none focus:ring-1 focus:ring-gray-400">
+                  <ListboxButton class="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-left text-sm text-gray-900 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500">
                     {{
                       form.overlapPolicy === 'wait'
                         ? '等完成'
@@ -528,7 +528,7 @@ onMounted(() => {
                     leave-from-class="scale-100 opacity-100"
                     leave-to-class="scale-95 opacity-0"
                   >
-                    <ListboxOptions class="absolute z-20 mt-2 w-full overflow-auto rounded-md border border-gray-200 bg-white py-1 shadow-lg">
+                    <ListboxOptions class="absolute z-20 mt-2 w-full overflow-auto rounded-md border border-brand-200/50 bg-white py-1 shadow-lg">
                       <ListboxOption value="wait" v-slot="{ active, selected }">
                         <li
                           :class="[
@@ -579,14 +579,14 @@ onMounted(() => {
             <label
               v-for="shop in shops"
               :key="shop.id"
-              class="rounded-md border border-gray-200 bg-gray-50 px-3 py-3 transition hover:border-gray-300 hover:bg-white"
+              class="rounded-md border border-brand-200/50 bg-gray-50 px-3 py-3 transition hover:border-gray-300 hover:bg-white"
             >
               <span class="flex items-start gap-3">
                 <input
                   v-model="form.shopIds"
                   type="checkbox"
                   :value="shop.id"
-                  class="mt-0.5 h-4 w-4 rounded border-gray-300 text-gray-900 focus:ring-gray-400"
+                  class="mt-0.5 h-4 w-4 rounded border-gray-300 text-gray-900 focus:ring-brand-500"
                 />
                 <span class="min-w-0 space-y-1">
                   <strong class="block truncate text-sm font-medium text-gray-900">{{ shop.name }}</strong>
@@ -627,25 +627,25 @@ onMounted(() => {
             </TabList>
 
             <TabPanels class="mt-4">
-              <TabPanel class="rounded-md border border-gray-200 bg-gray-50 p-4">
+              <TabPanel class="rounded-md border border-brand-200/50 bg-gray-50 p-4">
                 <label class="space-y-2">
                   <span class="text-xs font-medium text-gray-600">固定间隔（分钟）</span>
                   <input
                     v-model.number="form.intervalMinutes"
                     type="number"
                     min="1"
-                    class="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-gray-400 focus:outline-none focus:ring-1 focus:ring-gray-400"
+                    class="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
                   />
                 </label>
               </TabPanel>
-              <TabPanel class="rounded-md border border-gray-200 bg-gray-50 p-4">
+              <TabPanel class="rounded-md border border-brand-200/50 bg-gray-50 p-4">
                 <label class="space-y-2">
                   <span class="text-xs font-medium text-gray-600">Cron 表达式</span>
                   <input
                     v-model="form.cronExpr"
                     type="text"
                     placeholder="例如：*/30 * * * *"
-                    class="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-gray-400 focus:outline-none focus:ring-1 focus:ring-gray-400"
+                    class="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
                   />
                 </label>
               </TabPanel>
@@ -662,7 +662,7 @@ onMounted(() => {
           取消
         </button>
         <button
-          class="rounded-md bg-gray-900 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-60"
+          class="rounded-md bg-brand-900 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-60"
           :disabled="isSaving"
           @click="submitSchedule"
         >

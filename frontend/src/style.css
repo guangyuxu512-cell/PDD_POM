@@ -1,5 +1,14 @@
 @import "tailwindcss";
 
+@theme {
+  --color-brand-950: #190019;
+  --color-brand-900: #2B124C;
+  --color-brand-700: #522B5B;
+  --color-brand-500: #854F6C;
+  --color-brand-200: #DFB6B2;
+  --color-brand-50:  #FBE4D8;
+}
+
 /* 全局基础 */
 @layer base {
   body {
