@@ -1,5 +1,43 @@
 # 前端开发进度
 
+## Prompt 146：移除 `.env`，改用 `settings` 表与系统设置页 ✅
+
+- [x] 新增 `backend/models/settings_model.py`
+- [x] 新增 `backend/api/settings_api.py`
+- [x] 新增 `backend/utils/__init__.py`
+- [x] 新增 `backend/utils/crypto.py`
+- [x] 新增 `backend/utils/settings.py`
+- [x] 新增 `frontend/src/api/settings.ts`
+- [x] 新增 `frontend/src/views/SystemSettings.vue`
+- [x] 新增 `scripts/clean_for_dist.py`
+- [x] 重构 `backend/config.py`，改为数据目录常量 + `配置实例` 动态代理
+- [x] `backend/models/database.py` 初始化 `settings` 表与默认配置
+- [x] `backend/services/system_service.py` 保留 `/api/system/config` 兼容层，底层改走 `settings`
+- [x] `backend/services/shop_service.py`、`browser/user_dir_factory.py`、`pages/product_list_page.py`、`tasks/celery_app.py` 改走新路径/新配置读取
+- [x] 新增 `/api/settings` 前后端链路，`/settings` 页面可分组管理敏感/非敏感配置
+- [x] 移除仓库 `.env`，移除 `python-dotenv` / `pydantic-settings` 依赖，Electron 不再加载 dotenv
+- [x] 更新 `backend.spec`、`celery-worker.spec`、`.gitignore` 与 `scripts/clean_for_dist.py`，打包前默认脱敏
+- [x] 修复 `backend.models` / `backend.utils` 循环导入，`PyInstaller` Celery 入口改为延迟导入配置
+- [x] `backend/services/execute_service.py`、`backend/services/scheduled_execute_service.py` 在 Redis 不可用时降级到内存缓存
+- [x] 新增/更新测试：
+  - `tests/unit/test_settings_api.py`
+  - `tests/unit/test_database_model.py`
+  - `tests/unit/test_system_set_machine_code.py`
+  - `tests/unit/test_frontend_management_page.py`
+  - `tests/unit/test_frontend_tailwind_static.py`
+  - `tests/unit/test_packaged_runtime_paths.py`
+  - `tests/unit/test_pyinstaller_spec_files.py`
+  - `tests/unit/test_machine_access_script.py`
+  - `tests/unit/test_task_dispatch_script.py`
+  - `tests/test_feishu_service.py`
+  - `tests/unit/test_production_env_check.py`
+  - `tests/unit/test_pyinstaller_entry.py`
+- [x] 全量回归通过：
+  - `python -m pytest -c tests/pytest.ini -q`
+  - `516 passed, 16 warnings`
+- [ ] `npm --prefix frontend run build`
+  - 当前环境仍触发 `esbuild` 子进程 `spawn EPERM`
+
 ## Prompt 125：登录态监控、结构化日志、依赖锁定、健康检查与浏览器自动恢复 ✅
 
 - [x] 新增 `browser/session_monitor.py`

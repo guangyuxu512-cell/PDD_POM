@@ -1358,3 +1358,47 @@
 - `.pipeline/task.md` 为既有本地变更，本轮未修改。
 - `python -m backend.main` 在当前环境可进入 Uvicorn 启动流程，但后续受 Windows 权限限制触发 `PermissionError: [WinError 5]`，未能完成运行态验收。
 - `cd frontend && npm run dev -- --host 127.0.0.1` 在当前环境仍触发 `spawn EPERM`，未能完成 dev server 运行态验收。
+
+---
+
+## 任务摘要
+
+完成“移除 `.env`、改用数据库 `settings` 管理配置、增加前端系统设置页、统一打包脱敏”的整轮改造，并补齐 Redis 降级、PyInstaller 入口兼容与相关回归测试。
+
+## 改动文件列表
+
+- 后端配置与设置链路：`backend/models/settings_model.py`、`backend/utils/__init__.py`、`backend/utils/crypto.py`、`backend/utils/settings.py`、`backend/config.py`、`backend/models/database.py`、`backend/api/settings_api.py`、`backend/api/router.py`、`backend/services/system_service.py`
+- 运行时兼容与服务修复：`backend/models/__init__.py`、`backend/logging_config.py`、`backend/services/shop_service.py`、`backend/services/execute_service.py`、`backend/services/scheduled_execute_service.py`、`browser/user_dir_factory.py`、`pages/product_list_page.py`、`tasks/celery_app.py`、`scripts/pyinstaller_celery_entry.py`
+- 前端设置页：`frontend/src/api/settings.ts`、`frontend/src/api/types.ts`、`frontend/src/views/SystemSettings.vue`、`frontend/src/router/index.ts`、`frontend/src/App.vue`
+- 打包与脚本：`scripts/clean_for_dist.py`、`scripts/machine_worker.py`、`scripts/dispatch_test.py`、`electron/main.js`、`backend.spec`、`celery-worker.spec`、`requirements.txt`、`.gitignore`
+- 测试：`tests/unit/test_settings_api.py`、`tests/unit/test_database_model.py`、`tests/unit/test_system_set_machine_code.py`、`tests/unit/test_frontend_management_page.py`、`tests/unit/test_frontend_tailwind_static.py`、`tests/unit/test_packaged_runtime_paths.py`、`tests/unit/test_pyinstaller_spec_files.py`、`tests/unit/test_machine_access_script.py`、`tests/unit/test_task_dispatch_script.py`、`tests/test_feishu_service.py`、`tests/unit/test_production_env_check.py`
+- 删除文件：`.env`
+- 同步文档：`PLAN.md`、`改造进度.md`、`.pipeline/progress.md`
+
+## 改动说明
+
+- `settings` 主链路：新增 `settings` 表模型、默认配置、同步读写工具和 `/api/settings` 接口；敏感字段对前端只返回 `has_value`，保存时统一加密入库。
+- 配置读取：`backend/config.py` 不再依赖 `.env`，改为数据目录常量 + `配置实例` 动态代理，兼容旧调用方继续通过属性读取配置。
+- 数据目录与密钥：统一运行时目录到 `data/`，敏感配置密钥改为 `data/.secret_key`，并支持测试中切换 `DATA_DIR` 时动态解析。
+- 兼容层：保留旧 `/api/system/config` 接口，底层实现改走 `settings`，减少对既有页面和脚本的破坏面。
+- Redis 降级：`execute_service.py` 与 `scheduled_execute_service.py` 在 Redis 不可用时回退到进程内缓存，避免取消标记、批次状态、计划批次映射在测试或无 Redis 环境直接报错。
+- 循环导入修复：`backend.models` 与 `backend.utils` 改为按需导出，拆掉 `config -> settings -> database -> logging` 的初始化环。
+- PyInstaller 入口：`scripts/pyinstaller_celery_entry.py` 改为延迟导入配置，避免开发模式下先导入 `backend.config` 导致路径注入测试失败。
+- 前端系统设置页：新增 `SystemSettings.vue` 与 `settings.ts`，按分类分组展示配置；敏感项使用密码框和“已设置”占位符，保存时批量提交。
+- 打包与脱敏：新增 `scripts/clean_for_dist.py`，更新 spec、`.gitignore`、依赖清单和 Electron 入口，彻底移除 dotenv 方案。
+- 测试同步：补充 `settings` API、数据库初始化、打包入口、机器脚本与前端静态回归，旧密钥文件断言同步到 `.secret_key`。
+
+## 影响范围
+
+- 后端所有通过 `配置实例` 读取运行配置的模块。
+- FastAPI 配置接口、旧系统配置接口和前端 `/settings` 页面。
+- Redis 依赖的批次执行、取消标记、定时计划批次映射逻辑。
+- PyInstaller Celery Worker 启动入口与打包前清理流程。
+- Electron 启动链路和前端导航中的“系统设置”入口。
+
+## 注意事项
+
+- 已执行 `python -m pytest -c tests/pytest.ini -q`，结果为 `516 passed, 16 warnings`。
+- 已执行 `npm --prefix frontend run build`，当前环境仍因 `esbuild` 子进程 `spawn EPERM` 失败，属于环境限制，未完成前端构建验收。
+- 旧 `frontend/src/views/Settings.vue` 仍保留在仓库中，但路由已切换到 `frontend/src/views/SystemSettings.vue`。
+- `.pipeline/task.md` 为既有本地变更，本轮未修改。

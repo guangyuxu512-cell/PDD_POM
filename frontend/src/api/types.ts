@@ -282,3 +282,13 @@ export interface TaskParamBatchOption {
   record_count: number
   latest_updated_at?: string | null
 }
+
+export interface SettingItem {
+  key: string
+  value: string | null
+  category: string
+  encrypted: number
+  has_value: boolean
+  label: string | null
+  hint: string | null
+}

@@ -24,7 +24,6 @@ print(f"[spec] 已生成 {_frozen_file}，模块: {_task_modules}")
 
 额外二进制 = []
 额外数据 = [
-    ('.env', '.'),
     ('scripts/encoding_hook.py', 'scripts'),
     ('pdd_selectors', 'pdd_selectors'),
     ('pages', 'pages'),
@@ -66,6 +65,7 @@ print(f"[spec] 已生成 {_frozen_file}，模块: {_task_modules}")
     'backend.api.log_api',
     'backend.api.rule_api',
     'backend.api.run_api',
+    'backend.api.settings_api',
     'backend.api.scheduled_execute_api',
     'backend.api.shop_api',
     'backend.api.system_api',
@@ -79,8 +79,12 @@ print(f"[spec] 已生成 {_frozen_file}，模块: {_task_modules}")
     'backend.models.flow_model',
     'backend.models.rule_model',
     'backend.models.scheduled_task_model',
+    'backend.models.settings_model',
     'backend.models.shop_model',
     'backend.models.table_schema',
+    'backend.utils',
+    'backend.utils.crypto',
+    'backend.utils.settings',
     'backend.services',
     'backend.services.after_sale_config_service',
     'backend.services.after_sale_decision_engine',
@@ -140,7 +144,6 @@ print(f"[spec] 已生成 {_frozen_file}，模块: {_task_modules}")
     'aiosqlite',
     'cryptography',
     'openpyxl',
-    'pydantic_settings',
     'httpx',
     'uiautomation',
     'celery.fixups',

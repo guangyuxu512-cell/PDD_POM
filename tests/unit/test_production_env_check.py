@@ -117,7 +117,7 @@ class 测试_店铺服务生产修复:
             明文 = 服务二._解密(密文)
 
         assert 明文 == "secret-value"
-        assert (数据目录 / ".encryption.key").exists()
+        assert (数据目录 / ".secret_key").exists()
 
     @pytest.mark.asyncio
     async def test_删除店铺_同步删除或更新关联定时计划(self, 临时环境):

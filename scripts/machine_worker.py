@@ -27,7 +27,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
 import signal
 import threading
 import uuid
@@ -35,13 +34,12 @@ from dataclasses import dataclass
 from datetime import datetime
 from socket import timeout as 套接字超时
 from typing import Any, Optional
+from urllib.parse import urlsplit, urlunsplit
 
 import httpx
-from dotenv import load_dotenv
 from kombu import Connection, Consumer, Queue
 
-
-load_dotenv()
+from backend.utils.settings import get_setting
 
 
 默认服务端地址 = "http://localhost:8001"
@@ -56,6 +54,22 @@ load_dotenv()
 注册路径 = "/api/workers/register"
 心跳路径 = "/api/workers/heartbeat"
 状态路径模板 = "/api/workers/{machine_id}/status"
+
+
+def _获取Agent服务根地址() -> str:
+    for 原始地址 in (
+        get_setting("agent_heartbeat_url"),
+        get_setting("agent_callback_url"),
+        默认服务端地址,
+    ):
+        if not 原始地址:
+            continue
+
+        解析结果 = urlsplit(原始地址)
+        if 解析结果.scheme and 解析结果.netloc:
+            return urlunsplit((解析结果.scheme, 解析结果.netloc, "", "", ""))
+
+    return 默认服务端地址
 
 
 def 当前时间文本() -> str:
@@ -391,42 +405,42 @@ class 外部机器执行器:
 
 def 解析命令行参数() -> argparse.Namespace:
     解析器 = argparse.ArgumentParser(description="外部机器接入测试脚本")
-    解析器.add_argument("--server-url", default=os.getenv("SERVER_URL", 默认服务端地址))
-    解析器.add_argument("--redis-url", default=os.getenv("REDIS_URL", 默认Redis地址))
-    解析器.add_argument("--machine-id", default=os.getenv("MACHINE_ID", 默认机器编号))
+    解析器.add_argument("--server-url", default=_获取Agent服务根地址())
+    解析器.add_argument("--redis-url", default=get_setting("celery_broker_url", 默认Redis地址))
+    解析器.add_argument("--machine-id", default=get_setting("agent_machine_id", 默认机器编号))
     解析器.add_argument(
         "--machine-name",
-        default=os.getenv("MACHINE_NAME", "").strip(),
+        default=(get_setting("machine_name", "") or "").strip(),
         help="注册时上报的机器名称；为空时回退到 machine-id",
     )
     解析器.add_argument(
         "--rpa-key",
-        default=os.getenv("X_RPA_KEY", 默认RPA密钥).strip(),
-        help="请求头使用的 X-RPA-KEY；默认从 .env 的 X_RPA_KEY 读取",
+        default=(get_setting("x_rpa_key", 默认RPA密钥) or "").strip(),
+        help="请求头使用的 X-RPA-KEY；默认从系统设置读取",
     )
     解析器.add_argument(
         "--queue-prefix",
-        default=os.getenv("TASK_QUEUE_PREFIX", 默认队列前缀),
+        default=默认队列前缀,
     )
     解析器.add_argument(
         "--simulate-seconds",
         type=int,
-        default=int(os.getenv("SIMULATE_SECONDS", str(默认模拟执行秒数))),
+        default=默认模拟执行秒数,
     )
     解析器.add_argument(
         "--heartbeat-interval",
         type=float,
-        default=float(os.getenv("HEARTBEAT_INTERVAL_SECONDS", str(默认心跳间隔秒数))),
+        default=默认心跳间隔秒数,
     )
     解析器.add_argument(
         "--request-timeout",
         type=float,
-        default=float(os.getenv("REQUEST_TIMEOUT_SECONDS", str(默认请求超时秒数))),
+        default=默认请求超时秒数,
     )
     解析器.add_argument(
         "--retry-delay",
         type=float,
-        default=float(os.getenv("RETRY_DELAY_SECONDS", str(默认重连等待秒数))),
+        default=默认重连等待秒数,
     )
     return 解析器.parse_args()
 

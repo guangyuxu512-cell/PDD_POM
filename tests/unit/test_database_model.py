@@ -85,6 +85,7 @@ class 测试_数据库模型:
                 )
             }
             assert {
+                "settings",
                 "shops",
                 "flows",
                 "execution_schedules",
@@ -205,3 +206,28 @@ class 测试_数据库模型:
                 "created_at",
                 "updated_at",
             }.issubset(定时任务字段集合)
+
+            设置字段集合 = {
+                行[1] for 行 in 连接.execute("PRAGMA table_info(settings)")
+            }
+            assert {
+                "key",
+                "value",
+                "category",
+                "encrypted",
+                "label",
+                "hint",
+                "created_at",
+                "updated_at",
+            }.issubset(设置字段集合)
+
+            默认设置键名集合 = {
+                行[0] for 行 in 连接.execute("SELECT key FROM settings")
+            }
+            assert {
+                "app_port",
+                "max_concurrency",
+                "celery_broker_url",
+                "feishu_webhook_url",
+                "x_rpa_key",
+            }.issubset(默认设置键名集合)

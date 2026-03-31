@@ -53,26 +53,61 @@ logger = get_logger()
 }
 
 # ── Redis 连接池（模块级单例）──
-_同步连接池 = redis.ConnectionPool.from_url(配置实例.REDIS_URL, decode_responses=True)
-_异步连接池 = aioredis.ConnectionPool.from_url(配置实例.REDIS_URL, decode_responses=True)
+_同步连接池: Optional[redis.ConnectionPool] = None
+_同步连接池地址: Optional[str] = None
+_异步连接池: Optional[aioredis.ConnectionPool] = None
+_异步连接池地址: Optional[str] = None
 _异步连接池事件循环标识: Optional[int] = None
+_内存批次状态缓存: Dict[str, str] = {}
+_内存当前批次ID: Optional[str] = None
+_内存取消标记缓存: set[str] = set()
+_内存回调标记缓存: set[str] = set()
 
 
-def _创建异步连接池() -> aioredis.ConnectionPool:
+def _获取Redis地址() -> str:
+    """按当前运行配置解析 Redis 地址。"""
+    return str(配置实例.REDIS_URL or "redis://localhost:6379/0")
+
+
+def _记录Redis降级(操作: str, 异常: Exception) -> None:
+    """记录 Redis 不可用时的降级日志。"""
+    logger.warning(f"[执行服务] Redis 不可用，改用内存态继续{操作}: {异常}")
+
+
+def _获取同步连接池() -> redis.ConnectionPool:
+    """获取与当前配置匹配的同步 Redis 连接池。"""
+    global _同步连接池, _同步连接池地址
+
+    当前地址 = _获取Redis地址()
+    if _同步连接池 is None or _同步连接池地址 != 当前地址:
+        _同步连接池 = redis.ConnectionPool.from_url(当前地址, decode_responses=True)
+        _同步连接池地址 = 当前地址
+    return _同步连接池
+
+
+def _创建异步连接池(地址: Optional[str] = None) -> aioredis.ConnectionPool:
     """创建异步 Redis 连接池。"""
-    return aioredis.ConnectionPool.from_url(配置实例.REDIS_URL, decode_responses=True)
+    return aioredis.ConnectionPool.from_url(地址 or _获取Redis地址(), decode_responses=True)
 
 
 async def _获取当前异步连接池() -> aioredis.ConnectionPool:
     """获取与当前事件循环匹配的异步 Redis 连接池。"""
-    global _异步连接池, _异步连接池事件循环标识
+    global _异步连接池, _异步连接池地址, _异步连接池事件循环标识
 
+    当前地址 = _获取Redis地址()
     当前事件循环标识 = id(asyncio.get_running_loop())
+    if _异步连接池 is None or _异步连接池地址 != 当前地址:
+        _异步连接池 = _创建异步连接池(当前地址)
+        _异步连接池地址 = 当前地址
+        _异步连接池事件循环标识 = 当前事件循环标识
+        return _异步连接池
+
     if _异步连接池事件循环标识 in (None, 当前事件循环标识):
         _异步连接池事件循环标识 = 当前事件循环标识
         return _异步连接池
 
-    _异步连接池 = _创建异步连接池()
+    _异步连接池 = _创建异步连接池(当前地址)
+    _异步连接池地址 = 当前地址
     _异步连接池事件循环标识 = 当前事件循环标识
     return _异步连接池
 
@@ -90,6 +125,26 @@ def 批次回调标记键(batch_id: str) -> str:
 def 批次取消键(batch_id: str) -> str:
     """生成批次取消标记键。"""
     return f"{批次取消键前缀}:{batch_id}"
+
+
+def _读取内存批次状态(batch_id: str) -> Optional[Dict[str, Any]]:
+    """从内存降级缓存读取批次快照。"""
+    原始数据 = _内存批次状态缓存.get(批次状态键(batch_id))
+    if not 原始数据:
+        return None
+
+    try:
+        return json.loads(原始数据)
+    except Exception:
+        return None
+
+
+def _写入内存批次状态(批次数据: Dict[str, Any]) -> None:
+    """在 Redis 不可用时写入内存降级缓存。"""
+    global _内存当前批次ID
+
+    _内存批次状态缓存[批次状态键(str(批次数据["batch_id"]))] = json.dumps(批次数据, ensure_ascii=False)
+    _内存当前批次ID = str(批次数据["batch_id"])
 
 
 def 获取默认机器编号() -> str:
@@ -258,12 +313,21 @@ def 尝试发送批次完成回调(
         )
         if not 首次发送:
             return
-        发送批次完成回调(批次数据)
     except Exception as e:
-        logger.info(f"[执行服务] 标记批次完成回调失败（忽略）: batch_id={批次ID}, error={e}")
+        _记录Redis降级("发送批次完成回调", e)
+        if 回调标记键 in _内存回调标记缓存:
+            return
+    else:
+        _内存回调标记缓存.add(回调标记键)
     finally:
         if 需要关闭客户端:
             客户端.close()
+
+    _内存回调标记缓存.add(回调标记键)
+    try:
+        发送批次完成回调(批次数据)
+    except Exception as e:
+        logger.info(f"[执行服务] 批次完成回调失败（忽略）: batch_id={批次ID}, error={e}")
 
 
 def 计算批次汇总(批次数据: Dict[str, Any]) -> Dict[str, Any]:
@@ -569,7 +633,7 @@ def 更新店铺步骤状态(
 
 def 同步获取Redis客户端() -> redis.Redis:
     """获取同步 Redis 客户端（复用连接池）。"""
-    return redis.Redis(connection_pool=_同步连接池)
+    return redis.Redis(connection_pool=_获取同步连接池())
 
 
 def 同步读取批次状态(batch_id: str) -> Optional[Dict[str, Any]]:
@@ -578,8 +642,11 @@ def 同步读取批次状态(batch_id: str) -> Optional[Dict[str, Any]]:
     try:
         原始数据 = 客户端.get(批次状态键(batch_id))
         if not 原始数据:
-            return None
+            return _读取内存批次状态(batch_id)
         return json.loads(原始数据)
+    except Exception as e:
+        _记录Redis降级("读取批次状态", e)
+        return _读取内存批次状态(batch_id)
     finally:
         客户端.close()
 
@@ -587,16 +654,20 @@ def 同步读取批次状态(batch_id: str) -> Optional[Dict[str, Any]]:
 def 同步写入批次状态(批次数据: Dict[str, Any]) -> Dict[str, Any]:
     """供 Celery Worker 写入批次状态并推送事件。"""
     客户端 = 同步获取Redis客户端()
+    序列化数据 = json.dumps(批次数据, ensure_ascii=False)
     try:
-        序列化数据 = json.dumps(批次数据, ensure_ascii=False)
         客户端.set(批次状态键(批次数据["batch_id"]), 序列化数据)
         客户端.set(当前批次键, 批次数据["batch_id"])
         客户端.publish(执行状态频道, 序列化数据)
-        同步写入运行实例状态(批次数据)
-        尝试发送批次完成回调(批次数据, Redis客户端=客户端)
-        return 批次数据
+    except Exception as e:
+        _记录Redis降级("写入批次状态", e)
+        _写入内存批次状态(批次数据)
     finally:
         客户端.close()
+
+    同步写入运行实例状态(批次数据)
+    尝试发送批次完成回调(批次数据)
+    return 批次数据
 
 
 def 同步更新批次店铺状态(
@@ -633,6 +704,7 @@ def 同步设置取消标记(batch_id: str) -> bool:
     if not str(batch_id or "").strip():
         return False
 
+    _内存取消标记缓存.add(str(batch_id))
     客户端 = 同步获取Redis客户端()
     try:
         return bool(
@@ -642,6 +714,9 @@ def 同步设置取消标记(batch_id: str) -> bool:
                 ex=批次取消标记过期秒,
             )
         )
+    except Exception as e:
+        _记录Redis降级("设置取消标记", e)
+        return True
     finally:
         客户端.close()
 
@@ -653,7 +728,10 @@ def 同步检查取消标记(batch_id: str) -> bool:
 
     客户端 = 同步获取Redis客户端()
     try:
-        return 客户端.get(批次取消键(batch_id)) == "1"
+        return 客户端.get(批次取消键(batch_id)) == "1" or str(batch_id) in _内存取消标记缓存
+    except Exception as e:
+        _记录Redis降级("检查取消标记", e)
+        return str(batch_id) in _内存取消标记缓存
     finally:
         客户端.close()
 
@@ -663,9 +741,14 @@ def 同步清除取消标记(batch_id: str) -> bool:
     if not str(batch_id or "").strip():
         return False
 
+    已存在 = str(batch_id) in _内存取消标记缓存
+    _内存取消标记缓存.discard(str(batch_id))
     客户端 = 同步获取Redis客户端()
     try:
-        return bool(客户端.delete(批次取消键(batch_id)))
+        return bool(客户端.delete(批次取消键(batch_id))) or 已存在
+    except Exception as e:
+        _记录Redis降级("清除取消标记", e)
+        return 已存在
     finally:
         客户端.close()
 
@@ -675,6 +758,7 @@ async def 设置取消标记(batch_id: str) -> bool:
     if not str(batch_id or "").strip():
         return False
 
+    _内存取消标记缓存.add(str(batch_id))
     客户端 = aioredis.Redis(connection_pool=await _获取当前异步连接池())
     try:
         return bool(
@@ -684,6 +768,9 @@ async def 设置取消标记(batch_id: str) -> bool:
                 ex=批次取消标记过期秒,
             )
         )
+    except Exception as e:
+        _记录Redis降级("设置取消标记", e)
+        return True
     finally:
         await 客户端.aclose()
 
@@ -695,7 +782,10 @@ async def 检查取消标记(batch_id: str) -> bool:
 
     客户端 = aioredis.Redis(connection_pool=await _获取当前异步连接池())
     try:
-        return await 客户端.get(批次取消键(batch_id)) == "1"
+        return await 客户端.get(批次取消键(batch_id)) == "1" or str(batch_id) in _内存取消标记缓存
+    except Exception as e:
+        _记录Redis降级("检查取消标记", e)
+        return str(batch_id) in _内存取消标记缓存
     finally:
         await 客户端.aclose()
 
@@ -705,9 +795,14 @@ async def 清除取消标记(batch_id: str) -> bool:
     if not str(batch_id or "").strip():
         return False
 
+    已存在 = str(batch_id) in _内存取消标记缓存
+    _内存取消标记缓存.discard(str(batch_id))
     客户端 = aioredis.Redis(connection_pool=await _获取当前异步连接池())
     try:
-        return bool(await 客户端.delete(批次取消键(batch_id)))
+        return bool(await 客户端.delete(批次取消键(batch_id))) or 已存在
+    except Exception as e:
+        _记录Redis降级("清除取消标记", e)
+        return 已存在
     finally:
         await 客户端.aclose()
 
@@ -1213,8 +1308,11 @@ class 执行服务:
         try:
             原始数据 = await 客户端.get(批次状态键(batch_id))
             if not 原始数据:
-                return None
+                return _读取内存批次状态(batch_id)
             return json.loads(原始数据)
+        except Exception as e:
+            _记录Redis降级("读取批次状态", e)
+            return _读取内存批次状态(batch_id)
         finally:
             await self._关闭异步Redis客户端(客户端)
 
@@ -1224,11 +1322,19 @@ class 执行服务:
         try:
             目标批次ID = batch_id or await 客户端.get(当前批次键)
             if not 目标批次ID:
+                目标批次ID = _内存当前批次ID
+            if not 目标批次ID:
                 return None
             原始数据 = await 客户端.get(批次状态键(目标批次ID))
             if not 原始数据:
-                return None
+                return _读取内存批次状态(str(目标批次ID))
             return json.loads(原始数据)
+        except Exception as e:
+            _记录Redis降级("读取最新批次状态", e)
+            目标批次ID = str(batch_id or _内存当前批次ID or "").strip()
+            if not 目标批次ID:
+                return None
+            return _读取内存批次状态(目标批次ID)
         finally:
             await self._关闭异步Redis客户端(客户端)
 
@@ -1240,10 +1346,14 @@ class 执行服务:
             await 客户端.set(批次状态键(批次数据["batch_id"]), 序列化数据)
             await 客户端.set(当前批次键, 批次数据["batch_id"])
             await 客户端.publish(执行状态频道, 序列化数据)
-            同步写入运行实例状态(批次数据)
-            return 批次数据
+        except Exception as e:
+            _记录Redis降级("写入批次状态", e)
+            _写入内存批次状态(批次数据)
         finally:
             await self._关闭异步Redis客户端(客户端)
+
+        同步写入运行实例状态(批次数据)
+        return 批次数据
 
     async def _构建步骤列表(
         self,

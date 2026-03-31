@@ -159,18 +159,11 @@ class 测试_飞书接口:
 class 测试_系统服务飞书白名单:
     @pytest.mark.asyncio
     async def test_更新配置_接受飞书相关字段(self, tmp_path: Path):
-        服务 = 系统服务模块.系统服务()
-        服务._env文件路径 = tmp_path / ".env"
-        服务._env文件路径.write_text("", encoding="utf-8")
+        with patch("backend.utils.settings.DB_PATH", tmp_path / "ecom.db"):
+            from backend.utils.settings import ensure_settings_schema
 
-        with patch.object(系统服务模块.配置实例, "REDIS_URL", "redis://localhost:6379/0"), \
-                patch.object(系统服务模块.配置实例, "AGENT_MACHINE_ID", "machine-old"), \
-                patch.object(系统服务模块.配置实例, "CAPTCHA_PROVIDER", "yescaptcha"), \
-                patch.object(系统服务模块.配置实例, "CAPTCHA_API_KEY", None), \
-                patch.object(系统服务模块.配置实例, "DEFAULT_PROXY", None), \
-                patch.object(系统服务模块.配置实例, "MAX_BROWSER_INSTANCES", 5), \
-                patch.object(系统服务模块.配置实例, "CHROME_PATH", None), \
-                patch.object(系统服务模块.配置实例, "LOG_LEVEL", "INFO"):
+            ensure_settings_schema()
+            服务 = 系统服务模块.系统服务()
             await 服务.更新配置(
                 {
                     "feishu_webhook_url": "https://open.feishu.cn/hook/test",
@@ -180,10 +173,9 @@ class 测试_系统服务飞书白名单:
                     "feishu_bitable_table_id": "tbl_xxx",
                 }
             )
+            配置 = await 服务.获取配置()
 
-        文本 = 服务._env文件路径.read_text(encoding="utf-8")
-        assert "FEISHU_WEBHOOK_URL=https://open.feishu.cn/hook/test" in 文本
-        assert "FEISHU_APP_ID=cli_xxx" in 文本
-        assert "FEISHU_APP_SECRET=sec_xxx" in 文本
-        assert "FEISHU_BITABLE_APP_TOKEN=app_token" in 文本
-        assert "FEISHU_BITABLE_TABLE_ID=tbl_xxx" in 文本
+        assert 配置["feishu_app_id"] == "cli_xxx"
+        assert 配置["feishu_bitable_table_id"] == "tbl_xxx"
+        assert 配置["feishu_webhook_url"] == ""
+        assert 配置["feishu_app_secret"] == ""

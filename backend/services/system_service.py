@@ -1,55 +1,55 @@
 """
 系统服务模块
 
-封装系统配置的读取、更新和健康检查。
+封装系统配置兼容读取、设置转译与健康检查。
 """
+from __future__ import annotations
+
 import asyncio
-import re
 from datetime import datetime
 from time import perf_counter
-from typing import Dict, Any
-from pathlib import Path
+from typing import Any, Dict
 
 import redis.asyncio as aioredis
 
-from backend.config import 配置实例, _ENV_PATH
+from backend.config import 配置实例
 from backend.models.database import 获取连接
 from backend.services.metrics_service import 指标服务实例
+from backend.utils.settings import batch_update_settings
 from tasks.celery_app import celery_app
 
 
 class 系统服务:
-    """系统配置管理服务"""
+    """系统配置管理服务。"""
 
-    # 允许更新的配置白名单
     _配置白名单 = {
-        "redis_url": "REDIS_URL",
-        "agent_machine_id": "AGENT_MACHINE_ID",
-        "feishu_webhook_url": "FEISHU_WEBHOOK_URL",
-        "feishu_app_id": "FEISHU_APP_ID",
-        "feishu_app_secret": "FEISHU_APP_SECRET",
-        "feishu_bitable_app_token": "FEISHU_BITABLE_APP_TOKEN",
-        "feishu_bitable_table_id": "FEISHU_BITABLE_TABLE_ID",
-        "captcha_provider": "CAPTCHA_PROVIDER",
-        "captcha_api_key": "CAPTCHA_API_KEY",
-        "default_proxy": "DEFAULT_PROXY",
-        "max_browser_instances": "MAX_BROWSER_INSTANCES",
-        "chrome_path": "CHROME_PATH",
-        "log_level": "LOG_LEVEL",
+        "redis_url": "celery_broker_url",
+        "agent_machine_id": "agent_machine_id",
+        "machine_name": "machine_name",
+        "agent_callback_url": "agent_callback_url",
+        "agent_heartbeat_url": "agent_heartbeat_url",
+        "x_rpa_key": "x_rpa_key",
+        "feishu_webhook_url": "feishu_webhook_url",
+        "feishu_secret": "feishu_secret",
+        "feishu_app_id": "feishu_app_id",
+        "feishu_app_secret": "feishu_app_secret",
+        "feishu_bitable_app_token": "feishu_bitable_app_token",
+        "feishu_bitable_table_id": "feishu_bitable_table_id",
+        "captcha_provider": "captcha_provider",
+        "captcha_api_key": "captcha_api_key",
+        "default_proxy": "default_proxy",
+        "max_browser_instances": "max_concurrency",
+        "chrome_path": "chrome_path",
+        "log_level": "log_level",
+        "app_port": "app_port",
     }
-
-    def __init__(self):
-        """初始化系统服务"""
-        self._env文件路径 = _ENV_PATH
-        self._数据库路径 = Path(配置实例.DATA_DIR) / "ecom.db"
 
     @staticmethod
     def _获取版本号() -> str:
-        候选文件列表 = [
-            Path("version"),
-            Path("VERSION"),
-        ]
-        for 候选文件 in 候选文件列表:
+        for 候选文件名 in ("version", "VERSION"):
+            from pathlib import Path
+
+            候选文件 = Path(候选文件名)
             if 候选文件.exists():
                 内容 = 候选文件.read_text(encoding="utf-8").strip()
                 if 内容:
@@ -149,106 +149,51 @@ class 系统服务:
                 pass
 
     async def 获取配置(self) -> Dict[str, Any]:
-        """
-        读取当前系统配置
-
-        返回:
-            Dict[str, Any]: 系统配置
-        """
-        配置 = {
+        """返回兼容旧页面的扁平配置结构。"""
+        return {
             "redis_url": 配置实例.REDIS_URL,
             "agent_machine_id": 配置实例.AGENT_MACHINE_ID or "",
+            "machine_name": 配置实例.MACHINE_NAME or "",
+            "agent_callback_url": 配置实例.AGENT_CALLBACK_URL or "",
+            "agent_heartbeat_url": 配置实例.AGENT_HEARTBEAT_URL or "",
+            "x_rpa_key": "",
             "captcha_provider": 配置实例.CAPTCHA_PROVIDER,
-            "captcha_api_key": 配置实例.CAPTCHA_API_KEY or "",
+            "captcha_api_key": "",
             "default_proxy": 配置实例.DEFAULT_PROXY or "",
             "max_browser_instances": 配置实例.MAX_BROWSER_INSTANCES,
             "chrome_path": 配置实例.CHROME_PATH or "",
             "log_level": 配置实例.LOG_LEVEL,
-            "feishu_webhook_url": 配置实例.FEISHU_WEBHOOK_URL or "",
+            "app_port": 配置实例.BACKEND_PORT,
+            "feishu_webhook_url": "",
+            "feishu_secret": "",
             "feishu_app_id": 配置实例.FEISHU_APP_ID or "",
-            "feishu_app_secret": 配置实例.FEISHU_APP_SECRET or "",
-            "feishu_bitable_app_token": 配置实例.FEISHU_BITABLE_APP_TOKEN or "",
+            "feishu_app_secret": "",
+            "feishu_bitable_app_token": "",
             "feishu_bitable_table_id": 配置实例.FEISHU_BITABLE_TABLE_ID or "",
         }
-        return 配置
 
     async def 更新配置(self, 新配置: Dict[str, Any]) -> Dict[str, Any]:
-        """
-        更新系统配置
-
-        参数:
-            新配置: 新的配置项（前端字段名）
-
-        返回:
-            Dict[str, Any]: 更新后的配置
-
-        异常:
-            ValueError: 如果包含不允许更新的字段
-        """
-        # 转换为后端字段名，并检查白名单
-        更新项 = {}
+        """将旧接口提交的配置更新到 settings 表。"""
+        更新项: list[dict[str, Any]] = []
         for 前端字段, 值 in 新配置.items():
             if 前端字段 not in self._配置白名单:
                 raise ValueError(f"不允许更新字段: {前端字段}")
-            后端字段 = self._配置白名单[前端字段]
-            更新项[后端字段] = 值
 
-        # 读取 .env 文件
-        if self._env文件路径.exists():
-            行列表 = self._env文件路径.read_text(encoding="utf-8").splitlines()
-        else:
-            行列表 = []
-
-        # 更新现有行
-        已更新的键 = set()
-        新行列表 = []
-        for 行 in 行列表:
-            行 = 行.rstrip()
-            # 跳过注释和空行
-            if not 行 or 行.startswith("#"):
-                新行列表.append(行)
-                continue
-
-            # 匹配 KEY=VALUE
-            匹配 = re.match(r"^([A-Z_]+)=(.*)$", 行)
-            if 匹配:
-                键 = 匹配.group(1)
-                if 键 in 更新项:
-                    # 更新这一行
-                    新行列表.append(f"{键}={更新项[键]}")
-                    已更新的键.add(键)
-                else:
-                    # 保留原样
-                    新行列表.append(行)
+            设置键名 = self._配置白名单[前端字段]
+            if isinstance(值, bool):
+                规范值: str | None = "true" if 值 else "false"
+            elif 值 is None:
+                规范值 = None
             else:
-                # 保留原样
-                新行列表.append(行)
+                规范值 = str(值)
 
-        # 追加新的键
-        for 键, 值 in 更新项.items():
-            if 键 not in 已更新的键:
-                新行列表.append(f"{键}={值}")
+            更新项.append({"key": 设置键名, "value": 规范值})
 
-        # 写回 .env 文件
-        self._env文件路径.write_text("\n".join(新行列表) + "\n", encoding="utf-8")
-
-        # 更新运行时配置
-        for 键, 值 in 更新项.items():
-            # 类型转换
-            if 键 == "MAX_BROWSER_INSTANCES":
-                值 = int(值)
-            setattr(配置实例, 键, 值)
-
-        # 返回更新后的配置
+        batch_update_settings(更新项)
         return await self.获取配置()
 
     async def 健康检查(self) -> Dict[str, Any]:
-        """
-        健康检查
-
-        返回:
-            Dict[str, Any]: 系统健康状态
-        """
+        """返回结构化健康检查结果。"""
         Redis检查, SQLite检查, 浏览器池检查, Celery检查 = await asyncio.gather(
             self._检查Redis(),
             self._检查SQLite(),
@@ -294,5 +239,4 @@ class 系统服务:
         return 指标快照
 
 
-# 创建单例
 系统服务实例 = 系统服务()

@@ -36,7 +36,7 @@ Worker注册超时秒 = 5.0
 celery_app = Celery(
     "抖店自动化",
     broker=配置实例.REDIS_URL,
-    backend=配置实例.REDIS_URL,
+    backend=配置实例.CELERY_RESULT_BACKEND or 配置实例.REDIS_URL,
 )
 
 celery_app.conf.update(

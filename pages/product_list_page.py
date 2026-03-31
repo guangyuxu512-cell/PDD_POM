@@ -1,8 +1,8 @@
 """拼多多商品列表页的页面对象模型"""
 from datetime import datetime
 import inspect
-from pathlib import Path
 
+from backend.config import SCREENSHOT_DIR
 from backend.logging_config import get_logger
 from pages.base_page import 基础页
 from pdd_selectors.product_list_page_selector import 商品列表页选择器
@@ -35,7 +35,7 @@ class 商品列表页(基础页):
     async def _保存搜索失败截图(self) -> None:
         """保存搜索失败时的页面截图。"""
         时间戳 = datetime.now().strftime("%Y%m%d_%H%M%S")
-        截图目录 = Path("data/screenshots")
+        截图目录 = SCREENSHOT_DIR
         截图目录.mkdir(parents=True, exist_ok=True)
         截图路径 = 截图目录 / f"搜索失败_{时间戳}.png"
         try:

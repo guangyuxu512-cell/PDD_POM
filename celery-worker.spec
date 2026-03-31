@@ -37,6 +37,10 @@ from PyInstaller.utils.hooks import collect_all
     'backend.models',
     'backend.models.database',
     'backend.models.data_structure',
+    'backend.models.settings_model',
+    'backend.utils',
+    'backend.utils.crypto',
+    'backend.utils.settings',
     # ── browser ──
     'browser',
     'browser.anti_detection',
@@ -75,7 +79,6 @@ from PyInstaller.utils.hooks import collect_all
     'aiosqlite',
     'cryptography',
     'httpx',
-    'pydantic_settings',
     'celery.fixups',
     'celery.fixups.django',
     'celery.app.amqp',

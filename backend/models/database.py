@@ -6,12 +6,12 @@
 from __future__ import annotations
 
 from contextlib import asynccontextmanager
-from pathlib import Path
-import sys
 from typing import AsyncIterator
 
 import aiosqlite
 
+from backend.config import DB_PATH
+from backend.models.settings_model import 获取默认设置列表, 设置表定义
 from backend.models.shop_model import 店铺表定义
 from backend.models.flow_model import 流程表定义
 from backend.models.scheduled_task_model import 定时任务表定义
@@ -23,15 +23,7 @@ from backend.logging_config import get_logger
 
 logger = get_logger()
 
-
-def _获取数据目录() -> Path:
-    """根据运行模式解析数据目录。"""
-    if getattr(sys, "frozen", False):
-        return Path(sys.executable).resolve().parent / "data"
-    return Path(__file__).resolve().parent.parent.parent / "data"
-
-
-数据库路径 = _获取数据目录() / "ecom.db"
+数据库路径 = DB_PATH
 数据库忙等待毫秒 = 5000
 数据库日志模式 = "WAL"
 数据库同步模式 = "NORMAL"
@@ -297,6 +289,7 @@ async def _确保字段存在(
 def 获取建表语句列表() -> list[str]:
     """返回数据库初始化需要执行的全部建表语句。"""
     return [
+        设置表定义.生成建表SQL(),
         店铺表定义.生成建表SQL(),
         流程表定义.生成建表SQL(),
         定时任务表定义.生成建表SQL(),
@@ -410,6 +403,27 @@ async def _补齐旧版表结构(连接: aiosqlite.Connection) -> None:
     await 初始化售后配置表(连接)
 
 
+async def _初始化默认设置(连接: aiosqlite.Connection) -> None:
+    """补齐 settings 表默认配置项。"""
+    for 设置项 in 获取默认设置列表():
+        记录 = 设置项.转数据库记录()
+        await 连接.execute(
+            """
+            INSERT OR IGNORE INTO settings (
+                key, value, category, encrypted, label, hint, created_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+            """,
+            (
+                记录["key"],
+                记录["value"],
+                记录["category"],
+                记录["encrypted"],
+                记录["label"],
+                记录["hint"],
+            ),
+        )
+
+
 async def 初始化数据库() -> None:
     """
     初始化数据库，创建所有表
@@ -431,6 +445,7 @@ async def 初始化数据库() -> None:
         await 初始化售后配置表(连接)
         await 初始化售后队列表(连接)
         await _补齐旧版表结构(连接)
+        await _初始化默认设置(连接)
         await 连接.commit()
 
     try:

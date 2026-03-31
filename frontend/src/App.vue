@@ -10,7 +10,7 @@ const navItems = [
   { path: '/aftersale-config', icon: '🛡️', label: '售后配置' },
   { path: '/data', icon: '📁', label: '数据管理' },
   { path: '/monitor', icon: '📊', label: '运行监控' },
-  { path: '/settings', icon: '⚙️', label: '设置' },
+  { path: '/settings', icon: '⚙️', label: '系统设置' },
 ]
 </script>
 

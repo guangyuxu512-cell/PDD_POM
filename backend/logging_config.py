@@ -15,7 +15,7 @@ from logging.handlers import RotatingFileHandler
 from pathlib import Path
 from typing import Any, Optional
 
-from backend.config import 配置实例
+from backend.config import LOG_DIR, 配置实例
 
 try:
     from loguru import logger as loguru日志记录器
@@ -24,7 +24,7 @@ except Exception:  # pragma: no cover - 运行环境未安装 loguru 时回退
 
 
 当前追踪ID: ContextVar[str] = ContextVar("当前追踪ID", default="—")
-日志目录 = Path(配置实例.DATA_DIR) / "logs"
+日志目录 = LOG_DIR
 日志目录.mkdir(parents=True, exist_ok=True)
 _已初始化 = False
 

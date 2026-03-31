@@ -22,16 +22,13 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
 import time
 from datetime import datetime
 from typing import Any, Optional
 
 import httpx
-from dotenv import load_dotenv
 
-
-load_dotenv()
+from backend.utils.settings import get_setting
 
 
 默认服务端地址 = "http://127.0.0.1:8000"
@@ -145,43 +142,43 @@ def 构建请求头(RPA密钥: str) -> dict[str, str]:
 def 解析命令行参数() -> argparse.Namespace:
     解析器 = argparse.ArgumentParser(description="服务端派发测试脚本")
     解析器.add_argument("--machine-id", required=True, help="目标机器编号")
-    解析器.add_argument("--server-url", default=os.getenv("SERVER_URL", 默认服务端地址))
+    解析器.add_argument("--server-url", default=get_setting("api_base_url", 默认服务端地址))
     解析器.add_argument(
         "--rpa-key",
-        default=os.getenv("X_RPA_KEY", "").strip(),
-        help="派发请求使用的 X-RPA-KEY；默认从 .env 的 X_RPA_KEY 读取",
+        default=(get_setting("x_rpa_key", "") or "").strip(),
+        help="派发请求使用的 X-RPA-KEY；默认从系统设置读取",
     )
-    解析器.add_argument("--dispatch-path", default=os.getenv("DISPATCH_PATH", 默认派发路径))
+    解析器.add_argument("--dispatch-path", default=默认派发路径)
     解析器.add_argument(
         "--status-path-template",
-        default=os.getenv("TASK_STATUS_PATH_TEMPLATE", 默认状态路径模板),
+        default=默认状态路径模板,
     )
-    解析器.add_argument("--message", default=os.getenv("TEST_MESSAGE", 默认消息文本))
+    解析器.add_argument("--message", default=默认消息文本)
     解析器.add_argument(
         "--sleep-seconds",
         type=int,
-        default=int(os.getenv("SLEEP_SECONDS", str(默认模拟执行秒数))),
+        default=默认模拟执行秒数,
     )
     解析器.add_argument(
         "--payload-json",
-        default=os.getenv("PAYLOAD_JSON", "").strip(),
+        default="",
         help="派发请求附加 JSON 字段",
     )
     解析器.add_argument("--poll", action="store_true", help="派发后轮询任务状态")
     解析器.add_argument(
         "--poll-interval",
         type=float,
-        default=float(os.getenv("POLL_INTERVAL_SECONDS", str(默认轮询间隔秒数))),
+        default=默认轮询间隔秒数,
     )
     解析器.add_argument(
         "--poll-timeout",
         type=float,
-        default=float(os.getenv("POLL_TIMEOUT_SECONDS", str(默认轮询超时秒数))),
+        default=默认轮询超时秒数,
     )
     解析器.add_argument(
         "--request-timeout",
         type=float,
-        default=float(os.getenv("REQUEST_TIMEOUT_SECONDS", str(默认请求超时秒数))),
+        default=默认请求超时秒数,
     )
     return 解析器.parse_args()
 

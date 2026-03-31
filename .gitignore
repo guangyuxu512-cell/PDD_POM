@@ -22,12 +22,18 @@ ms-playwright/
 cookies/
 *.log
 *.db
+.secret_key
+*.db-journal
+*.db-wal
 
 # 临时/缓存
 logs/
 tmp_api_check/
 .pytest_cache/
 data/
+browser_profiles/
+build/
+dist/
 
 # 系统文件
 .DS_Store

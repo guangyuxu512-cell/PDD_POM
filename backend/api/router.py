@@ -18,6 +18,7 @@ from backend.api.task_params_api import 路由 as 任务参数路由
 from backend.api.generic_task_api import 路由 as 通用任务路由
 from backend.api.flow_params_api import 路由 as 流程参数路由
 from backend.api.log_api import 路由 as 日志路由
+from backend.api.settings_api import 路由 as 设置路由
 from backend.api.system_api import 路由 as 系统路由
 from backend.api.feishu_api import 路由 as 飞书路由
 from backend.api.rule_api import 路由 as 规则路由
@@ -39,6 +40,7 @@ from backend.api.after_sale_config_api import 路由 as 售后配置路由
     通用任务路由,
     流程参数路由,
     日志路由,
+    设置路由,
     系统路由,
     飞书路由,
     规则路由,

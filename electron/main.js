@@ -3,7 +3,6 @@ const fs = require('fs')
 const http = require('http')
 const path = require('path')
 const { spawn, execSync } = require('child_process')
-const dotenv = require('dotenv')
 
 let mainWindow = null
 let backendProcess = null
@@ -11,8 +10,6 @@ let celeryProcess = null
 
 const isDev = !app.isPackaged
 const rootDir = isDev ? path.resolve(__dirname, '..') : path.join(process.resourcesPath, 'app')
-
-dotenv.config({ path: path.join(rootDir, '.env') })
 
 const backendPort = Number(process.env.BACKEND_PORT || 8000)
 const frontendPort = Number(process.env.FRONTEND_PORT || 3000)

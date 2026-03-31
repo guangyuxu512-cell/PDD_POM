@@ -1,7 +1,6 @@
 """
 dispatch_test 脚本单元测试
 """
-import os
 from argparse import Namespace
 from unittest.mock import MagicMock, patch
 
@@ -36,14 +35,19 @@ def 构造响应(响应数据):
 
 class 测试_任务派发脚本:
     def test_解析命令行参数_默认读取_X_RPA_KEY(self):
-        with patch.dict(os.environ, {"X_RPA_KEY": "env-rpa-key"}, clear=True):
+        def 模拟设置(key: str, default=None):
+            if key == "x_rpa_key":
+                return "env-rpa-key"
+            return default
+
+        with patch("scripts.dispatch_test.get_setting", side_effect=模拟设置):
             with patch("sys.argv", ["dispatch_test.py", "--machine-id", "machine-1"]):
                 参数 = dispatch_test.解析命令行参数()
 
         assert 参数.rpa_key == "env-rpa-key"
 
     def test_解析命令行参数_不回退_RPA_KEY(self):
-        with patch.dict(os.environ, {"RPA_KEY": "legacy-rpa-key"}, clear=True):
+        with patch("scripts.dispatch_test.get_setting", return_value=None):
             with patch("sys.argv", ["dispatch_test.py", "--machine-id", "machine-1"]):
                 参数 = dispatch_test.解析命令行参数()
 

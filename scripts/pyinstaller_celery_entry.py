@@ -37,12 +37,10 @@ from tasks.celery_app import celery_app
 
 
 def 构建Worker参数() -> list[str]:
-    """根据环境变量组装 Worker 启动参数。"""
-    参数 = ["worker", "-P", "solo", "-l", os.getenv("CELERY_LOG_LEVEL", "INFO")]
-    队列 = os.getenv("CELERY_QUEUES", "").strip()
-    if 队列:
-        参数.extend(["-Q", 队列])
-    return 参数
+    """根据系统设置组装 Worker 启动参数。"""
+    from backend.config import 配置实例
+
+    return ["worker", "-P", "solo", "-l", str(配置实例.LOG_LEVEL or "INFO")]
 
 
 if __name__ == "__main__":

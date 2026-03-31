@@ -13,7 +13,8 @@ from cryptography.fernet import Fernet
 import base64
 
 from backend.models.database import 获取连接
-from backend.config import 配置实例
+from backend.config import APP_DATA_DIR, BROWSER_PROFILES, COOKIE_DIR, 配置实例
+from backend.utils.crypto import SECRET_KEY_PATH
 
 
 class 店铺服务:
@@ -26,9 +27,27 @@ class 店铺服务:
         """将平台标识归一化为非空小写字符串。"""
         return str(平台值 or "pdd").strip().lower() or "pdd"
 
+    def _获取数据目录(self) -> Path:
+        """兼容测试补丁后的数据目录。"""
+        return Path(getattr(配置实例, "DATA_DIR", str(APP_DATA_DIR)))
+
+    def _获取用户目录根路径(self) -> Path:
+        """返回浏览器用户目录根路径。"""
+        if self._获取数据目录() != APP_DATA_DIR:
+            return self._获取数据目录() / "browser_profiles"
+        return BROWSER_PROFILES
+
+    def _获取Cookie目录路径(self) -> Path:
+        """返回 Cookie 目录路径。"""
+        if self._获取数据目录() != APP_DATA_DIR:
+            return self._获取数据目录() / "cookies"
+        return COOKIE_DIR
+
     def _获取密钥文件路径(self) -> Path:
-        """在未显式配置 ENCRYPTION_KEY 时，使用持久化密钥文件保证重启后可解密。"""
-        return Path(配置实例.DATA_DIR) / ".encryption.key"
+        """在未显式配置 ENCRYPTION_KEY 时，使用统一的持久化密钥文件。"""
+        if self._获取数据目录() != APP_DATA_DIR:
+            return self._获取数据目录() / ".secret_key"
+        return SECRET_KEY_PATH
 
     def _标准化密钥(self, 原始密钥: str | bytes, *, 来源: str) -> bytes:
         """将环境变量或文件中的密钥标准化为 Fernet 可接受的格式。"""
@@ -256,7 +275,7 @@ class 店铺服务:
         平台 = self._标准化平台(数据.get("platform"))
 
         # 创建用户数据目录
-        用户目录 = Path(配置实例.DATA_DIR) / "profiles" / 店铺ID
+        用户目录 = self._获取用户目录根路径() / 店铺ID
         用户目录.mkdir(parents=True, exist_ok=True)
 
         # 加密密码字段
@@ -435,12 +454,12 @@ class 店铺服务:
             await 连接.commit()
 
         # 删除用户数据目录
-        用户目录 = Path(配置实例.DATA_DIR) / "profiles" / 店铺ID
+        用户目录 = self._获取用户目录根路径() / 店铺ID
         if 用户目录.exists():
             shutil.rmtree(用户目录)
 
         # 删除 Cookie 文件
-        Cookie文件 = Path(配置实例.DATA_DIR) / "cookies" / f"{店铺ID}.json"
+        Cookie文件 = self._获取Cookie目录路径() / f"{店铺ID}.json"
         if Cookie文件.exists():
             Cookie文件.unlink()
 
@@ -463,7 +482,7 @@ class 店铺服务:
             return False
 
         # 确保 cookies 目录存在
-        Cookie目录 = Path(配置实例.DATA_DIR) / "cookies"
+        Cookie目录 = self._获取Cookie目录路径()
         Cookie目录.mkdir(parents=True, exist_ok=True)
 
         # 写入 Cookie 文件
@@ -497,7 +516,7 @@ class 店铺服务:
             return None
 
         # 读取 Cookie 文件
-        Cookie文件 = Path(配置实例.DATA_DIR) / "cookies" / f"{店铺ID}.json"
+        Cookie文件 = self._获取Cookie目录路径() / f"{店铺ID}.json"
         if not Cookie文件.exists():
             return None
 

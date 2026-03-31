@@ -27,11 +27,19 @@ from tasks.celery_app import celery_app
 定时计划批次键前缀 = "schedule:batch"
 允许的重叠策略 = {"wait", "skip", "parallel"}
 未提供 = object()
+_内存计划批次缓存: dict[str, str] = {}
 
 
 def 定时计划批次键(计划ID: str) -> str:
     """生成定时计划关联的批次缓存键。"""
     return f"{定时计划批次键前缀}:{计划ID}"
+
+
+def _记录Redis降级(操作: str, 异常: Exception) -> None:
+    """记录定时计划服务的 Redis 降级日志。"""
+    from backend.logging_config import get_logger
+
+    get_logger().warning(f"[定时执行服务] Redis 不可用，改用内存态继续{操作}: {异常}")
 
 
 class 定时执行服务:
@@ -193,23 +201,32 @@ class 定时执行服务:
         """读取计划当前关联的批次 ID。"""
         客户端 = await self._获取异步Redis客户端()
         try:
-            return await 客户端.get(定时计划批次键(计划ID))
+            return await 客户端.get(定时计划批次键(计划ID)) or _内存计划批次缓存.get(str(计划ID))
+        except Exception as e:
+            _记录Redis降级("读取计划批次映射", e)
+            return _内存计划批次缓存.get(str(计划ID))
         finally:
             await self._关闭异步Redis客户端(客户端)
 
     async def _写入计划批次ID(self, 计划ID: str, 批次ID: str) -> None:
         """记录计划最近触发的批次 ID。"""
+        _内存计划批次缓存[str(计划ID)] = str(批次ID)
         客户端 = await self._获取异步Redis客户端()
         try:
             await 客户端.set(定时计划批次键(计划ID), 批次ID)
+        except Exception as e:
+            _记录Redis降级("写入计划批次映射", e)
         finally:
             await self._关闭异步Redis客户端(客户端)
 
     async def _清理计划批次ID(self, 计划ID: str) -> None:
         """清理计划关联的批次 ID 缓存。"""
+        _内存计划批次缓存.pop(str(计划ID), None)
         客户端 = await self._获取异步Redis客户端()
         try:
             await 客户端.delete(定时计划批次键(计划ID))
+        except Exception as e:
+            _记录Redis降级("清理计划批次映射", e)
         finally:
             await self._关闭异步Redis客户端(客户端)
 

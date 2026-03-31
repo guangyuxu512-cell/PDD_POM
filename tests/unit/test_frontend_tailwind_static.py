@@ -39,10 +39,10 @@ class 测试_Tailwind接入:
 
     def test_中等页面与组件统一为_brand_Tailwind结构(self):
         断言映射 = {
-            "frontend/src/views/Settings.vue": [
-                "rounded-md border border-brand-300/50 bg-white p-5 shadow-sm",
-                "测试 Webhook",
-                "健康检查",
+            "frontend/src/views/SystemSettings.vue": [
+                "rounded-md border border-brand-200/50 bg-white p-5 shadow-sm",
+                "batchUpdateSettings",
+                "••••••••（已设置，留空不修改）",
             ],
             "frontend/src/views/TaskMonitor.vue": [
                 "手动触发",

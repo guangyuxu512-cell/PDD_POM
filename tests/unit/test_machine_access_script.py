@@ -1,7 +1,6 @@
 """
 machine_worker 脚本单元测试
 """
-import os
 from argparse import Namespace
 from unittest.mock import patch
 
@@ -27,7 +26,12 @@ def 构造参数(**覆盖):
 
 class 测试_机器接入脚本:
     def test_解析命令行参数_默认读取_X_RPA_KEY(self):
-        with patch.dict(os.environ, {"X_RPA_KEY": "env-rpa-key"}, clear=True):
+        def 模拟设置(key: str, default=None):
+            if key == "x_rpa_key":
+                return "env-rpa-key"
+            return default
+
+        with patch("scripts.machine_worker.get_setting", side_effect=模拟设置):
             with patch("sys.argv", ["machine_worker.py"]):
                 参数 = 解析命令行参数()
 

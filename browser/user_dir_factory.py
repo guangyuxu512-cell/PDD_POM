@@ -7,7 +7,7 @@ from pathlib import Path
 import shutil
 from typing import List
 
-
+from backend.config import BROWSER_PROFILES
 from backend.logging_config import get_logger
 
 logger = get_logger()
@@ -15,7 +15,7 @@ logger = get_logger()
 class 用户目录工厂:
     """浏览器用户数据目录管理工厂"""
 
-    def __init__(self, 基础目录: str = "data/profiles"):
+    def __init__(self, 基础目录: str = str(BROWSER_PROFILES)):
         """
         初始化用户目录工厂
 

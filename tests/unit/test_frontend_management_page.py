@@ -54,7 +54,7 @@ class 测试_前端管理页:
             "AftersaleConfig.vue",
             "DataManage.vue",
             "MonitorManage.vue",
-            "Settings.vue",
+            "SystemSettings.vue",
         ]:
             assert 视图文件 in 路由文件
 
