@@ -2785,3 +2785,25 @@
 - [ ] 前端构建命令在当前环境未通过：
   - `npm --prefix frontend run build`
   - 失败原因：`vite` 读取配置时启动 `esbuild` 子进程触发 `spawn EPERM`
+## Prompt 130：流程管理页统计栏与模板列表压缩 ✅
+- [x] 更新 `frontend/src/views/FlowManage.vue`
+- [x] 删除顶部三张统计卡片，替换为单行 `inline-stats` 文案
+- [x] 删除模板列表的 `flow-grid / flow-card` 卡片布局
+- [x] 新增紧凑 `flow-table` 表格布局，列为序号、流程名称、描述、步骤数、步骤摘要、操作
+- [x] 流程名称改为可点击链接，点击后直接打开编辑弹窗
+- [x] 步骤数改为 `step-badge` 紧凑徽标，操作按钮缩为 `btn-sm`
+- [x] 新增 `getStepSummary(flow)` 统一生成步骤摘要
+- [x] 新增静态回归测试 `tests/unit/test_flow_manage_list_static.py`
+- [x] 静态回归覆盖：
+  - 单行统计文案存在
+  - 表格列结构存在
+  - 流程名称链接可触发编辑
+  - 旧 `summary-grid / flow-grid / flow-card` 结构已移除
+- [x] 定向验证通过：
+  - `python -m pytest -c tests/pytest.ini tests/unit/test_frontend_display_details.py tests/unit/test_flow_manage_editor_static.py tests/unit/test_flow_manage_list_static.py -v`
+  - `6 passed`
+- [x] 模板类型校验通过：
+  - `npx --prefix frontend vue-tsc -b frontend/tsconfig.json`
+- [x] 全量回归通过：
+  - `python -m pytest -c tests/pytest.ini tests/ -q`
+  - `489 passed, 16 warnings`

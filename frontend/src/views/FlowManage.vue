@@ -133,31 +133,12 @@ function normalizeSteps(steps: FlowStep[]) {
   })
 }
 
-function formatPolicy(step: FlowStep) {
-  if (step.on_fail.startsWith('retry:')) {
-    const retryCount = Number.parseInt(step.on_fail.split(':', 2)[1] || '2', 10)
-    return `重试 ${Number.isNaN(retryCount) ? 2 : retryCount} 次`
-  }
-
-  return (
-    failurePolicyOptions.find((option) => option.value === step.on_fail)?.label ??
-    step.on_fail
-  )
-}
-
-function formatStepFeatures(step: FlowStep) {
-  const labels: string[] = []
-  if (step.barrier) {
-    labels.push('同步屏障')
-  }
-  if (step.merge) {
-    labels.push('合并执行')
-  }
-  return labels.join(' / ')
-}
-
 function getTaskDescription(taskName: string) {
   return tasks.value.find((task) => task.name === taskName)?.description || ''
+}
+
+function getStepSummary(flow: Flow) {
+  return flow.steps.map((step) => step.task).join(' → ')
 }
 
 async function loadReferenceData() {
@@ -389,23 +370,11 @@ onMounted(() => {
       <button class="primary-button" @click="openCreateModal">新建流程</button>
     </header>
 
-    <section class="summary-grid">
-      <article class="summary-card">
-        <span class="summary-label">流程数</span>
-        <strong>{{ totalFlows }}</strong>
-        <span class="summary-note">已保存模板</span>
-      </article>
-      <article class="summary-card">
-        <span class="summary-label">步骤总数</span>
-        <strong>{{ totalSteps }}</strong>
-        <span class="summary-note">来自全部流程</span>
-      </article>
-      <article class="summary-card">
-        <span class="summary-label">可用任务</span>
-        <strong>{{ tasks.length }}</strong>
-        <span class="summary-note">自动读取后端注册表</span>
-      </article>
-    </section>
+    <p class="inline-stats">
+      共 <strong>{{ totalFlows }}</strong> 个流程 ·
+      <strong>{{ totalSteps }}</strong> 个步骤 ·
+      <strong>{{ tasks.length }}</strong> 个可用任务
+    </p>
 
     <section class="panel">
       <div class="panel-header">
@@ -420,34 +389,41 @@ onMounted(() => {
         <p>当前还没有流程模板。</p>
         <button class="secondary-button" @click="openCreateModal">创建第一个流程</button>
       </div>
-      <div v-else class="flow-grid">
-        <article v-for="flow in flows" :key="flow.id" class="flow-card">
-          <div class="flow-card-header">
-            <div>
-              <h3>{{ flow.name }}</h3>
-              <p>{{ flow.description || '未填写说明' }}</p>
-            </div>
-            <span class="step-count">{{ flow.steps.length }} steps</span>
-          </div>
-
-          <ol class="step-list-preview">
-            <li v-for="step in flow.steps" :key="`${flow.id}-${step.task}-${step.on_fail}`">
-              <div class="step-preview-main">
-                <span class="step-task">{{ step.task }}</span>
-                <span v-if="formatStepFeatures(step)" class="step-feature">
-                  {{ formatStepFeatures(step) }}
-                </span>
-              </div>
-              <span class="step-policy">{{ formatPolicy(step) }}</span>
-            </li>
-          </ol>
-
-          <div class="flow-actions">
-            <button class="ghost-button" @click="openEditModal(flow)">编辑</button>
-            <button class="danger-button" @click="askDelete(flow)">删除</button>
-          </div>
-        </article>
-      </div>
+      <table v-else class="flow-table">
+        <thead>
+          <tr>
+            <th style="width: 48px">#</th>
+            <th style="width: 140px">流程名称</th>
+            <th>描述</th>
+            <th style="width: 64px">步骤</th>
+            <th>步骤摘要</th>
+            <th style="width: 140px">操作</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="(flow, index) in flows" :key="flow.id">
+            <td class="cell-center">{{ index + 1 }}</td>
+            <td>
+              <a class="flow-name-link" href="#" @click.prevent="openEditModal(flow)">
+                {{ flow.name }}
+              </a>
+            </td>
+            <td class="cell-desc" :title="flow.description || '—'">
+              {{ flow.description || '—' }}
+            </td>
+            <td class="cell-center">
+              <span class="step-badge">{{ flow.steps.length }}</span>
+            </td>
+            <td class="cell-summary" :title="getStepSummary(flow) || '—'">
+              {{ getStepSummary(flow) || '—' }}
+            </td>
+            <td class="cell-center cell-actions">
+              <button class="ghost-button btn-sm" @click="openEditModal(flow)">编辑</button>
+              <button class="danger-button btn-sm" @click="askDelete(flow)">删除</button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
     </section>
 
     <Modal
@@ -668,42 +644,22 @@ h1 {
   line-height: 1.6;
 }
 
-.summary-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 16px;
+.inline-stats {
+  margin: 0;
+  color: #64748b;
+  font-size: 14px;
 }
 
-.summary-card,
-.panel,
-.flow-card {
+.inline-stats strong {
+  color: #1e293b;
+  font-weight: 700;
+}
+
+.panel {
   background: #ffffff;
   border: 1px solid #e2e8f0;
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-sm);
-}
-
-.summary-card {
-  padding: 20px 22px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.summary-label {
-  font-size: 13px;
-  color: #64748b;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-}
-
-.summary-card strong {
-  font-size: 30px;
-}
-
-.summary-note {
-  color: #94a3b8;
-  font-size: 14px;
 }
 
 .panel {
@@ -731,88 +687,89 @@ h1 {
   line-height: 1.5;
 }
 
-.flow-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-  gap: 18px;
+.flow-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  font-size: 14px;
 }
 
-.flow-card {
-  padding: 22px;
-  display: flex;
-  flex-direction: column;
-  gap: 18px;
+.flow-table th {
+  padding: 10px 12px;
+  border-bottom: 2px solid #e2e8f0;
+  color: #475569;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-align: left;
+  text-transform: uppercase;
+  white-space: nowrap;
 }
 
-.flow-card-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 16px;
+.flow-table td {
+  height: 44px;
+  padding: 10px 12px;
+  border-bottom: 1px solid #f1f5f9;
+  color: #334155;
+  line-height: 1.4;
+  vertical-align: middle;
 }
 
-.flow-card-header h3 {
-  margin: 0;
-  font-size: var(--font-size-h2);
+.flow-table tbody tr:hover {
+  background: #f8fafc;
 }
 
-.flow-card-header p {
-  margin-top: 8px;
+.cell-center {
+  text-align: center;
+}
+
+.cell-desc,
+.cell-summary {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cell-desc {
+  color: #94a3b8;
+}
+
+.cell-summary {
   color: #64748b;
+  font-size: 13px;
 }
 
-.step-count {
-  padding: 6px 12px;
+.cell-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  white-space: nowrap;
+}
+
+.flow-name-link {
+  color: #1d4ed8;
+  cursor: pointer;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.flow-name-link:hover {
+  text-decoration: underline;
+}
+
+.step-badge {
+  display: inline-block;
+  padding: 2px 10px;
   border-radius: 999px;
   background: rgba(59, 130, 246, 0.12);
   color: #1d4ed8;
   font-size: 12px;
   font-weight: 700;
-  white-space: nowrap;
 }
 
-.step-list-preview {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  padding-left: 20px;
-}
-
-.step-list-preview li {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-  color: #334155;
-}
-
-.step-preview-main {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
-}
-
-.step-task {
-  font-weight: 600;
-}
-
-.step-policy {
-  color: #64748b;
+.btn-sm {
+  padding: 6px 12px;
   font-size: 13px;
-}
-
-.step-feature {
-  padding: 4px 10px;
-  border-radius: 999px;
-  background: rgba(14, 116, 144, 0.1);
-  color: #0f766e;
-  font-size: 12px;
-  font-weight: 700;
-}
-
-.flow-actions {
-  display: flex;
-  gap: 12px;
 }
 
 .editor-form {
@@ -1134,12 +1091,10 @@ h1 {
 
 @media (max-width: 900px) {
   .page-header,
-  .panel-header,
-  .flow-card-header {
+  .panel-header {
     flex-direction: column;
   }
 
-  .summary-grid,
   .field-grid {
     grid-template-columns: 1fr;
   }

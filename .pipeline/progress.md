@@ -562,3 +562,38 @@
 - `.pipeline/task.md` 为既有本地改动，本轮未修改。
 
 ---
+
+## 任务摘要
+
+将流程管理页从“统计卡片 + 流程卡片网格”压缩为“单行统计 + 紧凑表格列表”，提升首屏信息密度并保留原有编辑/删除入口。
+
+## 改动文件列表
+
+- `frontend/src/views/FlowManage.vue`
+- `tests/unit/test_flow_manage_list_static.py`
+- `PLAN.md`
+- `改造进度.md`
+- `.pipeline/progress.md`
+
+## 改动说明
+
+- `frontend/src/views/FlowManage.vue`：删除顶部 `summary-grid` 统计卡片，替换为单行 `inline-stats` 文案；删除 `flow-grid / flow-card` 卡片式模板列表，改为 `flow-table` 紧凑表格；新增 `getStepSummary(flow)` 生成步骤摘要；流程名称改为点击即编辑的链接，步骤数改为 `step-badge`，操作按钮缩为 `btn-sm`，以满足“10 个流程尽量一屏可见”的新密度要求。
+- `tests/unit/test_flow_manage_list_static.py`：新增静态回归，覆盖单行统计、表格列结构、流程名称链接打开编辑、旧卡片类名移除，以及表格紧凑样式关键字，防止回退。
+- `PLAN.md`、`改造进度.md`、`.pipeline/progress.md`：同步记录本轮流程管理页列表压缩改造和验证结果。
+
+## 影响范围
+
+- 流程管理页顶部统计信息展示
+- 流程模板列表的首屏信息密度与交互入口
+- FlowManage 页面相关静态回归覆盖范围
+
+## 注意事项
+
+- 已执行 `python -m pytest -c tests/pytest.ini tests/unit/test_frontend_display_details.py tests/unit/test_flow_manage_editor_static.py tests/unit/test_flow_manage_list_static.py -v`，结果为 `6 passed`。
+- 已执行 `npx --prefix frontend vue-tsc -b frontend/tsconfig.json`，通过。
+- 已执行 `python -m pytest -c tests/pytest.ini tests/ -q`，结果为 `489 passed, 16 warnings`。
+- 16 条 warning 仍来自既有第三方依赖 `celery` 与 `openpyxl` 的 `datetime.utcnow()` 弃用提示，不是本轮改动引入的问题。
+- 本轮未重新执行 `npm --prefix frontend run build`；当前环境此前已知存在 `esbuild` 子进程 `spawn EPERM` 限制。
+- `.pipeline/task.md` 为既有本地改动，本轮未修改。
+
+---
