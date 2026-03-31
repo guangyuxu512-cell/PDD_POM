@@ -496,3 +496,35 @@
 - 已执行 `python -m pytest -c tests/pytest.ini tests/ -v`，结果为 `484 passed, 16 warnings`。
 - 已尝试 `cd electron && npx electron .`，但当前环境仍因 `platform_channel.cc(83): 拒绝访问 (0x5)` 提前退出，未完成 GUI 侧最终验收。
 - PyInstaller 构建阶段仍有 `kombu.asynchronous.aws` 缺少 `botocore` 的警告，但不影响本轮编码修复结果。
+---
+
+## 任务摘要
+
+修复流程执行时因 `flow_params` 残留记录导致同一店铺重复投递首步任务的问题：读取存量待执行记录后按店铺去重，仅保留最新一条，其余残留记录标记为 `skipped`。
+
+## 改动文件列表
+
+- `backend/services/execute_service.py`
+- `tests/unit/test_execute_service.py`
+- `PLAN.md`
+- `改造进度.md`
+- `.pipeline/progress.md`
+
+## 改动说明
+
+- `backend/services/execute_service.py`：新增 `_清理店铺残留流程参数记录(...)`，在 `创建批次()` 的“读取已有待执行 flow_params”分支中，对每个店铺的待执行记录按 `id` 倒序去重，仅保留最新一条；其余残留记录通过 `流程参数服务实例.更新(..., {"status": "skipped"})` 清理，避免同店铺被重复投递多个首步任务。
+- `backend/services/execute_service.py`：保持空上下文流程逻辑不变；`input_set_id` 触发的输入集兼容 `flow_params` 创建分支不走本次残留清理，避免影响输入集一次生成多条上下文的现有能力。
+- `tests/unit/test_execute_service.py`：调整 barrier 首步场景的旧预期，改为断言残留记录只保留最新一条；新增非 barrier 首步场景回归，覆盖“同店铺两条待执行记录时只投递一次首步任务，并将旧记录置为 `skipped`”。
+- `PLAN.md`、`改造进度.md`、`.pipeline/progress.md`：同步记录本轮改造内容与验证结果。
+
+## 影响范围
+
+- 流程模式下 `创建批次()` 读取存量 `flow_params` 的启动路径
+- 同店铺首步任务投递数量与批次快照中的 `task_ids`
+- 流程执行相关单元测试
+
+## 注意事项
+
+- 本轮修复只作用于“直接读取数据库中已有待执行 `flow_params`”的分支，不影响 `input_set_id` 输入集生成兼容 `flow_params` 的路径。
+- 已执行 `python -m pytest -c tests/pytest.ini tests/unit/test_execute_service.py -q` 与 `python -m pytest -c tests/pytest.ini tests/unit/test_batch_execute_shop_name.py -q`，均通过。
+- 已执行 `python -m pytest -c tests/pytest.ini tests/ -v`，结果为 `485 passed, 16 warnings`。

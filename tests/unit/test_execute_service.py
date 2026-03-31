@@ -3,7 +3,7 @@
 """
 from __future__ import annotations
 
-from unittest.mock import AsyncMock, MagicMock, patch, call
+from unittest.mock import ANY, AsyncMock, MagicMock, patch, call
 
 import pytest
 from pydantic import BaseModel, Field
@@ -28,7 +28,7 @@ class 测试_执行服务:
 
     @pytest.mark.asyncio
     async def test_创建批次_流程模式先写入状态再投递首步任务(self):
-        """批次元数据应先落 Redis，再投递首步任务，且同店铺全部 flow_params 都会纳入批次。"""
+        """批次元数据应先落 Redis，再投递首步任务，且残留 flow_params 只保留最新一条。"""
         服务 = 执行服务模块.执行服务()
         调用顺序: list[object] = []
         已写入批次 = {}
@@ -92,19 +92,93 @@ class 测试_执行服务:
         assert 结果["status"] == "running"
         assert 调用顺序 == [
             "write",
-            ("apply", "shop-1-101-102"),
+            ("apply", "shop-1-102"),
             ("apply", "shop-2-201"),
         ]
         assert 已写入批次["queue_name"] == "worker.machine-1"
         assert 已写入批次["requested_concurrency"] == 2
-        assert 已写入批次["shops"]["shop-1"]["task_ids"] == ["shop-1-101-102"]
+        assert 已写入批次["shops"]["shop-1"]["task_ids"] == ["shop-1-102"]
         assert 已写入批次["shops"]["shop-2"]["task_ids"] == ["shop-2-201"]
-        assert 投递调用列表[0]["flow_param_ids"] == [101, 102]
+        assert 投递调用列表[0]["flow_param_ids"] == [102]
         assert 投递调用列表[0]["flow_mode"] is True
         assert 投递调用列表[0]["merge"] is False
         assert 投递调用列表[1]["flow_param_ids"] == [201]
         assert 投递调用列表[1]["flow_mode"] is True
         assert 模拟更新流程参数.await_count == 3
+        模拟更新流程参数.assert_has_awaits(
+            [
+                call(101, {"status": "skipped"}),
+                call(102, {"batch_id": ANY, "error": None, "status": "pending"}),
+                call(201, {"batch_id": ANY, "error": None, "status": "pending"}),
+            ]
+        )
+
+    @pytest.mark.asyncio
+    async def test_创建批次_流程模式会跳过残留记录并避免重复投递首步任务(self):
+        """非 barrier 首步遇到同店铺残留 flow_params 时，只保留最新一条并投递一次。"""
+        服务 = 执行服务模块.执行服务()
+        已写入批次 = {}
+        投递调用列表: list[dict[str, object]] = []
+
+        async def 假投递单步任务(**kwargs):
+            投递调用列表.append(kwargs)
+            task_id = f"{kwargs['shop_id']}-{kwargs.get('flow_param_id') or kwargs['task_name']}"
+            kwargs["批次数据"]["shops"][kwargs["shop_id"]]["task_ids"].append(task_id)
+            kwargs["批次数据"]["task_ids"].append(task_id)
+            return {
+                "task_id": task_id,
+                "signature": 假签名(task_id, []),
+                "batch": kwargs["批次数据"],
+            }
+
+        async def 假写入批次状态(批次数据):
+            已写入批次.clear()
+            已写入批次.update(批次数据)
+            return 批次数据
+
+        with patch.object(执行服务模块.配置实例, "AGENT_MACHINE_ID", "machine-1"), \
+                patch("backend.services.execute_service.初始化任务注册表"), \
+                patch("backend.services.execute_service.获取任务类", side_effect=lambda 名称: object()), \
+                patch("backend.services.execute_service.店铺服务实例.根据ID获取", new=AsyncMock(return_value={"id": "shop-1"})), \
+                patch(
+                    "backend.services.execute_service.流程服务实例.根据ID获取",
+                    new=AsyncMock(
+                        return_value={
+                            "id": "flow-1",
+                            "steps": [
+                                {"task": "登录", "on_fail": "continue", "barrier": False, "merge": False},
+                                {"task": "发布相似商品", "on_fail": "abort", "barrier": False, "merge": False},
+                            ],
+                        }
+                    ),
+                ), \
+                patch(
+                    "backend.services.execute_service.流程参数服务实例.获取待执行列表",
+                    new=AsyncMock(return_value=[{"id": 401}, {"id": 402}]),
+                ), \
+                patch("backend.services.execute_service.流程参数服务实例.更新", new=AsyncMock()) as 模拟更新流程参数, \
+                patch.object(服务, "_写入运行实例快照", new=AsyncMock()), \
+                patch.object(服务, "投递单步任务", new=AsyncMock(side_effect=假投递单步任务)), \
+                patch.object(服务, "_写入批次状态", new=AsyncMock(side_effect=假写入批次状态)):
+            结果 = await 服务.创建批次(
+                flow_id="flow-1",
+                task_name=None,
+                shop_ids=["shop-1"],
+                concurrency=1,
+            )
+
+        assert 结果["total"] == 1
+        assert 结果["status"] == "running"
+        assert len(投递调用列表) == 1
+        assert 投递调用列表[0]["flow_param_id"] == 402
+        assert 投递调用列表[0]["flow_mode"] is True
+        assert 已写入批次["shops"]["shop-1"]["task_ids"] == ["shop-1-402"]
+        模拟更新流程参数.assert_has_awaits(
+            [
+                call(401, {"status": "skipped"}),
+                call(402, {"batch_id": ANY, "error": None, "status": "pending"}),
+            ]
+        )
 
     @pytest.mark.asyncio
     async def test_创建批次_流程模式无待执行流程参数时仍创建空上下文任务(self):

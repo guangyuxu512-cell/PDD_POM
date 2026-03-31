@@ -877,6 +877,46 @@ class 执行服务:
                 流程参数记录映射.setdefault(店铺ID, []).append(记录)
         return 流程参数记录映射
 
+    async def _清理店铺残留流程参数记录(
+        self,
+        *,
+        flow_id: str,
+        shop_ids: List[str],
+        流程参数记录映射: Dict[str, List[Dict[str, Any]]],
+    ) -> Dict[str, List[Dict[str, Any]]]:
+        """每个店铺只保留最新一条待执行 flow_params，避免首步任务重复投递。"""
+
+        def 记录排序键(流程参数记录: Dict[str, Any]) -> int:
+            try:
+                return int(流程参数记录.get("id") or 0)
+            except (TypeError, ValueError):
+                return 0
+
+        for 店铺ID in shop_ids:
+            记录列表 = list(流程参数记录映射.get(店铺ID) or [])
+            if len(记录列表) <= 1:
+                流程参数记录映射[店铺ID] = 记录列表
+                continue
+
+            记录列表.sort(key=记录排序键, reverse=True)
+            保留记录 = 记录列表[0]
+            跳过记录列表 = 记录列表[1:]
+
+            for 跳过记录 in 跳过记录列表:
+                记录ID = 跳过记录.get("id")
+                if 记录ID is None:
+                    continue
+                await 流程参数服务实例.更新(int(记录ID), {"status": "skipped"})
+
+            流程参数记录映射[店铺ID] = [保留记录]
+            logger.info(
+                f"[执行服务] 清理残留流程参数记录: flow_id={flow_id}, shop_id={店铺ID}, "
+                f"keep_id={保留记录.get('id')}, "
+                f"skipped_ids={[记录.get('id') for 记录 in 跳过记录列表 if 记录.get('id') is not None]}"
+            )
+
+        return 流程参数记录映射
+
     def _构建运行项上下文映射(
         self,
         *,
@@ -1349,6 +1389,11 @@ class 执行服务:
                 for 店铺ID in 标准店铺ID列表:
                     待执行记录列表 = await 流程参数服务实例.获取待执行列表(店铺ID, str(flow_id))
                     流程参数记录映射[店铺ID] = 待执行记录列表
+                流程参数记录映射 = await self._清理店铺残留流程参数记录(
+                    flow_id=str(flow_id),
+                    shop_ids=可执行店铺ID列表,
+                    流程参数记录映射=流程参数记录映射,
+                )
 
             if 标准空运行策略 == "require_input" and any(
                 self._步骤需要输入(str(步骤.get("task") or ""))

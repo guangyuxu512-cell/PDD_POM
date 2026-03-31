@@ -2752,3 +2752,17 @@
 - [ ] 当前环境下 Electron GUI 验收未完成：
   - `cd electron && npx electron .`
   - 进程在 `platform_channel.cc(83): 拒绝访问 (0x5)` 提前退出，且当前环境无法执行 `chcp`
+## Prompt 128：流程执行清理残留 flow_params，避免同店铺重复投递首步任务 ✅
+- [x] 更新 `backend/services/execute_service.py`
+- [x] 在 `创建批次()` 读取存量 `flow_params` 后按店铺去重待执行记录
+- [x] 每个店铺仅保留 `id` 最新的一条记录，其余残留记录更新为 `skipped`
+- [x] 保持无记录店铺的空上下文启动逻辑不变
+- [x] 保持 `input_set_id` 输入集创建分支不走本次残留清理逻辑
+- [x] 更新 `tests/unit/test_execute_service.py`
+- [x] 调整 barrier 首步场景为“只保留最新记录”的回归预期
+- [x] 新增非 barrier 首步遇到残留记录时只投递一次首步任务的回归
+- [x] 定向验证通过：
+  - `python -m pytest -c tests/pytest.ini tests/unit/test_execute_service.py -q`
+  - `python -m pytest -c tests/pytest.ini tests/unit/test_batch_execute_shop_name.py -q`
+- [x] 全量验证通过：`python -m pytest -c tests/pytest.ini tests/ -v`
+- [x] 全量验证结果：`485 passed, 16 warnings`
