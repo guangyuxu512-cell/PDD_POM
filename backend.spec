@@ -161,6 +161,18 @@ for pkg in ['uvicorn', 'fastapi', 'starlette', 'celery', 'kombu', 'amqp', 'redis
     额外二进制 += tmp_binaries
     额外导入 += tmp_hiddenimports
 
+# 过滤掉 playwright 的 driver 数据（node.exe + 大量 JS 文件）
+额外数据 = [
+    (src, dst) for src, dst in 额外数据
+    if 'playwright' not in str(src).lower()
+    or 'driver' not in str(src).lower()
+]
+额外二进制 = [
+    (src, dst) for src, dst in 额外二进制
+    if 'playwright' not in str(src).lower()
+    or 'driver' not in str(src).lower()
+]
+
 a = Analysis(
     ['scripts/pyinstaller_entry.py'],
     pathex=['.'],
@@ -170,7 +182,13 @@ a = Analysis(
     hookspath=[],
     hooksconfig={},
     runtime_hooks=['scripts/encoding_hook.py'],
-    excludes=[],
+    excludes=[
+        'playwright.driver',           # node.exe + JS driver (~120MB)
+        'playwright._impl._driver',    # driver 启动入口
+        'tkinter',                     # 不需要 GUI 工具包
+        'test',
+        'unittest',
+    ],
     noarchive=False,
     optimize=0,
 )

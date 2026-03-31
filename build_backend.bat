@@ -23,6 +23,10 @@ python -m PyInstaller --noconfirm --clean --onefile --name backend ^
   --collect-all browser ^
   --collect-all pages ^
   --collect-all pdd_selectors ^
+  --exclude-module playwright.driver ^
+  --exclude-module tkinter ^
+  --exclude-module unittest ^
+  --exclude-module test ^
   scripts\pyinstaller_entry.py
 if errorlevel 1 goto :error
 
@@ -41,6 +45,10 @@ python -m PyInstaller --noconfirm --clean --onefile --name celery-worker ^
   --collect-all browser ^
   --collect-all pages ^
   --collect-all pdd_selectors ^
+  --exclude-module playwright.driver ^
+  --exclude-module tkinter ^
+  --exclude-module unittest ^
+  --exclude-module test ^
   --add-data "data;data" ^
   scripts\pyinstaller_celery_entry.py
 if errorlevel 1 goto :error

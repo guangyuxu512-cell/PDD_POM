@@ -105,14 +105,24 @@ def 获取前端构建目录() -> Path | None:
     候选目录列表 = []
 
     if getattr(sys, "frozen", False):
-        候选目录列表.append(Path(sys.executable).resolve().parent.parent / "frontend" / "dist")
+        exe_dir = Path(sys.executable).resolve().parent
+        # Electron 打包结构: resources/app/python-backend/backend/backend.exe
+        # 需要向上3级到 app/ 才能找到 app/frontend/dist
+        候选目录列表.append(exe_dir.parent.parent / "frontend" / "dist")
+        # 独立运行: python-backend-dist/backend/backend.exe → 同级 frontend/dist
+        候选目录列表.append(exe_dir.parent / "frontend" / "dist")
+        # 兜底：exe 同目录下
+        候选目录列表.append(exe_dir / "frontend" / "dist")
 
     候选目录列表.append(Path(__file__).resolve().parent.parent / "frontend" / "dist")
 
     for 候选目录 in 候选目录列表:
+        日志记录器.debug(f"检查前端目录: {候选目录} → {'存在' if 候选目录.exists() else '不存在'}")
         if 候选目录.exists():
+            日志记录器.info(f"前端目录已定位: {候选目录}")
             return 候选目录
 
+    日志记录器.warning(f"未找到前端构建目录，已检查: {候选目录列表}")
     return None
 
 
