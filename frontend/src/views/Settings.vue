@@ -40,10 +40,10 @@ const config = ref<SystemConfig>({
 const testingRedis = ref(false)
 const testingFeishu = ref(false)
 const inputClass =
-  'w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500'
-const sectionClass = 'rounded-md border border-brand-200/50 bg-white p-5 shadow-sm'
+  'w-full rounded-md border border-brand-300/50 bg-white px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500'
+const sectionClass = 'rounded-md border border-brand-300/50 bg-white p-5 shadow-sm'
 const secondaryButtonClass =
-  'rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60'
+  'rounded-md border border-brand-300/50 bg-white px-3 py-1.5 text-sm text-brand-700 transition hover:bg-brand-100/50 hover:text-brand-900 disabled:cursor-not-allowed disabled:opacity-60'
 const primaryButtonClass =
   'rounded-md bg-brand-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-brand-700'
 
@@ -121,19 +121,19 @@ onMounted(loadConfig)
   <div class="mx-auto max-w-5xl space-y-6">
     <div class="space-y-1">
       <h1 class="text-lg font-semibold text-gray-900">系统设置</h1>
-      <p class="text-xs text-gray-500">集中维护 Redis、机器码、验证码服务、飞书通知与浏览器基础配置。</p>
+      <p class="text-xs text-brand-500">集中维护 Redis、机器码、验证码服务、飞书通知与浏览器基础配置。</p>
     </div>
 
     <form class="space-y-6" @submit.prevent="handleSave">
       <section :class="sectionClass">
         <div class="space-y-1">
           <h2 class="text-lg font-semibold text-gray-900">基础配置</h2>
-          <p class="text-xs text-gray-500">这些配置会影响 Worker 通信、浏览器初始化和默认网络环境。</p>
+          <p class="text-xs text-brand-500">这些配置会影响 Worker 通信、浏览器初始化和默认网络环境。</p>
         </div>
 
         <div class="mt-5 grid gap-4 md:grid-cols-2">
           <div class="space-y-2 md:col-span-2">
-            <label class="text-xs font-medium text-gray-600">Redis 地址</label>
+            <label class="text-xs font-medium text-brand-700">Redis 地址</label>
             <input v-model="config.redis_url" :class="inputClass" type="text" placeholder="redis://192.168.1.100:6379" required />
             <button type="button" :class="secondaryButtonClass" :disabled="testingRedis" @click="testRedis">
               {{ testingRedis ? '测试中...' : '测试连接' }}
@@ -141,23 +141,23 @@ onMounted(loadConfig)
           </div>
 
           <div class="space-y-2">
-            <label class="text-xs font-medium text-gray-600">机器码</label>
+            <label class="text-xs font-medium text-brand-700">机器码</label>
             <input v-model="config.agent_machine_id" :class="inputClass" type="text" placeholder="例如: office-pc-001" />
-            <p class="text-xs leading-5 text-gray-500">用于标识当前机器的 Celery Worker 队列名称，修改后需重启 Worker 生效</p>
+            <p class="text-xs leading-5 text-brand-500">用于标识当前机器的 Celery Worker 队列名称，修改后需重启 Worker 生效</p>
           </div>
 
           <div class="space-y-2">
-            <label class="text-xs font-medium text-gray-600">最大浏览器实例数</label>
+            <label class="text-xs font-medium text-brand-700">最大浏览器实例数</label>
             <input v-model.number="config.max_browser_instances" :class="inputClass" type="number" min="1" max="10" required />
           </div>
 
           <div class="space-y-2">
-            <label class="text-xs font-medium text-gray-600">Chrome 路径</label>
+            <label class="text-xs font-medium text-brand-700">Chrome 路径</label>
             <input v-model="config.chrome_path" :class="inputClass" type="text" placeholder="留空使用系统默认" />
           </div>
 
           <div class="space-y-2">
-            <label class="text-xs font-medium text-gray-600">默认代理</label>
+            <label class="text-xs font-medium text-brand-700">默认代理</label>
             <input v-model="config.default_proxy" :class="inputClass" type="text" placeholder="127.0.0.1:7890" />
           </div>
         </div>
@@ -166,12 +166,12 @@ onMounted(loadConfig)
       <section :class="sectionClass">
         <div class="space-y-1">
           <h2 class="text-lg font-semibold text-gray-900">验证码服务</h2>
-          <p class="text-xs text-gray-500">配置当前使用的验证码平台并验证 API Key 是否可用。</p>
+          <p class="text-xs text-brand-500">配置当前使用的验证码平台并验证 API Key 是否可用。</p>
         </div>
 
         <div class="mt-5 grid gap-4 md:grid-cols-2">
           <div class="space-y-2">
-            <label class="text-xs font-medium text-gray-600">服务商</label>
+            <label class="text-xs font-medium text-brand-700">服务商</label>
             <select v-model="config.captcha_provider" :class="inputClass" required>
               <option value="yescaptcha">YesCaptcha</option>
               <option value="2captcha">2Captcha</option>
@@ -180,7 +180,7 @@ onMounted(loadConfig)
           </div>
 
           <div class="space-y-2">
-            <label class="text-xs font-medium text-gray-600">API 密钥</label>
+            <label class="text-xs font-medium text-brand-700">API 密钥</label>
             <input v-model="config.captcha_api_key" :class="inputClass" type="password" placeholder="验证码服务 API Key" />
             <button type="button" :class="secondaryButtonClass" @click="testCaptcha">测试验证码</button>
           </div>
@@ -190,12 +190,12 @@ onMounted(loadConfig)
       <section :class="sectionClass">
         <div class="space-y-1">
           <h2 class="text-lg font-semibold text-gray-900">飞书配置</h2>
-          <p class="text-xs text-gray-500">用于通知推送和多维表格回填，按需填写即可。</p>
+          <p class="text-xs text-brand-500">用于通知推送和多维表格回填，按需填写即可。</p>
         </div>
 
         <div class="mt-5 grid gap-4 md:grid-cols-2">
           <div class="space-y-2 md:col-span-2">
-            <label class="text-xs font-medium text-gray-600">Webhook 地址</label>
+            <label class="text-xs font-medium text-brand-700">Webhook 地址</label>
             <input
               v-model="config.feishu_webhook_url"
               :class="inputClass"
@@ -205,11 +205,11 @@ onMounted(loadConfig)
             <button type="button" :class="secondaryButtonClass" :disabled="testingFeishu" @click="testFeishuWebhook">
               {{ testingFeishu ? '测试中...' : '测试 Webhook' }}
             </button>
-            <p class="text-xs leading-5 text-gray-500">飞书群机器人的 Webhook 地址，用于发送通知</p>
+            <p class="text-xs leading-5 text-brand-500">飞书群机器人的 Webhook 地址，用于发送通知</p>
           </div>
 
           <div class="space-y-2">
-            <label class="text-xs font-medium text-gray-600">App ID</label>
+            <label class="text-xs font-medium text-brand-700">App ID</label>
             <input
               v-model="config.feishu_app_id"
               :class="inputClass"
@@ -219,7 +219,7 @@ onMounted(loadConfig)
           </div>
 
           <div class="space-y-2">
-            <label class="text-xs font-medium text-gray-600">App Secret</label>
+            <label class="text-xs font-medium text-brand-700">App Secret</label>
             <input
               v-model="config.feishu_app_secret"
               :class="inputClass"
@@ -229,7 +229,7 @@ onMounted(loadConfig)
           </div>
 
           <div class="space-y-2">
-            <label class="text-xs font-medium text-gray-600">多维表格 App Token</label>
+            <label class="text-xs font-medium text-brand-700">多维表格 App Token</label>
             <input
               v-model="config.feishu_bitable_app_token"
               :class="inputClass"
@@ -239,7 +239,7 @@ onMounted(loadConfig)
           </div>
 
           <div class="space-y-2">
-            <label class="text-xs font-medium text-gray-600">多维表格 Table ID</label>
+            <label class="text-xs font-medium text-brand-700">多维表格 Table ID</label>
             <input
               v-model="config.feishu_bitable_table_id"
               :class="inputClass"
@@ -254,14 +254,14 @@ onMounted(loadConfig)
         <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div class="space-y-1">
             <h2 class="text-lg font-semibold text-gray-900">系统监控</h2>
-            <p class="text-xs text-gray-500">快速查看当前服务健康状态和系统资源信息。</p>
+            <p class="text-xs text-brand-500">快速查看当前服务健康状态和系统资源信息。</p>
           </div>
           <button type="button" :class="secondaryButtonClass" @click="healthCheck">健康检查</button>
         </div>
       </section>
 
       <div class="flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <p class="text-xs text-gray-500">保存后，涉及连接参数和机器标识的改动需要重启相关服务才会生效。</p>
+        <p class="text-xs text-brand-500">保存后，涉及连接参数和机器标识的改动需要重启相关服务才会生效。</p>
         <button type="submit" :class="primaryButtonClass">保存配置</button>
       </div>
     </form>

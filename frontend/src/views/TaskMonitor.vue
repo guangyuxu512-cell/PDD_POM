@@ -34,9 +34,9 @@ const triggerForm = ref({
   task_name: '登录',
 })
 const inputClass =
-  'w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500'
+  'w-full rounded-md border border-brand-300/50 bg-white px-3 py-2 text-sm text-gray-900 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500'
 const secondaryButtonClass =
-  'rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm text-gray-700 transition hover:bg-gray-50'
+  'rounded-md border border-brand-300/50 bg-white px-3 py-1.5 text-sm text-brand-700 transition hover:bg-brand-100/50 hover:text-brand-900'
 const primaryButtonClass =
   'rounded-md bg-brand-900 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-brand-700'
 
@@ -120,7 +120,7 @@ const getResultDisplay = (task: Task) => {
 const getResultClass = (task: Task) => {
   if (task.status === 'failed') return 'text-rose-700'
   if (task.status === 'completed') return 'text-emerald-700'
-  return 'text-gray-500'
+  return 'text-brand-500'
 }
 
 const startAutoRefresh = () => {
@@ -152,7 +152,7 @@ onUnmounted(() => {
     <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
       <div v-if="props.showTitle" class="space-y-1">
         <h1 class="text-lg font-semibold text-gray-900">任务监控</h1>
-        <p class="text-xs text-gray-500">自动轮询任务状态，支持手动触发和取消进行中的任务。</p>
+        <p class="text-xs text-brand-500">自动轮询任务状态，支持手动触发和取消进行中的任务。</p>
       </div>
 
       <div class="flex flex-wrap gap-2">
@@ -161,10 +161,10 @@ onUnmounted(() => {
       </div>
     </div>
 
-    <div class="overflow-hidden rounded-md border border-brand-200/50 bg-white shadow-sm">
+    <div class="overflow-hidden rounded-md border border-brand-300/50 bg-white shadow-sm">
       <div class="overflow-x-auto">
         <table class="min-w-full">
-          <thead class="bg-brand-50 text-xs font-medium uppercase tracking-wider text-gray-500">
+          <thead class="bg-brand-100 text-xs font-medium uppercase tracking-wider text-brand-500">
             <tr>
               <th class="px-4 py-3 text-left font-medium">任务 ID</th>
               <th class="px-4 py-3 text-left font-medium">店铺</th>
@@ -177,16 +177,16 @@ onUnmounted(() => {
           </thead>
           <tbody>
             <tr v-if="tasks.length === 0">
-              <td colspan="7" class="px-4 py-12 text-center text-sm text-gray-500">暂无任务记录</td>
+              <td colspan="7" class="px-4 py-12 text-center text-sm text-brand-500">暂无任务记录</td>
             </tr>
-            <tr v-for="task in tasks" :key="task.task_id" class="border-b border-gray-100 hover:bg-gray-50/50">
-              <td class="px-4 py-3 font-mono text-xs text-gray-500">{{ task.task_id.substring(0, 8) }}...</td>
+            <tr v-for="task in tasks" :key="task.task_id" class="border-b border-brand-300/30 hover:bg-brand-100/50">
+              <td class="px-4 py-3 font-mono text-xs text-brand-500">{{ task.task_id.substring(0, 8) }}...</td>
               <td class="px-4 py-3 text-sm text-gray-900">{{ getShopName(task.shop_id) }}</td>
               <td class="px-4 py-3 text-sm text-gray-900">{{ task.task_name }}</td>
               <td class="px-4 py-3 text-sm text-gray-900">
                 <StatusBadge :status="task.status" type="task" />
               </td>
-              <td class="px-4 py-3 font-mono text-xs text-gray-500">{{ task.started_at }}</td>
+              <td class="px-4 py-3 font-mono text-xs text-brand-500">{{ task.started_at }}</td>
               <td :class="['px-4 py-3 text-sm font-medium', getResultClass(task)]">
                 {{ getResultDisplay(task) }}
               </td>
@@ -199,7 +199,7 @@ onUnmounted(() => {
                 >
                   取消
                 </button>
-                <span v-else class="text-xs text-gray-400">-</span>
+                <span v-else class="text-xs text-brand-500">-</span>
               </td>
             </tr>
           </tbody>
@@ -210,7 +210,7 @@ onUnmounted(() => {
     <Modal :show="showTriggerModal" title="手动触发任务" width="520px" @close="showTriggerModal = false">
       <form class="space-y-4" @submit.prevent="handleTrigger">
         <div class="space-y-2">
-          <label class="text-xs font-medium text-gray-600">选择店铺</label>
+          <label class="text-xs font-medium text-brand-700">选择店铺</label>
           <select v-model="triggerForm.shop_id" :class="inputClass" required>
             <option v-for="shop in shops" :key="shop.id" :value="shop.id">
               {{ shop.name }}
@@ -219,7 +219,7 @@ onUnmounted(() => {
         </div>
 
         <div class="space-y-2">
-          <label class="text-xs font-medium text-gray-600">任务类型</label>
+          <label class="text-xs font-medium text-brand-700">任务类型</label>
           <select v-model="triggerForm.task_name" :class="inputClass" required>
             <option value="登录">登录</option>
           </select>

@@ -369,7 +369,7 @@ onMounted(() => {
       <div v-if="props.showTitle" class="space-y-2">
         <p class="text-xs font-semibold uppercase tracking-[0.2em] text-amber-600">Flow Builder</p>
         <h1 class="text-lg font-semibold text-gray-900">流程模板</h1>
-        <p class="max-w-3xl text-sm text-gray-500">
+        <p class="max-w-3xl text-sm text-brand-500">
           按任务注册表动态编排步骤，支持紧凑表格拖拽排序、失败策略配置和同步控制。
         </p>
       </div>
@@ -381,35 +381,35 @@ onMounted(() => {
       </button>
     </header>
 
-    <section class="rounded-md border border-brand-200/50 bg-white px-4 py-3 shadow-sm">
-      <p class="inline-stats text-sm text-gray-500">
+    <section class="rounded-md border border-brand-300/50 bg-white px-4 py-3 shadow-sm">
+      <p class="inline-stats text-sm text-brand-500">
         共 <strong class="font-semibold text-gray-900">{{ totalFlows }}</strong> 个流程 ·
         <strong class="font-semibold text-gray-900">{{ totalSteps }}</strong> 个步骤 ·
         <strong class="font-semibold text-gray-900">{{ tasks.length }}</strong> 个可用任务
       </p>
     </section>
 
-    <section class="rounded-md border border-brand-200/50 bg-white shadow-sm">
-      <div class="flex flex-col gap-2 border-b border-gray-100 px-5 py-4 sm:flex-row sm:items-start sm:justify-between">
+    <section class="rounded-md border border-brand-300/50 bg-white shadow-sm">
+      <div class="flex flex-col gap-2 border-b border-brand-300/30 px-5 py-4 sm:flex-row sm:items-start sm:justify-between">
         <div class="space-y-1">
           <h2 class="text-sm font-medium text-gray-900">模板列表</h2>
-          <p class="text-xs text-gray-500">流程创建后可被批量执行页和定时任务页直接引用。</p>
+          <p class="text-xs text-brand-500">流程创建后可被批量执行页和定时任务页直接引用。</p>
         </div>
       </div>
 
-      <div v-if="isLoading" class="px-6 py-12 text-center text-sm text-gray-400">🧩 正在加载流程模板...</div>
+      <div v-if="isLoading" class="px-6 py-12 text-center text-sm text-brand-500">🧩 正在加载流程模板...</div>
       <div v-else-if="flows.length === 0" class="space-y-4 px-6 py-12 text-center">
-        <p class="text-sm text-gray-400">🪹 当前还没有流程模板。</p>
+        <p class="text-sm text-brand-500">🪹 当前还没有流程模板。</p>
         <button
-          class="inline-flex items-center justify-center rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 transition hover:bg-gray-50"
+          class="inline-flex items-center justify-center rounded-md border border-brand-300/50 bg-white px-3 py-1.5 text-sm font-medium text-brand-700 transition hover:bg-brand-100/50 hover:text-brand-900"
           @click="openCreateModal"
         >
           创建第一个流程
         </button>
       </div>
       <div v-else class="overflow-x-auto">
-        <table class="flow-table min-w-[920px] w-full table-fixed divide-y divide-gray-200">
-          <thead class="bg-brand-50 text-xs font-medium uppercase tracking-wider text-gray-500">
+        <table class="flow-table min-w-[920px] w-full table-fixed divide-y divide-brand-300/30">
+          <thead class="bg-brand-700/10 text-xs font-medium uppercase tracking-wider text-brand-700">
             <tr>
               <th class="w-12 px-4 py-3 text-center">#</th>
               <th class="w-40 px-4 py-3 text-left">流程名称</th>
@@ -419,36 +419,36 @@ onMounted(() => {
               <th class="w-36 px-4 py-3 text-center">操作</th>
             </tr>
           </thead>
-          <tbody class="divide-y divide-gray-100 text-sm text-gray-900">
+          <tbody class="divide-y divide-brand-300/20 text-sm text-gray-900">
             <tr
               v-for="(flow, index) in flows"
               :key="flow.id"
-              class="border-b border-gray-100 transition hover:bg-gray-50/50"
+              class="border-b border-brand-300/30 transition hover:bg-brand-100/50"
             >
-              <td class="px-4 py-3 text-center font-mono text-xs text-gray-500">{{ index + 1 }}</td>
+              <td class="px-4 py-3 text-center font-mono text-xs text-brand-500">{{ index + 1 }}</td>
               <td class="px-4 py-3">
                 <a
-                  class="flow-name-link font-medium text-gray-900 underline-offset-4 transition hover:text-gray-700 hover:underline"
+                  class="flow-name-link font-medium text-gray-900 underline-offset-4 transition hover:text-brand-900 hover:underline"
                   href="#"
                   @click.prevent="openEditModal(flow)"
                 >
                   {{ flow.name }}
                 </a>
               </td>
-              <td class="cell-desc max-w-0 truncate px-4 py-3 text-xs text-gray-500" :title="flow.description || '—'">
+              <td class="cell-desc max-w-0 truncate px-4 py-3 text-xs text-brand-500" :title="flow.description || '—'">
                 {{ flow.description || '—' }}
               </td>
               <td class="px-4 py-3 text-center">
-                <span class="step-badge inline-flex min-w-8 items-center justify-center rounded-full bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-700">
+                <span class="step-badge inline-flex min-w-8 items-center justify-center rounded-full bg-brand-100 px-2.5 py-1 text-xs font-medium text-brand-700">
                   {{ flow.steps.length }}
                 </span>
               </td>
-              <td class="cell-summary max-w-0 truncate px-4 py-3 text-xs text-gray-500" :title="getStepSummary(flow) || '—'">
+              <td class="cell-summary max-w-0 truncate px-4 py-3 text-xs text-brand-500" :title="getStepSummary(flow) || '—'">
                 {{ getStepSummary(flow) || '—' }}
               </td>
               <td class="cell-actions space-x-2 whitespace-nowrap px-4 py-3 text-center">
                 <button
-                  class="ghost-button btn-sm text-xs font-medium text-gray-500 transition hover:text-gray-700"
+                  class="ghost-button btn-sm text-xs font-medium text-brand-500 transition hover:text-brand-900"
                   @click="openEditModal(flow)"
                 >
                   编辑
@@ -476,36 +476,36 @@ onMounted(() => {
         <section class="space-y-4">
           <div class="grid gap-4 md:grid-cols-2">
             <label class="space-y-2">
-              <span class="text-xs font-medium text-gray-600">流程名称</span>
+              <span class="text-xs font-medium text-brand-700">流程名称</span>
               <input
                 v-model="form.name"
                 type="text"
                 placeholder="例如：新店启用流程"
-                class="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
+                class="w-full rounded-md border border-brand-300/50 bg-white px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
               />
             </label>
             <label class="space-y-2">
-              <span class="text-xs font-medium text-gray-600">流程说明</span>
+              <span class="text-xs font-medium text-brand-700">流程说明</span>
               <input
                 v-model="form.description"
                 type="text"
                 placeholder="可选，简要说明流程用途"
-                class="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
+                class="w-full rounded-md border border-brand-300/50 bg-white px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
               />
             </label>
           </div>
         </section>
 
-        <section class="border-t border-gray-100 pt-4">
+        <section class="border-t border-brand-300/30 pt-4">
           <div class="mb-4 space-y-1">
             <h3 class="text-sm font-medium text-gray-900">步骤编排</h3>
-            <p class="text-xs text-gray-500">拖拽调整执行顺序，保存前至少保留一个已选择任务的步骤。</p>
+            <p class="text-xs text-brand-500">拖拽调整执行顺序，保存前至少保留一个已选择任务的步骤。</p>
           </div>
 
-          <div class="step-table-shell overflow-hidden rounded-md border border-brand-200/50 bg-white">
+          <div class="step-table-shell overflow-hidden rounded-md border border-brand-300/50 bg-white">
             <div class="overflow-x-auto">
               <div class="min-w-[860px]">
-                <div class="step-table-header grid grid-cols-[44px_48px_minmax(220px,1.5fr)_minmax(220px,1.2fr)_92px_92px_72px] items-center gap-3 bg-brand-50 px-4 py-3 text-xs font-medium uppercase tracking-wider text-gray-500">
+                <div class="step-table-header grid grid-cols-[44px_48px_minmax(220px,1.5fr)_minmax(220px,1.2fr)_92px_92px_72px] items-center gap-3 bg-brand-100 px-4 py-3 text-xs font-medium uppercase tracking-wider text-brand-500">
                   <span class="text-center" aria-hidden="true"></span>
                   <span class="text-center">序号</span>
                   <span>任务</span>
@@ -519,9 +519,9 @@ onMounted(() => {
                   <div
                     v-for="(step, index) in form.steps"
                     :key="step.id"
-                    class="step-row relative grid min-h-10 grid-cols-[44px_48px_minmax(220px,1.5fr)_minmax(220px,1.2fr)_92px_92px_72px] items-center gap-3 rounded-md border border-transparent px-2 py-2 transition hover:bg-gray-50"
+                    class="step-row relative grid min-h-10 grid-cols-[44px_48px_minmax(220px,1.5fr)_minmax(220px,1.2fr)_92px_92px_72px] items-center gap-3 rounded-md border border-transparent px-2 py-2 transition hover:bg-brand-100/50"
                     :class="{
-                      'bg-gray-100/80': draggingStepId === step.id,
+                      'bg-brand-100/80': draggingStepId === step.id,
                       'before:absolute before:left-3 before:right-3 before:top-0 before:h-0.5 before:-translate-y-1/2 before:rounded-full before:bg-brand-900':
                         dropIndicator?.stepId === step.id && dropIndicator.position === 'before',
                       'after:absolute after:left-3 after:right-3 after:bottom-0 after:h-0.5 after:translate-y-1/2 after:rounded-full after:bg-brand-900':
@@ -532,7 +532,7 @@ onMounted(() => {
                   >
                     <div class="flex items-center justify-center">
                       <button
-                        class="row-handle inline-flex h-6 w-6 items-center justify-center rounded-md text-sm text-gray-400 transition hover:bg-gray-100 hover:text-gray-700"
+                        class="row-handle inline-flex h-6 w-6 items-center justify-center rounded-md text-sm text-brand-500 transition hover:bg-brand-100 hover:text-brand-900"
                         type="button"
                         draggable="true"
                         title="拖拽排序"
@@ -544,13 +544,13 @@ onMounted(() => {
                       </button>
                     </div>
 
-                    <div class="text-center font-mono text-xs text-gray-500">{{ index + 1 }}</div>
+                    <div class="text-center font-mono text-xs text-brand-500">{{ index + 1 }}</div>
 
                     <div class="space-y-1">
                       <Listbox v-model="step.task">
                         <div class="relative">
                           <ListboxButton
-                            class="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-left text-sm text-gray-900 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
+                            class="w-full rounded-md border border-brand-300/50 bg-white px-3 py-2 text-left text-sm text-gray-900 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
                             :title="getTaskDescription(step.task) || ''"
                           >
                             {{ step.task || '请选择任务' }}
@@ -563,12 +563,12 @@ onMounted(() => {
                             leave-from-class="scale-100 opacity-100"
                             leave-to-class="scale-95 opacity-0"
                           >
-                            <ListboxOptions class="absolute z-20 mt-2 max-h-64 w-full overflow-auto rounded-md border border-brand-200/50 bg-white py-1 shadow-lg">
+                            <ListboxOptions class="absolute z-20 mt-2 max-h-64 w-full overflow-auto rounded-md border border-brand-300/50 bg-white py-1 shadow-lg">
                               <ListboxOption disabled value="" v-slot="{ active }">
                                 <li
                                   :class="[
-                                    'cursor-not-allowed px-3 py-2 text-sm text-gray-300',
-                                    active ? 'bg-gray-50' : '',
+                                    'cursor-not-allowed px-3 py-2 text-sm text-brand-300',
+                                    active ? 'bg-brand-100' : '',
                                   ]"
                                 >
                                   请选择任务
@@ -582,9 +582,9 @@ onMounted(() => {
                               >
                                 <li
                                   :class="[
-                                    'cursor-pointer px-3 py-2 text-sm text-gray-700',
-                                    active ? 'bg-gray-100 text-gray-900' : '',
-                                    selected ? 'font-medium text-gray-900' : '',
+                                    'cursor-pointer px-3 py-2 text-sm text-brand-700',
+                                    active ? 'bg-brand-100 text-brand-900' : '',
+                                    selected ? 'font-medium text-brand-900' : '',
                                   ]"
                                   :title="task.description || ''"
                                 >
@@ -604,7 +604,7 @@ onMounted(() => {
                         readonly
                         :value="step.task"
                       />
-                      <small v-if="getTaskDescription(step.task)" class="field-hint text-xs text-gray-500">
+                      <small v-if="getTaskDescription(step.task)" class="field-hint text-xs text-brand-500">
                         {{ getTaskDescription(step.task) }}
                       </small>
                     </div>
@@ -612,7 +612,7 @@ onMounted(() => {
                     <div class="space-y-2">
                       <Listbox v-model="step.failurePolicy">
                         <div class="relative">
-                          <ListboxButton class="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-left text-sm text-gray-900 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500">
+                          <ListboxButton class="w-full rounded-md border border-brand-300/50 bg-white px-3 py-2 text-left text-sm text-gray-900 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500">
                             {{ failurePolicyOptions.find((option) => option.value === step.failurePolicy)?.label || '请选择策略' }}
                           </ListboxButton>
                           <transition
@@ -623,7 +623,7 @@ onMounted(() => {
                             leave-from-class="scale-100 opacity-100"
                             leave-to-class="scale-95 opacity-0"
                           >
-                            <ListboxOptions class="absolute z-20 mt-2 max-h-64 w-full overflow-auto rounded-md border border-brand-200/50 bg-white py-1 shadow-lg">
+                            <ListboxOptions class="absolute z-20 mt-2 max-h-64 w-full overflow-auto rounded-md border border-brand-300/50 bg-white py-1 shadow-lg">
                               <ListboxOption
                                 v-for="option in failurePolicyOptions"
                                 :key="option.value"
@@ -632,9 +632,9 @@ onMounted(() => {
                               >
                                 <li
                                   :class="[
-                                    'cursor-pointer px-3 py-2 text-sm text-gray-700',
-                                    active ? 'bg-gray-100 text-gray-900' : '',
-                                    selected ? 'font-medium text-gray-900' : '',
+                                    'cursor-pointer px-3 py-2 text-sm text-brand-700',
+                                    active ? 'bg-brand-100 text-brand-900' : '',
+                                    selected ? 'font-medium text-brand-900' : '',
                                   ]"
                                 >
                                   {{ option.label }}
@@ -647,7 +647,7 @@ onMounted(() => {
                       <input
                         v-if="step.failurePolicy === 'retry:N'"
                         v-model.number="step.retryCount"
-                        class="retry-inline-input w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
+                        class="retry-inline-input w-full rounded-md border border-brand-300/50 bg-white px-3 py-2 text-sm text-gray-900 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
                         type="number"
                         min="1"
                         title="重试次数"
@@ -659,7 +659,7 @@ onMounted(() => {
                       <input
                         v-model="step.barrier"
                         type="checkbox"
-                        class="h-4 w-4 rounded border-gray-300 text-gray-900 focus:ring-brand-500"
+                        class="h-4 w-4 rounded border-brand-300/50 text-brand-500 focus:ring-brand-500"
                         title="同步屏障"
                         aria-label="同步屏障"
                         @change="!step.barrier && (step.merge = false)"
@@ -670,7 +670,7 @@ onMounted(() => {
                       <input
                         v-model="step.merge"
                         type="checkbox"
-                        class="h-4 w-4 rounded border-gray-300 text-gray-900 focus:ring-brand-500"
+                        class="h-4 w-4 rounded border-brand-300/50 text-brand-500 focus:ring-brand-500"
                         title="合并执行"
                         aria-label="合并执行"
                         :disabled="!step.barrier"
@@ -695,9 +695,9 @@ onMounted(() => {
               </div>
             </div>
 
-            <div class="border-t border-gray-100 px-4 py-4">
+            <div class="border-t border-brand-300/30 px-4 py-4">
               <button
-                class="inline-flex items-center justify-center rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 transition hover:bg-gray-50"
+                class="inline-flex items-center justify-center rounded-md border border-brand-300/50 bg-white px-3 py-1.5 text-sm font-medium text-brand-700 transition hover:bg-brand-100/50 hover:text-brand-900"
                 type="button"
                 @click="addStep"
               >
@@ -710,7 +710,7 @@ onMounted(() => {
 
       <template #footer>
         <button
-          class="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 transition hover:bg-gray-50"
+          class="rounded-md border border-brand-300/50 bg-white px-3 py-1.5 text-sm font-medium text-brand-700 transition hover:bg-brand-100/50 hover:text-brand-900"
           type="button"
           @click="closeEditor"
         >

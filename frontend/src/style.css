@@ -1,12 +1,12 @@
 @import "tailwindcss";
 
 @theme {
-  --color-brand-950: #190019;
-  --color-brand-900: #2B124C;
-  --color-brand-700: #522B5B;
-  --color-brand-500: #854F6C;
-  --color-brand-200: #DFB6B2;
-  --color-brand-50:  #FBE4D8;
+  --color-brand-950: #06141B;
+  --color-brand-900: #11212D;
+  --color-brand-700: #253745;
+  --color-brand-500: #4A5C6A;
+  --color-brand-300: #9BA8AB;
+  --color-brand-100: #CCD0CF;
 }
 
 /* 全局基础 */

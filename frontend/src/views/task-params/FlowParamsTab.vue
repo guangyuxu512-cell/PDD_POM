@@ -28,35 +28,35 @@ function triggerBatchAction(action: Exclude<BatchActionKey, ''>) {
 <template>
   <div class="flex flex-col gap-3">
     <!-- 批量操作工具栏 -->
-    <div class="flex flex-wrap items-center gap-2 rounded-md border border-brand-200/50 bg-white px-4 py-3 shadow-sm">
+    <div class="flex flex-wrap items-center gap-2 rounded-md border border-brand-300/50 bg-white px-4 py-3 shadow-sm">
       <button
-        class="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 transition hover:bg-gray-50 disabled:opacity-50"
+        class="rounded-md border border-brand-300/50 bg-white px-3 py-1.5 text-xs font-medium text-brand-700 transition hover:bg-brand-100/50 hover:text-brand-900 disabled:opacity-50"
         :disabled="store.batchAction !== ''"
         @click="triggerBatchAction('reset')"
       >
         {{ store.batchAction === 'reset' ? '批量重置中...' : '批量重置' }}
       </button>
       <button
-        class="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 transition hover:bg-gray-50 disabled:opacity-50"
+        class="rounded-md border border-brand-300/50 bg-white px-3 py-1.5 text-xs font-medium text-brand-700 transition hover:bg-brand-100/50 hover:text-brand-900 disabled:opacity-50"
         :disabled="store.batchAction !== ''"
         @click="triggerBatchAction('enable')"
       >
         {{ store.batchAction === 'enable' ? '批量启用中...' : '批量启用' }}
       </button>
       <button
-        class="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 transition hover:bg-gray-50 disabled:opacity-50"
+        class="rounded-md border border-brand-300/50 bg-white px-3 py-1.5 text-xs font-medium text-brand-700 transition hover:bg-brand-100/50 hover:text-brand-900 disabled:opacity-50"
         :disabled="store.batchAction !== ''"
         @click="triggerBatchAction('disable')"
       >
         {{ store.batchAction === 'disable' ? '批量禁用中...' : '批量禁用' }}
       </button>
-      <span class="ml-auto text-xs text-gray-400">流程参数支持按流程、状态、店铺筛选后批量重置、启用和禁用。</span>
+      <span class="ml-auto text-xs text-brand-500">流程参数支持按流程、状态、店铺筛选后批量重置、启用和禁用。</span>
     </div>
 
     <!-- 表格 -->
-    <div class="overflow-x-auto rounded-md border border-brand-200/50 bg-white shadow-sm">
-      <table class="min-w-[1328px] w-full table-fixed divide-y divide-brand-200/50">
-        <thead class="bg-brand-50 text-xs font-medium uppercase tracking-wider text-brand-700">
+    <div class="overflow-x-auto rounded-md border border-brand-300/50 bg-white shadow-sm">
+      <table class="min-w-[1328px] w-full table-fixed divide-y divide-brand-300/30">
+        <thead class="bg-brand-700/10 text-xs font-medium uppercase tracking-wider text-brand-700">
           <tr>
             <th class="w-16 px-4 py-3 text-center">ID</th>
             <th class="w-32 px-4 py-3 text-left">店铺</th>
@@ -71,20 +71,20 @@ function triggerBatchAction(action: Exclude<BatchActionKey, ''>) {
             <th class="w-28 px-4 py-3 text-center">操作</th>
           </tr>
         </thead>
-        <tbody class="divide-y divide-brand-200/50 text-sm text-gray-900">
+        <tbody class="divide-y divide-brand-300/20 text-sm text-gray-900">
           <tr v-if="loading">
-            <td colspan="11" class="px-4 py-8 text-center text-sm text-gray-400">加载中...</td>
+            <td colspan="11" class="px-4 py-8 text-center text-sm text-brand-500">加载中...</td>
           </tr>
           <tr v-else-if="flowParams.length === 0">
-            <td colspan="11" class="px-4 py-8 text-center text-sm text-gray-400">暂无流程参数记录</td>
+            <td colspan="11" class="px-4 py-8 text-center text-sm text-brand-500">暂无流程参数记录</td>
           </tr>
           <template v-else>
             <tr
               v-for="flowParam in flowParams"
               :key="flowParam.id"
-              :class="['transition hover:bg-gray-50/50', flowParam.enabled ? '' : 'opacity-50']"
+              :class="['transition hover:bg-brand-100/50', flowParam.enabled ? '' : 'opacity-50']"
             >
-              <td class="px-4 py-3 text-center font-mono text-xs text-gray-500">{{ flowParam.id }}</td>
+              <td class="px-4 py-3 text-center font-mono text-xs text-brand-500">{{ flowParam.id }}</td>
               <td class="truncate px-4 py-3 text-left">{{ store.formatFlowParamShopLabel(flowParam) }}</td>
               <td class="px-4 py-3 text-left">{{ store.getFlowName(flowParam.flow_id) }}</td>
               <td class="px-4 py-3 text-center">
@@ -97,7 +97,7 @@ function triggerBatchAction(action: Exclude<BatchActionKey, ''>) {
                     @change="emit('toggle-enabled', flowParam)"
                   />
                   <span
-                    class="relative h-5 w-9 rounded-full bg-gray-200 transition after:absolute after:left-0.5 after:top-0.5 after:h-4 after:w-4 after:rounded-full after:bg-white after:shadow-sm after:transition-all peer-checked:bg-brand-500 peer-checked:after:translate-x-4 peer-disabled:opacity-50"
+                    class="switch-slider relative h-5 w-9 rounded-full bg-gray-200 transition after:absolute after:left-0.5 after:top-0.5 after:h-4 after:w-4 after:rounded-full after:bg-white after:shadow-sm after:transition-all peer-checked:bg-brand-500 peer-checked:after:translate-x-4 peer-disabled:opacity-50"
                   />
                 </label>
               </td>
@@ -120,32 +120,32 @@ function triggerBatchAction(action: Exclude<BatchActionKey, ''>) {
                     v-for="step in store.getStepResultItems(flowParam.step_results)"
                     :key="`${flowParam.id}-${step.name}`"
                     type="button"
-                    :class="['rounded-full px-2.5 py-1 text-xs font-bold transition hover:opacity-80', store.getStepResultStatusClass(step.status)]"
+                    :class="['step-result-tag rounded-full px-2.5 py-1 text-xs font-bold transition hover:opacity-80', store.getStepResultStatusClass(step.status)]"
                     @click="store.toggleStepResultDetail(flowParam.id, step.name)"
                   >
                     {{ store.formatStepResultTag(step) }}
                   </button>
-                  <span v-if="store.getStepResultItems(flowParam.step_results).length === 0" class="text-gray-400">-</span>
+                  <span v-if="store.getStepResultItems(flowParam.step_results).length === 0" class="text-brand-500">-</span>
                   <div
                     v-for="step in store.getStepResultItems(flowParam.step_results)"
                     v-show="store.isStepResultDetailOpen(flowParam.id, step.name)"
                     :key="`${flowParam.id}-${step.name}-detail`"
-                    class="mt-1 w-full rounded-md border border-brand-200/50 bg-gray-50 p-2"
+                    class="mt-1 w-full rounded-md border border-brand-300/50 bg-brand-100 p-2"
                   >
-                    <strong class="mb-1 block text-xs text-gray-700">{{ step.name }}</strong>
-                    <pre class="whitespace-pre-wrap break-words text-xs text-gray-600">{{ store.formatJsonTooltip(step.detail) }}</pre>
+                    <strong class="mb-1 block text-xs text-brand-700">{{ step.name }}</strong>
+                    <pre class="whitespace-pre-wrap break-words text-xs text-brand-500">{{ store.formatJsonTooltip(step.detail) }}</pre>
                   </div>
                 </div>
               </td>
               <td class="truncate px-4 py-3 text-left text-rose-600" :title="flowParam.error || '-'">
                 {{ flowParam.error || '-' }}
               </td>
-              <td class="px-4 py-3 text-right font-mono text-xs text-gray-500">{{ store.formatDateTime(flowParam.created_at) }}</td>
+              <td class="px-4 py-3 text-right font-mono text-xs text-brand-500">{{ store.formatDateTime(flowParam.created_at) }}</td>
               <td class="whitespace-nowrap px-4 py-3 text-center">
                 <div class="inline-flex gap-2">
                   <button
                     v-if="flowParam.status !== 'pending'"
-                    class="text-xs font-medium text-brand-700 transition hover:text-brand-900 disabled:cursor-not-allowed disabled:opacity-50"
+                    class="text-xs font-medium text-brand-500 transition hover:text-brand-900 disabled:cursor-not-allowed disabled:opacity-50"
                     :disabled="store.isRowActioning(flowParam.id)"
                     @click="emit('reset', flowParam)"
                   >

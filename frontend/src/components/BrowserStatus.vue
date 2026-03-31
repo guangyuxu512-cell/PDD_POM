@@ -30,21 +30,21 @@ const getRuntime = (createdAt: string) => {
 </script>
 
 <template>
-  <div class="rounded-md border border-brand-200/50 bg-white p-4 shadow-sm">
+  <div class="rounded-md border border-brand-300/50 bg-white p-4 shadow-sm">
     <div class="flex items-start justify-between gap-3">
       <div class="space-y-1">
         <div class="flex items-center gap-2">
           <span
             :class="[
               'h-2 w-2 rounded-full',
-              instance.status === 'running' ? 'bg-emerald-500' : 'bg-gray-300',
+              instance.status === 'running' ? 'bg-emerald-500' : 'bg-brand-300',
             ]"
           />
           <p class="text-sm font-medium text-gray-900">
             {{ instance.shop_name || instance.shop_id }}
           </p>
         </div>
-        <p class="text-xs text-gray-500">
+        <p class="text-xs text-brand-500">
           {{ instance.status === 'running' ? '运行中' : '空闲' }}
         </p>
       </div>
@@ -60,15 +60,15 @@ const getRuntime = (createdAt: string) => {
 
     <dl class="mt-4 grid gap-3 sm:grid-cols-3">
       <div>
-        <dt class="text-xs text-gray-500">运行时长</dt>
+        <dt class="text-xs text-brand-500">运行时长</dt>
         <dd class="mt-1 font-mono text-sm text-gray-900">{{ getRuntime(instance.created_at) }}</dd>
       </div>
       <div>
-        <dt class="text-xs text-gray-500">内存</dt>
+        <dt class="text-xs text-brand-500">内存</dt>
         <dd class="mt-1 font-mono text-sm text-gray-900">{{ instance.memory_usage || '-' }}</dd>
       </div>
       <div>
-        <dt class="text-xs text-gray-500">CPU</dt>
+        <dt class="text-xs text-brand-500">CPU</dt>
         <dd class="mt-1 font-mono text-sm text-gray-900">{{ instance.cpu_usage || '-' }}</dd>
       </div>
     </dl>

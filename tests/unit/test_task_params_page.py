@@ -43,9 +43,16 @@ class 测试_任务参数管理页:
             "frontend/src/views/task-params/FlowParamsTab.vue",
             "frontend/src/views/task-params/ImportCsvModal.vue",
             "frontend/src/views/task-params/JsonTooltip.vue",
-            "frontend/src/views/task-params/TaskParamsManage.css",
         ]:
             assert (仓库根目录 / 相对路径).exists()
+
+        for 已删除样式文件 in [
+            "frontend/src/views/task-params/TaskParamsManage.css",
+            "frontend/src/views/task-params/FlowParamsTab.css",
+            "frontend/src/views/task-params/TaskListTab.css",
+            "frontend/src/views/task-params/TaskResultTab.css",
+        ]:
+            assert not (仓库根目录 / 已删除样式文件).exists()
 
         for 关键字 in [
             "useTaskParamsStore",
@@ -56,12 +63,12 @@ class 测试_任务参数管理页:
             "JsonTooltip",
             "ConfirmDialog",
             "<component",
-            "type=\"date\"",
+            'type="date"',
             "handleBatchAction",
             "handleToggleEnabled",
-            "rounded-md border border-gray-200 bg-white p-4 shadow-sm",
-            "rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm text-gray-700 transition hover:bg-gray-50",
-            "rounded-md bg-gray-900 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-gray-800",
+            "rounded-md border border-brand-300/50 bg-white p-4 shadow-sm",
+            "rounded-md border border-brand-300/50 bg-white px-3 py-1.5 text-sm text-brand-700 transition hover:bg-brand-100/50 hover:text-brand-900",
+            "rounded-md bg-brand-900 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-brand-700",
         ]:
             assert 关键字 in 页面文件
 

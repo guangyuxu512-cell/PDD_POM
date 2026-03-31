@@ -38,7 +38,7 @@ const iconToneClasses = computed(() => {
     return 'border-amber-200 bg-amber-50 text-amber-600'
   }
 
-  return 'border-brand-200/50 bg-gray-50 text-gray-600'
+  return 'border-brand-300/50 bg-brand-100 text-brand-700'
 })
 
 const confirmButtonClasses = computed(() => {
@@ -85,7 +85,7 @@ function handleClose() {
             leave-to="scale-95 opacity-0"
           >
             <DialogPanel
-              class="confirm-container w-full max-w-md rounded-md border border-brand-200/50 bg-white shadow-lg"
+              class="confirm-container w-full max-w-md rounded-md border border-brand-300/50 bg-white shadow-lg"
             >
               <div class="flex flex-col gap-4 px-5 py-5">
                 <div
@@ -101,16 +101,16 @@ function handleClose() {
                   <DialogTitle class="text-lg font-semibold text-gray-900">
                     {{ props.title }}
                   </DialogTitle>
-                  <p class="text-sm leading-6 text-gray-600">
+                  <p class="text-sm leading-6 text-brand-700">
                     {{ props.message }}
                   </p>
                 </div>
               </div>
 
-              <div class="flex items-center justify-center gap-2 border-t border-gray-100 px-5 py-3">
+              <div class="flex items-center justify-center gap-2 border-t border-brand-300/30 px-5 py-3">
                 <button
                   type="button"
-                  class="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
+                  class="rounded-md border border-brand-300/50 bg-white px-4 py-2 text-sm font-medium text-brand-700 transition-colors hover:bg-brand-100/50 hover:text-brand-900"
                   @click="handleClose"
                 >
                   {{ props.cancelText }}

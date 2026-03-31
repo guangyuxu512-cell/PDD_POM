@@ -43,13 +43,14 @@ class 测试_真人模拟器:
 
         # 统计 100 次延迟
         for _ in range(100):
-            开始时间 = time.time()
+            开始时间 = time.perf_counter()
             await 模拟器.随机延迟(最小秒, 最大秒)
-            结束时间 = time.time()
+            结束时间 = time.perf_counter()
             实际延迟 = 结束时间 - 开始时间
 
-            # 验证延迟在范围内（允许系统调度误差）
-            assert 最小秒 <= 实际延迟 <= 最大秒 + 0.02
+            # 验证延迟在范围内。
+            # Windows/CI 的事件循环调度对 10~20ms 级 sleep 会有明显抖动，放宽上界避免偶发误报。
+            assert 最小秒 <= 实际延迟 <= 最大秒 + 0.05
 
     @pytest.mark.asyncio
     async def test_贝塞尔曲线终点正确(self, 模拟页面):

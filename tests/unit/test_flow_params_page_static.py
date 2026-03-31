@@ -53,5 +53,6 @@ class 测试_流程参数管理页静态:
             "step-result-tag",
             "toggleStepResultDetail",
             "暂无流程参数记录",
+            "switch-slider",
         ]:
             assert 关键字 in 列表文件

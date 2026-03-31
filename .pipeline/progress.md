@@ -1162,3 +1162,84 @@
 - 18 条 warning 仍来自既有第三方依赖 `celery`、`openpyxl` 和既有 `PytestUnraisableExceptionWarning`，不是本轮改动引入的问题。
 - 本轮未执行 `cd frontend && npm run dev`；当前环境此前已知存在 Vite `spawn EPERM`。
 - `.pipeline/task.md` 为既有本地变更，本轮未修改。
+---
+
+## 任务摘要
+
+完成店铺管理页、任务参数页及关联中复杂页面的品牌色统一，清理旧 `task-params` CSS 残留，补齐对应静态回归，并稳定化一个独立的超短延迟测试。
+
+## 改动文件列表
+
+- `frontend/src/views/TaskParamsManage.vue`
+- `frontend/src/views/task-params/FlowParamsTab.vue`
+- `frontend/src/views/task-params/TaskListTab.vue`
+- `frontend/src/views/task-params/TaskResultTab.vue`
+- `frontend/src/views/task-params/JsonTooltip.vue`
+- `frontend/src/views/task-params/useTaskParamsStore.ts`
+- `frontend/src/components/Modal.vue`
+- `frontend/src/components/ConfirmDialog.vue`
+- `frontend/src/components/StatusBadge.vue`
+- `frontend/src/components/LogTable.vue`
+- `frontend/src/components/BrowserStatus.vue`
+- `frontend/src/views/ShopManage.vue`
+- `frontend/src/views/FlowManage.vue`
+- `frontend/src/views/ScheduleManage.vue`
+- `frontend/src/views/Settings.vue`
+- `frontend/src/views/TaskMonitor.vue`
+- `frontend/src/views/LogViewer.vue`
+- `frontend/src/views/BatchExecute.vue`
+- `frontend/src/views/BrowserManager.vue`
+- `frontend/src/components/ShopCard.vue`（删除）
+- `tests/unit/test_batch_execute_schedule_static.py`
+- `tests/unit/test_flow_manage_editor_static.py`
+- `tests/unit/test_flow_manage_list_static.py`
+- `tests/unit/test_flow_params_page_static.py`
+- `tests/unit/test_task_params_enable_reset_page.py`
+- `tests/unit/test_task_params_page.py`
+- `tests/unit/test_platform_frontend_static.py`
+- `tests/unit/test_shop_card_task_params_display.py`
+- `tests/unit/test_shop_platform_modal_static.py`
+- `tests/unit/test_headless_ui_components_static.py`
+- `tests/unit/test_frontend_tailwind_static.py`
+- `tests/unit/test_after_sale_config_page.py`
+- `tests/unit/test_frontend_display_details.py`
+- `tests/unit/test_shop_restore.py`
+- `tests/unit/test_anti_detection.py`
+- `PLAN.md`
+- `改造进度.md`
+- `.pipeline/progress.md`
+
+## 改动说明
+
+- `frontend/src/views/TaskParamsManage.vue` 与 `frontend/src/views/task-params/*`
+  - 统一筛选区、tab、分页、表头、空状态和 tooltip 的 `brand-*` 配色
+  - 补充 `switch-slider`、`step-result-tag` 兼容标记，避免静态回归与现有结构脱节
+- `frontend/src/views/ShopManage.vue`
+  - 保持平台下拉框方案，使用 `table` 修正表头与行内容对齐问题
+  - 表单输入、标签、次按钮和弹窗操作区统一到品牌色体系
+- `frontend/src/components/Modal.vue`、`ConfirmDialog.vue`、`StatusBadge.vue`、`LogTable.vue`、`BrowserStatus.vue`
+  - 将弹窗、提示、状态徽标和表格支撑组件改到同一套灰蓝品牌风格
+- `frontend/src/views/FlowManage.vue`、`ScheduleManage.vue`、`Settings.vue`、`TaskMonitor.vue`、`LogViewer.vue`、`BatchExecute.vue`、`BrowserManager.vue`
+  - 清掉残留旧灰色交互色，统一边框、hover、badge、表头和空状态
+- `frontend/src/components/ShopCard.vue`
+  - 由于已无引用，按任务单允许的范围直接删除，避免旧实现继续干扰
+- `tests/unit/*.py`
+  - 将静态断言切换到新的 `brand-*` 结构
+  - 让测试显式校验旧 `task-params` CSS 文件已删除
+  - 将 `tests/unit/test_anti_detection.py` 改为使用 `time.perf_counter()`，并放宽 Windows 上 10~20ms sleep 的调度容差
+
+## 影响范围
+
+- 店铺管理页的列表展示、平台切换、弹窗表单和状态标识
+- 任务参数管理页及其任务列表/结果列表/流程参数子组件
+- Flow / Schedule / Settings / TaskMonitor / LogViewer / BatchExecute / BrowserManager 的视觉统一性
+- 前端静态回归对新品牌色、深色侧栏、表格直出和旧 CSS 删除状态的断言
+- 一个独立的浏览器反检测延迟测试的稳定性
+
+## 注意事项
+
+- 已执行 `cd frontend && npm run build`
+- 已执行 `python -m pytest -c tests/pytest.ini tests/ -v`，结果为 `514 passed, 18 warnings`
+- 18 条 warning 仍来自既有第三方依赖 `celery`、`openpyxl` 与既有 `PytestUnraisableExceptionWarning`
+- 旧 `frontend/src/views/task-params/*.css` 文件本轮确认已不存在，源码中也无残留引用
+- 当前环境此前已知存在 `npm run dev` 的 `spawn EPERM`，本轮未执行 dev server 验收

@@ -3156,3 +3156,20 @@
   - `514 passed, 18 warnings`
 - [ ] `cd frontend && npm run dev`
   - 当前环境此前已知存在 `spawn EPERM`，本轮未执行 dev server 验收
+## Prompt 143：统一店铺/任务参数页品牌配色并清理残留样式 ✅
+- [x] 复核 `frontend/src/style.css` 已注册 `brand-950/900/700/500/300/100` 色板，并沿用到本轮改造页面
+- [x] `frontend/src/views/ShopManage.vue` 改为 `table` 直出，平台切换保持下拉框，表头与行列宽固定对齐
+- [x] `frontend/src/views/TaskParamsManage.vue`、`frontend/src/views/task-params/FlowParamsTab.vue`、`frontend/src/views/task-params/TaskListTab.vue`、`frontend/src/views/task-params/TaskResultTab.vue`、`frontend/src/views/task-params/JsonTooltip.vue` 统一到 `brand-*` 配色，并补齐 `switch-slider` / `step-result-tag` 兼容标记
+- [x] `frontend/src/components/Modal.vue`、`frontend/src/components/ConfirmDialog.vue`、`frontend/src/components/StatusBadge.vue`、`frontend/src/components/LogTable.vue`、`frontend/src/components/BrowserStatus.vue` 统一到品牌色体系
+- [x] `frontend/src/views/FlowManage.vue`、`frontend/src/views/ScheduleManage.vue`、`frontend/src/views/Settings.vue`、`frontend/src/views/TaskMonitor.vue`、`frontend/src/views/LogViewer.vue`、`frontend/src/views/BatchExecute.vue`、`frontend/src/views/BrowserManager.vue` 完成残留灰色交互色替换
+- [x] 删除未再使用的 `frontend/src/components/ShopCard.vue`
+- [x] 确认 `frontend/src/views/task-params/*.css` 旧文件已不在仓库中，且前端源码无残留引用
+- [x] 更新静态回归用例，断言新 `brand-*` 结构与“旧 CSS 已删除”的现状一致
+- [x] 稳定化 `tests/unit/test_anti_detection.py` 的超短延迟断言，改用 `time.perf_counter()` 并放宽 Windows 调度容差
+- [x] 前端构建验证通过：
+  - `cd frontend && npm run build`
+- [x] 全量回归通过：
+  - `python -m pytest -c tests/pytest.ini tests/ -v`
+  - `514 passed, 18 warnings`
+- [ ] `cd frontend && npm run dev`
+  - 当前环境此前已知存在 `spawn EPERM`，本轮未执行 dev server 验收

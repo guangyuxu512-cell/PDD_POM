@@ -12,25 +12,25 @@ def 读取文件(相对路径: str) -> str:
 
 
 class 测试_流程管理列表静态页:
-    def test_流程管理页改为_tailwind统计栏与表格列表(self):
+    def test_流程管理页改为_brand_统计栏与表格列表(self):
         页面文件 = 读取文件("frontend/src/views/FlowManage.vue")
 
         for 关键字 in [
-            'class="inline-stats text-sm text-gray-500"',
+            'class="inline-stats text-sm text-brand-500"',
             "{{ totalFlows }}",
             "{{ totalSteps }}",
             "{{ tasks.length }}",
-            '<table class="flow-table min-w-[920px] w-full table-fixed divide-y divide-gray-200">',
+            '<table class="flow-table min-w-[920px] w-full table-fixed divide-y divide-brand-300/30">',
             "流程名称",
             "步骤摘要",
-            'class="flow-name-link font-medium text-gray-900 underline-offset-4 transition hover:text-gray-700 hover:underline"',
+            'class="flow-name-link font-medium text-gray-900 underline-offset-4 transition hover:text-brand-900 hover:underline"',
             'href="#"',
             '@click.prevent="openEditModal(flow)"',
-            'class="step-badge inline-flex min-w-8 items-center justify-center rounded-full bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-700"',
-            'class="ghost-button btn-sm text-xs font-medium text-gray-500 transition hover:text-gray-700"',
+            'class="step-badge inline-flex min-w-8 items-center justify-center rounded-full bg-brand-100 px-2.5 py-1 text-xs font-medium text-brand-700"',
+            'class="ghost-button btn-sm text-xs font-medium text-brand-500 transition hover:text-brand-900"',
             'class="danger-button btn-sm text-xs font-medium text-rose-600 transition hover:text-rose-700"',
             "getStepSummary(flow) ||",
-            "🪹 当前还没有流程模板。",
+            "当前还没有流程模板。",
             "overflow-x-auto",
         ]:
             assert 关键字 in 页面文件
@@ -44,14 +44,14 @@ class 测试_流程管理列表静态页:
         ]:
             assert 旧结构 not in 页面文件
 
-    def test_流程管理页表格密度依赖_tailwind原子类(self):
+    def test_流程管理页表格密度依赖_brand_原子类(self):
         页面文件 = 读取文件("frontend/src/views/FlowManage.vue")
 
         for 关键字 in [
-            "table-fixed divide-y divide-gray-200",
-            "border-b border-gray-100 transition hover:bg-gray-50/50",
-            "font-mono text-xs text-gray-500",
-            "max-w-0 truncate px-4 py-3 text-xs text-gray-500",
+            "table-fixed divide-y divide-brand-300/30",
+            "border-b border-brand-300/30 transition hover:bg-brand-100/50",
+            "font-mono text-xs text-brand-500",
+            "max-w-0 truncate px-4 py-3 text-xs text-brand-500",
             "space-x-2 whitespace-nowrap px-4 py-3 text-center",
         ]:
             assert 关键字 in 页面文件

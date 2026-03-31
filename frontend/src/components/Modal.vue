@@ -1,4 +1,4 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 import {
   Dialog,
   DialogPanel,
@@ -50,19 +50,19 @@ const emit = defineEmits<{
             leave-to="scale-95 opacity-0"
           >
             <DialogPanel
-              class="modal-container flex max-h-[90vh] w-full flex-col overflow-hidden rounded-md border border-brand-200/50 bg-white shadow-lg"
+              class="modal-container flex max-h-[90vh] w-full flex-col overflow-hidden rounded-md border border-brand-300/50 bg-white shadow-lg"
               :style="{ maxWidth: props.width || '500px' }"
             >
               <div
                 v-if="props.title"
-                class="modal-header flex items-center justify-between border-b border-brand-200/30 px-5 py-4"
+                class="modal-header flex items-center justify-between border-b border-brand-300/30 px-5 py-4"
               >
                 <DialogTitle class="text-lg font-semibold text-gray-900">
                   {{ props.title }}
                 </DialogTitle>
                 <button
                   type="button"
-                  class="rounded-md p-1 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
+                  class="rounded-md p-1 text-brand-500 transition-colors hover:bg-brand-100 hover:text-brand-900"
                   @click="emit('close')"
                 >
                   <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -71,13 +71,13 @@ const emit = defineEmits<{
                 </button>
               </div>
 
-              <div class="modal-body flex-1 overflow-y-auto px-5 py-4 text-sm text-gray-600">
+              <div class="modal-body flex-1 overflow-y-auto px-5 py-4 text-sm text-brand-700">
                 <slot />
               </div>
 
               <div
                 v-if="$slots.footer"
-                class="modal-footer flex items-center justify-end gap-2 border-t border-brand-200/30 px-5 py-3"
+                class="modal-footer flex items-center justify-end gap-2 border-t border-brand-300/30 px-5 py-3"
               >
                 <slot name="footer" />
               </div>

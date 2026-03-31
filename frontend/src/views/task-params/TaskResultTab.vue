@@ -13,9 +13,9 @@ const store = useTaskParamsContext()
 </script>
 
 <template>
-  <div class="overflow-x-auto rounded-md border border-brand-200/50 bg-white shadow-sm">
-    <table class="min-w-[1088px] w-full table-fixed divide-y divide-brand-200/50">
-      <thead class="bg-brand-50 text-xs font-medium uppercase tracking-wider text-brand-700">
+  <div class="overflow-x-auto rounded-md border border-brand-300/50 bg-white shadow-sm">
+    <table class="min-w-[1088px] w-full table-fixed divide-y divide-brand-300/30">
+      <thead class="bg-brand-700/10 text-xs font-medium uppercase tracking-wider text-brand-700">
         <tr>
           <th class="w-16 px-4 py-3 text-center">ID</th>
           <th class="w-32 px-4 py-3 text-left">店铺</th>
@@ -27,20 +27,20 @@ const store = useTaskParamsContext()
           <th class="w-36 px-4 py-3 text-right">执行时间</th>
         </tr>
       </thead>
-      <tbody class="divide-y divide-brand-200/50 text-sm text-gray-900">
+      <tbody class="divide-y divide-brand-300/20 text-sm text-gray-900">
         <tr v-if="loading">
-          <td colspan="8" class="px-4 py-8 text-center text-sm text-gray-400">加载中...</td>
+          <td colspan="8" class="px-4 py-8 text-center text-sm text-brand-500">加载中...</td>
         </tr>
         <tr v-else-if="resultTaskParams.length === 0">
-          <td colspan="8" class="px-4 py-8 text-center text-sm text-gray-400">暂无执行结果记录</td>
+          <td colspan="8" class="px-4 py-8 text-center text-sm text-brand-500">暂无执行结果记录</td>
         </tr>
         <template v-else>
           <tr
             v-for="taskParam in resultTaskParams"
             :key="`${taskParam.task_name}-${taskParam.id}-${taskParam.batch_id || ''}`"
-            class="transition hover:bg-gray-50/50"
+            class="transition hover:bg-brand-100/50"
           >
-            <td class="px-4 py-3 text-center font-mono text-xs text-gray-500">{{ taskParam.id }}</td>
+            <td class="px-4 py-3 text-center font-mono text-xs text-brand-500">{{ taskParam.id }}</td>
             <td class="truncate px-4 py-3 text-left">{{ store.formatShopLabel(taskParam) }}</td>
             <td class="px-4 py-3 text-left">{{ taskParam.task_name }}</td>
             <td class="px-4 py-3 text-left">
@@ -67,7 +67,7 @@ const store = useTaskParamsContext()
             <td class="truncate px-4 py-3 text-left text-rose-600" :title="taskParam.error || '-'">
               {{ taskParam.error || '-' }}
             </td>
-            <td class="px-4 py-3 text-right font-mono text-xs text-gray-500">{{ store.formatDateTime(taskParam.updated_at) }}</td>
+            <td class="px-4 py-3 text-right font-mono text-xs text-brand-500">{{ store.formatDateTime(taskParam.updated_at) }}</td>
           </tr>
         </template>
       </tbody>

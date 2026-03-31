@@ -1,4 +1,4 @@
-﻿"""
+"""
 任务参数启用/重置管理页静态测试
 """
 from pathlib import Path

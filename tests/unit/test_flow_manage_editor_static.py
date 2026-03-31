@@ -12,19 +12,19 @@ def 读取文件(相对路径: str) -> str:
 
 
 class 测试_流程编辑器静态页:
-    def test_流程编辑弹窗切换为_headless_ui_与_tailwind结构(self):
+    def test_流程编辑弹窗切换为_headless_ui_与_brand_结构(self):
         页面文件 = 读取文件("frontend/src/views/FlowManage.vue")
 
         for 关键字 in [
             "import Modal from '../components/Modal.vue'",
             "<Modal",
             'width="min(80vw, 900px)"',
-            'class="step-table-shell overflow-hidden rounded-md border border-gray-200 bg-white"',
+            'class="step-table-shell overflow-hidden rounded-md border border-brand-300/50 bg-white"',
             'class="step-table-header grid',
             'class="step-row relative grid',
             '<Listbox v-model="step.task">',
             '<Listbox v-model="step.failurePolicy">',
-            'class="field-hint text-xs text-gray-500"',
+            'class="field-hint text-xs text-brand-500"',
             "流程名称",
             "流程说明",
             "步骤编排",
@@ -70,9 +70,9 @@ class 测试_流程编辑器静态页:
             "grid-cols-[44px_48px_minmax(220px,1.5fr)_minmax(220px,1.2fr)_92px_92px_72px]",
             "row-handle inline-flex h-6 w-6 items-center justify-center rounded-md",
             "icon-danger-button inline-flex h-7 w-7 items-center justify-center rounded-md",
-            "retry-inline-input w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900",
-            "focus:ring-1 focus:ring-gray-400",
-            "bg-gray-50/60",
+            "retry-inline-input w-full rounded-md border border-brand-300/50 bg-white px-3 py-2 text-sm text-gray-900",
+            "focus:ring-1 focus:ring-brand-500",
+            "bg-brand-700/10",
         ]:
             assert 关键字 in 页面文件
 

@@ -137,17 +137,17 @@ class 测试_店铺字段恢复:
 
 
 class 测试_店铺页面布局:
-    """验证店铺页已经切换为紧凑列表和灰白表单结构。"""
+    """验证店铺页已经切换为表格直出和 brand 表单结构。"""
 
-    def test_店铺页_改为紧凑列表与Tailwind弹窗(self):
+    def test_店铺页改为表格直出和_brand_弹窗(self):
         店铺页 = 读取文件("frontend/src/views/ShopManage.vue")
-        店铺卡片 = 读取文件("frontend/src/components/ShopCard.vue")
         状态徽标 = 读取文件("frontend/src/components/StatusBadge.vue")
         店铺接口 = 读取文件("frontend/src/api/shops.ts")
+        店铺卡片路径 = 仓库根目录 / "frontend/src/components/ShopCard.vue"
 
-        assert "ShopCard" in 店铺页
-        assert 'class="overflow-hidden rounded-md border border-gray-200 bg-white shadow-sm"' in 店铺页
-        assert 'class="flex gap-1 rounded-md bg-gray-100 p-0.5"' in 店铺页
+        assert "ShopCard" not in 店铺页
+        assert '<div v-else class="overflow-x-auto rounded-md border border-brand-300/50 bg-white shadow-sm">' in 店铺页
+        assert '<table class="w-full min-w-[900px] table-fixed divide-y divide-brand-300/30">' in 店铺页
         assert "Listbox" in 店铺页
         assert "邮箱配置" in 店铺页
         assert "测试连接" in 店铺页
@@ -158,18 +158,13 @@ class 测试_店铺页面布局:
         assert "Resource Workspace" not in 店铺页
         assert "总数" not in 店铺页
         assert "<style" not in 店铺页
-
-        assert "shop.smtp_user" in 店铺卡片
-        assert "shop.last_login ||" in 店铺卡片
-        assert "text-xs font-medium text-gray-500 transition hover:text-gray-700" in 店铺卡片
-        assert "<style" not in 店铺卡片
+        assert not 店铺卡片路径.exists()
 
         assert "bg-emerald-500" in 状态徽标
-        assert "bg-gray-300" in 状态徽标
+        assert "bg-brand-300" in 状态徽标
         assert "bg-amber-400" in 状态徽标
         assert "animate-pulse" in 状态徽标
         assert "<style" not in 状态徽标
-
         assert "openShopBrowser" in 店铺接口
         assert "checkShopStatus" in 店铺接口
         assert "testShopEmailConnection" in 店铺接口

@@ -30,7 +30,7 @@ const config = ref<SystemConfig>({
 })
 const showCloseAllConfirm = ref(false)
 const inputClass =
-  'w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500'
+  'w-full rounded-md border border-brand-300/50 bg-white px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500'
 const primaryButtonClass =
   'rounded-md bg-brand-900 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-brand-700'
 const dangerButtonClass =
@@ -116,28 +116,28 @@ onUnmounted(() => {
   <div class="space-y-6">
     <div class="space-y-1">
       <h1 class="text-lg font-semibold text-gray-900">浏览器管理</h1>
-      <p class="text-xs text-gray-500">统一查看运行中的浏览器实例，支持重新初始化与批量关闭。</p>
+      <p class="text-xs text-brand-500">统一查看运行中的浏览器实例，支持重新初始化与批量关闭。</p>
     </div>
 
-    <section class="rounded-md border border-brand-200/50 bg-white p-5 shadow-sm">
+    <section class="rounded-md border border-brand-300/50 bg-white p-5 shadow-sm">
       <div class="space-y-1">
         <h2 class="text-lg font-semibold text-gray-900">初始化配置</h2>
-        <p class="text-xs text-gray-500">用于控制浏览器初始化时的实例上限、Chrome 路径和默认代理。</p>
+        <p class="text-xs text-brand-500">用于控制浏览器初始化时的实例上限、Chrome 路径和默认代理。</p>
       </div>
 
       <div class="mt-5 grid gap-4 md:grid-cols-3">
         <div class="space-y-2">
-          <label class="text-xs font-medium text-gray-600">最大实例数</label>
+          <label class="text-xs font-medium text-brand-700">最大实例数</label>
           <input v-model.number="config.max_browser_instances" :class="inputClass" type="number" min="1" max="10" />
         </div>
 
         <div class="space-y-2">
-          <label class="text-xs font-medium text-gray-600">Chrome 路径</label>
+          <label class="text-xs font-medium text-brand-700">Chrome 路径</label>
           <input v-model="config.chrome_path" :class="inputClass" type="text" placeholder="留空使用系统默认" />
         </div>
 
         <div class="space-y-2">
-          <label class="text-xs font-medium text-gray-600">默认代理</label>
+          <label class="text-xs font-medium text-brand-700">默认代理</label>
           <input v-model="config.default_proxy" :class="inputClass" type="text" placeholder="127.0.0.1:7890" />
         </div>
       </div>
@@ -147,11 +147,11 @@ onUnmounted(() => {
       </div>
     </section>
 
-    <section class="rounded-md border border-brand-200/50 bg-white p-5 shadow-sm">
+    <section class="rounded-md border border-brand-300/50 bg-white p-5 shadow-sm">
       <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div class="space-y-1">
           <h2 class="text-lg font-semibold text-gray-900">运行中实例</h2>
-          <p class="text-xs text-gray-500">当前共 {{ instances.length }} 个实例，列表会自动轮询刷新。</p>
+          <p class="text-xs text-brand-500">当前共 {{ instances.length }} 个实例，列表会自动轮询刷新。</p>
         </div>
 
         <button v-if="instances.length > 0" type="button" :class="dangerButtonClass" @click="showCloseAllConfirm = true">
@@ -159,7 +159,7 @@ onUnmounted(() => {
         </button>
       </div>
 
-      <div v-if="instances.length === 0" class="mt-5 rounded-md border border-dashed border-brand-200/50 bg-gray-50 px-6 py-12 text-center text-sm text-gray-500">
+      <div v-if="instances.length === 0" class="mt-5 rounded-md border border-dashed border-brand-300/50 bg-brand-100 px-6 py-12 text-center text-sm text-brand-500">
         暂无数据
       </div>
       <div v-else class="mt-5 grid gap-4 lg:grid-cols-2">

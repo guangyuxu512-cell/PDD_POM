@@ -20,7 +20,7 @@ const { jsonTooltip, keepJsonTooltipOpen, hideJsonTooltip } = useJsonTooltip()
   <Teleport to="body">
     <div
       v-if="jsonTooltip.visible"
-      class="fixed z-50 max-w-md rounded-md border border-brand-200/50 bg-white p-3 shadow-lg"
+      class="fixed z-50 max-w-md rounded-md border border-brand-300/50 bg-white p-3 shadow-lg"
       :style="{
         left: `${jsonTooltip.left}px`,
         top: `${jsonTooltip.top}px`,
@@ -29,7 +29,7 @@ const { jsonTooltip, keepJsonTooltipOpen, hideJsonTooltip } = useJsonTooltip()
       @mouseenter="keepJsonTooltipOpen"
       @mouseleave="hideJsonTooltip"
     >
-      <pre class="max-h-64 overflow-auto whitespace-pre-wrap break-words text-xs text-gray-700">{{ jsonTooltip.content }}</pre>
+      <pre class="max-h-64 overflow-auto whitespace-pre-wrap break-words text-xs text-brand-700">{{ jsonTooltip.content }}</pre>
     </div>
   </Teleport>
 </template>

@@ -35,9 +35,9 @@ const selectedTaskName = ref('')
 const selectedShopIds = ref<string[]>([])
 const concurrency = ref(1)
 const inputClass =
-  'w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500'
+  'w-full rounded-md border border-brand-300/50 bg-white px-3 py-2 text-sm text-gray-900 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500'
 const secondaryButtonClass =
-  'rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60'
+  'rounded-md border border-brand-300/50 bg-white px-3 py-1.5 text-sm text-brand-700 transition hover:bg-brand-100/50 hover:text-brand-900 disabled:cursor-not-allowed disabled:opacity-60'
 const primaryButtonClass =
   'rounded-md bg-brand-900 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-brand-700 disabled:cursor-not-allowed disabled:bg-gray-400'
 const dangerButtonClass =
@@ -223,20 +223,20 @@ function getStepStatusLabel(status: string) {
 }
 
 function getStatusClass(status: string) {
-  if (status === 'waiting' || status === 'pending') return 'bg-gray-100 text-gray-600'
+  if (status === 'waiting' || status === 'pending') return 'bg-brand-100 text-brand-700'
   if (status === 'running') return 'bg-amber-100 text-amber-700'
   if (status === 'completed') return 'bg-emerald-100 text-emerald-700'
   if (status === 'failed') return 'bg-rose-100 text-rose-700'
-  if (status === 'stopped') return 'bg-gray-200 text-gray-700'
-  return 'bg-gray-100 text-gray-600'
+  if (status === 'stopped') return 'bg-brand-300/40 text-brand-700'
+  return 'bg-brand-100 text-brand-700'
 }
 
 function getProgressBarClass(status: string) {
   if (status === 'running') return 'bg-amber-500'
   if (status === 'completed') return 'bg-emerald-500'
   if (status === 'failed') return 'bg-rose-500'
-  if (status === 'stopped') return 'bg-gray-400'
-  return 'bg-gray-400'
+  if (status === 'stopped') return 'bg-brand-300'
+  return 'bg-brand-300'
 }
 
 function getDetailSummary(shop: BatchShopState) {
@@ -346,32 +346,32 @@ onUnmounted(() => {
   <div class="space-y-6">
     <header v-if="props.showTitle" class="space-y-1">
       <h1 class="text-lg font-semibold text-gray-900">批量执行</h1>
-      <p class="text-xs text-gray-500">配置流程或任务与目标店铺，并实时查看每个店铺的执行进度。</p>
+      <p class="text-xs text-brand-500">配置流程或任务与目标店铺，并实时查看每个店铺的执行进度。</p>
     </header>
 
     <div class="grid gap-6 xl:grid-cols-[minmax(320px,380px)_minmax(0,1fr)]">
-      <section class="rounded-md border border-brand-200/50 bg-white p-5 shadow-sm">
+      <section class="rounded-md border border-brand-300/50 bg-white p-5 shadow-sm">
         <div class="space-y-1">
           <h2 class="text-lg font-semibold text-gray-900">执行配置</h2>
-          <p class="text-xs text-gray-500">流程和任务选项会自动读取后端当前可用的数据。</p>
+          <p class="text-xs text-brand-500">流程和任务选项会自动读取后端当前可用的数据。</p>
         </div>
 
-        <div v-if="isLoading" class="flex min-h-[220px] items-center justify-center text-sm text-gray-500">
+        <div v-if="isLoading" class="flex min-h-[220px] items-center justify-center text-sm text-brand-500">
           正在加载执行配置...
         </div>
 
         <div v-else class="mt-5 space-y-5">
-          <div class="flex gap-1 rounded-md bg-gray-100 p-0.5">
+          <div class="flex gap-1 rounded-md bg-brand-100 p-0.5">
             <button
               type="button"
-              :class="['flex-1 rounded-md px-3 py-2 text-sm transition', mode === 'flow' ? 'bg-white font-medium text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700']"
+              :class="['flex-1 rounded-md px-3 py-2 text-sm transition', mode === 'flow' ? 'bg-white font-medium text-brand-900 shadow-sm' : 'text-brand-500 hover:text-brand-900']"
               @click="mode = 'flow'"
             >
               流程模式
             </button>
             <button
               type="button"
-              :class="['flex-1 rounded-md px-3 py-2 text-sm transition', mode === 'task' ? 'bg-white font-medium text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700']"
+              :class="['flex-1 rounded-md px-3 py-2 text-sm transition', mode === 'task' ? 'bg-white font-medium text-brand-900 shadow-sm' : 'text-brand-500 hover:text-brand-900']"
               @click="mode = 'task'"
             >
               单任务模式
@@ -379,7 +379,7 @@ onUnmounted(() => {
           </div>
 
           <div v-if="mode === 'flow'" class="space-y-2">
-            <label class="text-xs font-medium text-gray-600">流程模板</label>
+            <label class="text-xs font-medium text-brand-700">流程模板</label>
             <select v-model="selectedFlowId" :class="inputClass" :disabled="hasActiveBatch || isStarting">
               <option disabled value="">请选择流程模板</option>
               <option v-for="flow in flows" :key="flow.id" :value="flow.id">{{ flow.name }} · {{ flow.steps.length }} 步</option>
@@ -387,7 +387,7 @@ onUnmounted(() => {
           </div>
 
           <div v-else class="space-y-2">
-            <label class="text-xs font-medium text-gray-600">单个任务</label>
+            <label class="text-xs font-medium text-brand-700">单个任务</label>
             <select v-model="selectedTaskName" :class="inputClass" :disabled="hasActiveBatch || isStarting">
               <option disabled value="">请选择任务</option>
               <option v-for="task in tasks" :key="task.name" :value="task.name">{{ task.name }} · {{ task.description }}</option>
@@ -395,7 +395,7 @@ onUnmounted(() => {
           </div>
 
           <div class="space-y-2">
-            <label class="text-xs font-medium text-gray-600">并发数量</label>
+            <label class="text-xs font-medium text-brand-700">并发数量</label>
             <select v-model.number="concurrency" :class="inputClass" :disabled="hasActiveBatch || isStarting">
               <option :value="1">1</option>
               <option :value="2">2</option>
@@ -405,34 +405,34 @@ onUnmounted(() => {
             </select>
           </div>
 
-          <section class="rounded-md border border-brand-200/50 bg-gray-50/70 p-4">
+          <section class="rounded-md border border-brand-300/50 bg-brand-100/70 p-4">
             <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
               <div class="space-y-1">
                 <h3 class="text-sm font-medium text-gray-900">目标店铺</h3>
-                <p class="text-xs text-gray-500">已选择 {{ selectedShopIds.length }} / {{ totalShops }}</p>
+                <p class="text-xs text-brand-500">已选择 {{ selectedShopIds.length }} / {{ totalShops }}</p>
               </div>
               <button type="button" :class="secondaryButtonClass" :disabled="shops.length === 0" @click="toggleSelectAll">
                 {{ isAllSelected ? '取消全选' : '全选' }}
               </button>
             </div>
 
-            <div v-if="shops.length === 0" class="mt-4 text-center text-sm text-gray-500">暂无可执行店铺</div>
+            <div v-if="shops.length === 0" class="mt-4 text-center text-sm text-brand-500">暂无可执行店铺</div>
             <div v-else class="mt-4 max-h-[320px] space-y-2 overflow-auto pr-1">
               <label
                 v-for="shop in shops"
                 :key="shop.id"
-                class="flex items-start gap-3 rounded-md border border-brand-200/50 bg-white px-3 py-3 transition hover:bg-gray-50"
+                class="flex items-start gap-3 rounded-md border border-brand-300/50 bg-white px-3 py-3 transition hover:bg-brand-100/50"
               >
                 <input
                   v-model="selectedShopIds"
                   type="checkbox"
                   :value="shop.id"
                   :disabled="hasActiveBatch || isStarting"
-                  class="mt-0.5 h-4 w-4 rounded border-gray-300 text-gray-900 focus:ring-brand-500"
+                  class="mt-0.5 h-4 w-4 rounded border-brand-300/50 text-brand-500 focus:ring-brand-500"
                 />
                 <div class="min-w-0">
                   <p class="truncate text-sm font-medium text-gray-900">{{ shop.name }}</p>
-                  <p class="truncate font-mono text-xs text-gray-500">{{ shop.username || shop.id }}</p>
+                  <p class="truncate font-mono text-xs text-brand-500">{{ shop.username || shop.id }}</p>
                 </div>
               </label>
             </div>
@@ -449,25 +449,25 @@ onUnmounted(() => {
         </div>
       </section>
 
-      <section class="rounded-md border border-brand-200/50 bg-white p-5 shadow-sm">
+      <section class="rounded-md border border-brand-300/50 bg-white p-5 shadow-sm">
         <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div class="space-y-1">
             <h2 class="text-lg font-semibold text-gray-900">执行状态</h2>
-            <p class="text-xs text-gray-500">基于 `/api/execute/status` 的 SSE 推送，按店铺实时更新执行进度。</p>
+            <p class="text-xs text-brand-500">基于 `/api/execute/status` 的 SSE 推送，按店铺实时更新执行进度。</p>
           </div>
-          <p v-if="batchSnapshot" class="rounded-full bg-gray-100 px-3 py-1 text-xs text-gray-600">{{ batchInlineStats }}</p>
+          <p v-if="batchSnapshot" class="rounded-full bg-brand-100 px-3 py-1 text-xs text-brand-700">{{ batchInlineStats }}</p>
         </div>
 
-        <div v-if="!batchSnapshot" class="flex min-h-[280px] flex-col items-center justify-center gap-3 text-center text-sm text-gray-500">
+        <div v-if="!batchSnapshot" class="flex min-h-[280px] flex-col items-center justify-center gap-3 text-center text-sm text-brand-500">
           <p>尚未收到批次状态。</p>
           <span>启动批量执行后，这里会显示表格化进度和步骤详情。</span>
         </div>
 
         <template v-else>
-          <div class="mt-5 overflow-hidden rounded-md border border-brand-200/50">
+          <div class="mt-5 overflow-hidden rounded-md border border-brand-300/50">
             <div class="overflow-x-auto">
               <table class="min-w-full">
-                <thead class="bg-brand-50 text-xs font-medium uppercase tracking-wider text-gray-500">
+                <thead class="bg-brand-700/10 text-xs font-medium uppercase tracking-wider text-brand-700">
                   <tr>
                     <th class="px-4 py-3 text-left font-medium">店铺名称</th>
                     <th class="px-4 py-3 text-left font-medium">当前步骤</th>
@@ -479,39 +479,39 @@ onUnmounted(() => {
                 </thead>
                 <tbody>
                   <template v-for="shop in batchShops" :key="shop.shop_id">
-                    <tr class="border-b border-gray-100 hover:bg-gray-50/50">
+                    <tr class="border-b border-brand-300/30 hover:bg-brand-100/50">
                       <td class="px-4 py-3 text-sm font-medium text-gray-900">{{ getBatchShopName(shop) }}</td>
                       <td class="px-4 py-3 text-sm text-gray-900">{{ getCurrentStepLabel(shop) }}</td>
                       <td class="px-4 py-3">
                         <div class="flex items-center gap-3">
-                          <div class="h-2 min-w-[120px] flex-1 rounded-full bg-gray-100">
+                          <div class="h-2 min-w-[120px] flex-1 rounded-full bg-brand-100">
                             <div :class="['h-2 rounded-full transition-[width]', getProgressBarClass(shop.status)]" :style="{ width: `${getProgressPercent(shop)}%` }" />
                           </div>
-                          <span class="min-w-[40px] text-right font-mono text-xs text-gray-500">{{ getProgressText(shop) }}</span>
+                          <span class="min-w-[40px] text-right font-mono text-xs text-brand-500">{{ getProgressText(shop) }}</span>
                         </div>
                       </td>
                       <td class="px-4 py-3 text-center">
                         <span :class="['inline-flex rounded-full px-2.5 py-1 text-xs font-medium', getStatusClass(shop.status)]">{{ getStatusLabel(shop.status) }}</span>
                       </td>
-                      <td class="px-4 py-3 text-center font-mono text-xs text-gray-500">{{ formatDuration(shop.shop_id) }}</td>
+                      <td class="px-4 py-3 text-center font-mono text-xs text-brand-500">{{ formatDuration(shop.shop_id) }}</td>
                       <td class="px-4 py-3 text-right">
                         <button type="button" :class="secondaryButtonClass" @click="toggleShopDetail(shop.shop_id)">
                           {{ isShopDetailOpen(shop.shop_id) ? '收起详情' : '查看详情' }}
                         </button>
                       </td>
                     </tr>
-                    <tr v-if="isShopDetailOpen(shop.shop_id)" class="border-b border-gray-100 bg-brand-50">
+                    <tr v-if="isShopDetailOpen(shop.shop_id)" class="border-b border-brand-300/30 bg-brand-100">
                       <td colspan="6" class="px-4 py-4">
                         <div class="space-y-4">
                           <div class="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
                             <strong class="text-sm text-gray-900">{{ getBatchShopName(shop) }}</strong>
-                            <span class="text-xs text-gray-500">{{ getDetailSummary(shop) }}</span>
+                            <span class="text-xs text-brand-500">{{ getDetailSummary(shop) }}</span>
                           </div>
 
-                          <div class="overflow-hidden rounded-md border border-brand-200/50 bg-white">
+                          <div class="overflow-hidden rounded-md border border-brand-300/50 bg-white">
                             <div class="overflow-x-auto">
                               <table class="min-w-full">
-                                <thead class="bg-brand-50 text-xs font-medium uppercase tracking-wider text-gray-500">
+                                <thead class="bg-brand-700/10 text-xs font-medium uppercase tracking-wider text-brand-700">
                                   <tr>
                                     <th class="w-14 px-4 py-3 text-center font-medium">#</th>
                                     <th class="px-4 py-3 text-left font-medium">步骤</th>
@@ -520,16 +520,16 @@ onUnmounted(() => {
                                   </tr>
                                 </thead>
                                 <tbody>
-                                  <tr v-for="(step, index) in shop.steps" :key="`${shop.shop_id}-${step.task}-${index}`" class="border-b border-gray-100 hover:bg-gray-50/50">
-                                    <td class="px-4 py-3 text-center font-mono text-xs text-gray-500">{{ index + 1 }}</td>
+                                  <tr v-for="(step, index) in shop.steps" :key="`${shop.shop_id}-${step.task}-${index}`" class="border-b border-brand-300/30 hover:bg-brand-100/50">
+                                    <td class="px-4 py-3 text-center font-mono text-xs text-brand-500">{{ index + 1 }}</td>
                                     <td class="px-4 py-3 text-sm text-gray-900">{{ step.task }}</td>
                                     <td class="px-4 py-3 text-center">
                                       <span :class="['inline-flex rounded-full px-2.5 py-1 text-xs font-medium', getStatusClass(step.status)]">{{ getStepStatusLabel(step.status) }}</span>
                                     </td>
-                                    <td class="px-4 py-3 text-sm text-gray-500">{{ getStepResultText(shop, index) }}</td>
+                                    <td class="px-4 py-3 text-sm text-brand-500">{{ getStepResultText(shop, index) }}</td>
                                   </tr>
                                   <tr v-if="shop.steps.length === 0">
-                                    <td colspan="4" class="px-4 py-8 text-center text-sm text-gray-500">暂无步骤明细</td>
+                                    <td colspan="4" class="px-4 py-8 text-center text-sm text-brand-500">暂无步骤明细</td>
                                   </tr>
                                 </tbody>
                               </table>
@@ -544,7 +544,7 @@ onUnmounted(() => {
             </div>
           </div>
 
-          <p class="mt-3 text-right font-mono text-xs text-gray-500">最近更新：{{ formatDateTime(batchSnapshot.updated_at) }}</p>
+          <p class="mt-3 text-right font-mono text-xs text-brand-500">最近更新：{{ formatDateTime(batchSnapshot.updated_at) }}</p>
         </template>
       </section>
     </div>

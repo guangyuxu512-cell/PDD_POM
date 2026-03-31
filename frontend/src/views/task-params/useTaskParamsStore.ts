@@ -551,10 +551,10 @@ export function useTaskParamsStore() {
       completed: 'bg-emerald-100 text-emerald-800',
       failed: 'bg-rose-100 text-rose-800',
       running: 'bg-amber-100 text-amber-800',
-      waiting_barrier: 'bg-gray-100 text-gray-700',
-      merged_skip: 'bg-gray-200 text-gray-700',
+      waiting_barrier: 'bg-brand-100 text-brand-700',
+      merged_skip: 'bg-brand-300/40 text-brand-700',
     }
-    return statusMap[status] || 'bg-gray-100 text-gray-700'
+    return statusMap[status] || 'bg-brand-100 text-brand-700'
   }
 
   function getStepResultToggleKey(flowParamId: number, stepName: string) {
@@ -1081,4 +1081,3 @@ export function useTaskParamsContext() {
   }
   return store
 }
-

@@ -9,7 +9,7 @@ import { computed, onMounted, ref, watch } from 'vue'
 
 import ConfirmDialog from '../components/ConfirmDialog.vue'
 import Modal from '../components/Modal.vue'
-import ShopCard from '../components/ShopCard.vue'
+import StatusBadge from '../components/StatusBadge.vue'
 import {
   checkShopStatus,
   createShop,
@@ -44,7 +44,7 @@ const deletingShopId = ref<string | null>(null)
 const platformStore = usePlatformStore()
 const formPlatform = ref(platformStore.currentPlatform)
 const inputClass =
-  'w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500'
+  'w-full rounded-md border border-brand-300/50 bg-white px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500'
 
 const formData = ref<ShopFormModel>({
   name: '',
@@ -258,15 +258,15 @@ watch(() => platformStore.currentPlatform, () => {
     <div class="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
       <div class="space-y-1">
         <h1 class="text-2xl font-semibold text-gray-900">店铺管理</h1>
-        <p class="text-sm text-gray-500">按平台管理店铺账号、代理与邮箱连接配置。</p>
+        <p class="text-sm text-brand-500">按平台管理店铺账号、代理与邮箱连接配置。</p>
       </div>
 
       <div class="flex flex-col gap-3 sm:flex-row sm:items-center">
         <Listbox :model-value="platformStore.currentPlatform" @update:model-value="platformStore.setPlatform($event)">
           <div class="relative w-44">
-            <ListboxButton class="flex w-full items-center justify-between rounded-md border border-brand-200 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm transition hover:border-brand-500">
+            <ListboxButton class="flex w-full items-center justify-between rounded-md border border-brand-300 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm transition hover:border-brand-500">
               <span class="truncate">{{ currentPlatformLabel }}</span>
-              <svg class="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+              <svg class="h-4 w-4 text-brand-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
               </svg>
             </ListboxButton>
@@ -278,7 +278,7 @@ watch(() => platformStore.currentPlatform, () => {
               leave-from-class="scale-100 opacity-100"
               leave-to-class="scale-95 opacity-0"
             >
-              <ListboxOptions class="absolute z-20 mt-2 w-full rounded-md border border-brand-200 bg-white py-1 shadow-lg focus:outline-none">
+              <ListboxOptions class="absolute z-20 mt-2 w-full rounded-md border border-brand-300 bg-white py-1 shadow-lg focus:outline-none">
                 <ListboxOption
                   v-for="p in platformStore.platforms"
                   :key="p.id"
@@ -289,8 +289,8 @@ watch(() => platformStore.currentPlatform, () => {
                   <li
                     :class="[
                       'cursor-pointer px-3 py-2 text-sm',
-                      active ? 'bg-brand-50 text-brand-900' : 'text-gray-700',
-                      selected ? 'font-medium text-brand-900' : '',
+                      active ? 'bg-brand-100 text-brand-900' : 'text-brand-700',
+                      selected ? 'font-medium' : '',
                     ]"
                   >
                     {{ p.icon }} {{ p.name }}
@@ -310,28 +310,79 @@ watch(() => platformStore.currentPlatform, () => {
       </div>
     </div>
 
-    <div v-if="shops.length === 0" class="rounded-md border border-brand-200/50 bg-white px-6 py-14 text-center shadow-sm">
-      <p class="text-sm text-gray-500">当前平台下暂无店铺数据。</p>
+    <div v-if="shops.length === 0" class="rounded-md border border-brand-300/50 bg-white px-6 py-14 text-center shadow-sm">
+      <p class="text-sm text-brand-500">当前平台下暂无店铺数据。</p>
     </div>
-    <div v-else class="overflow-hidden rounded-md border border-brand-200/50 bg-white shadow-sm">
-      <div
-        class="hidden grid-cols-[minmax(0,2.2fr)_minmax(0,1.2fr)_minmax(0,1.4fr)_auto] gap-4 bg-brand-700/10 px-4 py-3 text-xs font-medium uppercase tracking-wider text-brand-700 lg:grid"
-      >
-        <span class="text-center">店铺</span>
-        <span class="text-center">邮箱</span>
-        <span class="text-center">连接信息</span>
-        <span class="text-center">操作</span>
-      </div>
 
-      <ShopCard
-        v-for="shop in shops"
-        :key="shop.id"
-        :shop="shop"
-        @open-browser="handleOpenBrowser"
-        @edit="openEditModal"
-        @check-status="handleCheckStatus"
-        @delete="openDeleteConfirm"
-      />
+    <div v-else class="overflow-x-auto rounded-md border border-brand-300/50 bg-white shadow-sm">
+      <table class="w-full min-w-[900px] table-fixed divide-y divide-brand-300/30">
+        <thead class="bg-brand-700/10">
+          <tr class="text-xs font-medium uppercase tracking-wider text-brand-700">
+            <th class="w-16 px-4 py-3 text-center">状态</th>
+            <th class="w-44 px-4 py-3 text-center">店铺名称</th>
+            <th class="w-28 px-4 py-3 text-center">账号</th>
+            <th class="w-36 px-4 py-3 text-center">邮箱</th>
+            <th class="w-24 px-4 py-3 text-center">协议</th>
+            <th class="w-36 px-4 py-3 text-center">代理</th>
+            <th class="w-36 px-4 py-3 text-center">最近登录</th>
+            <th class="w-36 px-4 py-3 text-center">操作</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-brand-300/20 text-sm text-gray-900">
+          <tr
+            v-for="shop in shops"
+            :key="shop.id"
+            class="transition hover:bg-brand-100/50"
+          >
+            <td class="px-4 py-3 text-center">
+              <StatusBadge :status="shop.status" type="shop" />
+            </td>
+            <td class="px-4 py-3 text-center">
+              <p class="truncate text-sm font-medium text-gray-900">{{ shop.name }}</p>
+              <p class="truncate font-mono text-[11px] text-brand-500">{{ shop.id }}</p>
+            </td>
+            <td class="truncate px-4 py-3 text-center font-mono text-xs text-brand-500">
+              {{ shop.username || '-' }}
+            </td>
+            <td class="truncate px-4 py-3 text-center text-xs">
+              {{ shop.smtp_user || '未配置' }}
+            </td>
+            <td class="px-4 py-3 text-center font-mono text-xs uppercase text-brand-500">
+              {{ shop.smtp_protocol || '-' }}
+            </td>
+            <td class="truncate px-4 py-3 text-center text-xs text-brand-500">
+              {{ shop.proxy || '无代理' }}
+            </td>
+            <td class="px-4 py-3 text-center font-mono text-xs text-brand-500">
+              {{ shop.last_login ? new Date(shop.last_login).toLocaleString('zh-CN') : '暂无记录' }}
+            </td>
+            <td class="whitespace-nowrap px-4 py-3 text-center">
+              <div class="inline-flex gap-3">
+                <button
+                  type="button"
+                  class="text-xs font-medium text-brand-500 transition hover:text-brand-900"
+                  @click="handleOpenBrowser(shop.id)"
+                >打开</button>
+                <button
+                  type="button"
+                  class="text-xs font-medium text-brand-500 transition hover:text-brand-900"
+                  @click="openEditModal(shop)"
+                >编辑</button>
+                <button
+                  type="button"
+                  class="text-xs font-medium text-brand-500 transition hover:text-brand-900"
+                  @click="handleCheckStatus(shop.id)"
+                >检查</button>
+                <button
+                  type="button"
+                  class="text-xs font-medium text-rose-500 transition hover:text-rose-700"
+                  @click="openDeleteConfirm(shop.id)"
+                >删除</button>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
     </div>
 
     <Modal :show="showModal" :title="editingShop ? '编辑店铺' : '新增店铺'" width="720px" @close="showModal = false">
@@ -339,25 +390,25 @@ watch(() => platformStore.currentPlatform, () => {
         <section class="space-y-4">
           <div class="space-y-1">
             <h2 class="text-sm font-medium text-gray-900">基本信息</h2>
-            <p class="text-xs text-gray-500">维护平台归属、账号和代理配置。</p>
+            <p class="text-xs text-brand-500">维护平台归属、账号和代理配置。</p>
           </div>
 
           <div class="grid gap-4 md:grid-cols-2">
             <div class="space-y-2">
-              <label class="text-xs font-medium text-gray-600">所属平台</label>
+              <label class="text-xs font-medium text-brand-700">所属平台</label>
               <Listbox v-model="formPlatform" :disabled="!!editingShop">
                 <div class="relative">
                   <ListboxButton
                     :class="[
                       inputClass,
                       'flex items-center justify-between text-left',
-                      editingShop ? 'cursor-not-allowed bg-gray-50 text-gray-400' : '',
+                      editingShop ? 'cursor-not-allowed bg-brand-100 text-brand-300' : '',
                     ]"
                   >
                     <span class="truncate">
                       {{ selectedFormPlatform?.icon }} {{ selectedFormPlatform?.name }}
                     </span>
-                    <svg class="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+                    <svg class="h-4 w-4 text-brand-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
                       <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
                     </svg>
                   </ListboxButton>
@@ -371,7 +422,7 @@ watch(() => platformStore.currentPlatform, () => {
                     leave-to-class="scale-95 opacity-0"
                   >
                     <ListboxOptions
-                      class="absolute z-10 mt-2 max-h-60 w-full overflow-auto rounded-md border border-brand-200/50 bg-white py-1 shadow-lg focus:outline-none"
+                      class="absolute z-10 mt-2 max-h-60 w-full overflow-auto rounded-md border border-brand-300/50 bg-white py-1 shadow-lg focus:outline-none"
                     >
                       <ListboxOption
                         v-for="p in platformStore.platforms"
@@ -383,7 +434,7 @@ watch(() => platformStore.currentPlatform, () => {
                         <li
                           :class="[
                             'cursor-default px-3 py-2 text-sm',
-                            active ? 'bg-gray-100 text-gray-900' : 'text-gray-700',
+                            active ? 'bg-brand-100 text-brand-900' : 'text-brand-700',
                             selected ? 'font-medium' : '',
                           ]"
                         >
@@ -397,19 +448,19 @@ watch(() => platformStore.currentPlatform, () => {
             </div>
 
             <div class="space-y-2">
-              <label class="text-xs font-medium text-gray-600">店铺名称</label>
+              <label class="text-xs font-medium text-brand-700">店铺名称</label>
               <input v-model="formData.name" :class="inputClass" type="text" required />
             </div>
           </div>
 
           <div class="grid gap-4 md:grid-cols-2">
             <div class="space-y-2">
-              <label class="text-xs font-medium text-gray-600">账号</label>
+              <label class="text-xs font-medium text-brand-700">账号</label>
               <input v-model="formData.username" :class="inputClass" type="text" />
             </div>
 
             <div class="space-y-2">
-              <label class="text-xs font-medium text-gray-600">密码</label>
+              <label class="text-xs font-medium text-brand-700">密码</label>
               <input
                 v-model="formData.password"
                 :class="inputClass"
@@ -420,20 +471,20 @@ watch(() => platformStore.currentPlatform, () => {
           </div>
 
           <div class="space-y-2">
-            <label class="text-xs font-medium text-gray-600">代理</label>
+            <label class="text-xs font-medium text-brand-700">代理</label>
             <input v-model="formData.proxy" :class="inputClass" type="text" placeholder="127.0.0.1:7890" />
           </div>
         </section>
 
-        <section class="space-y-4 border-t border-gray-100 pt-6">
+        <section class="space-y-4 border-t border-brand-300/30 pt-6">
           <div class="space-y-1">
             <h2 class="text-sm font-medium text-gray-900">邮箱配置</h2>
-            <p class="text-xs text-gray-500">保存收件协议、服务器和授权信息。</p>
+            <p class="text-xs text-brand-500">保存收件协议、服务器和授权信息。</p>
           </div>
 
           <div class="grid gap-4 md:grid-cols-3">
             <div class="space-y-2">
-              <label class="text-xs font-medium text-gray-600">协议</label>
+              <label class="text-xs font-medium text-brand-700">协议</label>
               <select v-model="formData.smtp_protocol" :class="inputClass">
                 <option value="imap">IMAP</option>
                 <option value="smtp">SMTP</option>
@@ -441,22 +492,22 @@ watch(() => platformStore.currentPlatform, () => {
             </div>
 
             <div class="space-y-2 md:col-span-2">
-              <label class="text-xs font-medium text-gray-600">服务器</label>
+              <label class="text-xs font-medium text-brand-700">服务器</label>
               <input v-model="formData.smtp_host" :class="inputClass" type="text" placeholder="imap.qq.com" />
             </div>
 
             <div class="space-y-2">
-              <label class="text-xs font-medium text-gray-600">端口</label>
+              <label class="text-xs font-medium text-brand-700">端口</label>
               <input v-model.number="formData.smtp_port" :class="inputClass" type="number" />
             </div>
 
             <div class="space-y-2">
-              <label class="text-xs font-medium text-gray-600">邮箱账号</label>
+              <label class="text-xs font-medium text-brand-700">邮箱账号</label>
               <input v-model="formData.smtp_user" :class="inputClass" type="email" />
             </div>
 
             <div class="space-y-2">
-              <label class="text-xs font-medium text-gray-600">授权码</label>
+              <label class="text-xs font-medium text-brand-700">授权码</label>
               <input
                 v-model="formData.smtp_pass"
                 :class="inputClass"
@@ -469,7 +520,7 @@ watch(() => platformStore.currentPlatform, () => {
           <div>
             <button
               type="button"
-              class="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm text-gray-700 transition hover:bg-gray-50"
+              class="rounded-md border border-brand-300/50 bg-white px-3 py-1.5 text-sm text-brand-700 transition hover:bg-brand-100/50 hover:text-brand-900"
               @click="testEmail"
             >
               测试连接
@@ -481,7 +532,7 @@ watch(() => platformStore.currentPlatform, () => {
       <template #footer>
         <button
           type="button"
-          class="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm text-gray-700 transition hover:bg-gray-50"
+          class="rounded-md border border-brand-300/50 bg-white px-3 py-1.5 text-sm text-brand-700 transition hover:bg-brand-100/50 hover:text-brand-900"
           @click="showModal = false"
         >
           取消
