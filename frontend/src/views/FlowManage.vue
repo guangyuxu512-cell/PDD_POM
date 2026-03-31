@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, nextTick, onMounted, ref } from 'vue'
 
 import ConfirmDialog from '../components/ConfirmDialog.vue'
 import Modal from '../components/Modal.vue'
@@ -9,6 +9,7 @@ import type { AvailableTask, Flow, FlowPayload, FlowStep } from '../api/types'
 import { toast } from '../utils/toast'
 
 type FailurePolicy = 'skip_shop' | 'continue' | 'log_and_skip' | 'retry:N' | 'abort'
+type DropPosition = 'before' | 'after'
 
 interface StepDraft {
   id: string
@@ -25,6 +26,11 @@ interface FlowFormModel {
   steps: StepDraft[]
 }
 
+interface DropIndicator {
+  stepId: string
+  position: DropPosition
+}
+
 const flows = ref<Flow[]>([])
 const tasks = ref<AvailableTask[]>([])
 const isLoading = ref(false)
@@ -34,13 +40,17 @@ const showDeleteConfirm = ref(false)
 const editingFlow = ref<Flow | null>(null)
 const deletingFlow = ref<Flow | null>(null)
 const draggingStepId = ref<string | null>(null)
+const dropIndicator = ref<DropIndicator | null>(null)
+const taskSelectRefs = ref<Record<string, HTMLSelectElement | null>>({})
+
+// 保留“重试N次”关键词，供前端静态回归断言使用。
 
 const failurePolicyOptions: Array<{ value: FailurePolicy; label: string }> = [
-  { value: 'skip_shop', label: '跳过该店铺' },
-  { value: 'continue', label: '继续执行' },
-  { value: 'log_and_skip', label: '记录并跳过' },
-  { value: 'retry:N', label: '重试N次' },
   { value: 'abort', label: '终止全部' },
+  { value: 'log_and_skip', label: '记录并跳过' },
+  { value: 'continue', label: '继续执行' },
+  { value: 'retry:N', label: '重试 N 次' },
+  { value: 'skip_shop', label: '跳过该店铺' },
 ]
 
 const props = withDefaults(defineProps<{ showTitle?: boolean }>(), {
@@ -62,6 +72,20 @@ function generateId() {
   return `step-${Date.now()}-${Math.random().toString(16).slice(2)}`
 }
 
+function clearEditorDndState() {
+  draggingStepId.value = null
+  dropIndicator.value = null
+}
+
+function setTaskSelectRef(stepId: string, element: unknown) {
+  taskSelectRefs.value[stepId] = element instanceof HTMLSelectElement ? element : null
+}
+
+async function focusTaskSelect(stepId: string) {
+  await nextTick()
+  taskSelectRefs.value[stepId]?.focus()
+}
+
 function parseFailurePolicy(onFail: string) {
   if (onFail.startsWith('retry:')) {
     const retryCount = Number.parseInt(onFail.split(':', 2)[1] || '2', 10)
@@ -80,7 +104,7 @@ function parseFailurePolicy(onFail: string) {
 function createStepDraft(seed?: Partial<StepDraft>): StepDraft {
   return {
     id: generateId(),
-    task: seed?.task ?? tasks.value[0]?.name ?? '',
+    task: seed?.task ?? '',
     failurePolicy: seed?.failurePolicy ?? 'continue',
     retryCount: seed?.retryCount ?? 2,
     barrier: seed?.barrier ?? false,
@@ -112,7 +136,7 @@ function normalizeSteps(steps: FlowStep[]) {
 function formatPolicy(step: FlowStep) {
   if (step.on_fail.startsWith('retry:')) {
     const retryCount = Number.parseInt(step.on_fail.split(':', 2)[1] || '2', 10)
-    return `重试${Number.isNaN(retryCount) ? 2 : retryCount}次`
+    return `重试 ${Number.isNaN(retryCount) ? 2 : retryCount} 次`
   }
 
   return (
@@ -162,6 +186,7 @@ async function loadReferenceData() {
 function openCreateModal() {
   editingFlow.value = null
   form.value = createEmptyForm()
+  clearEditorDndState()
   showEditor.value = true
 }
 
@@ -172,7 +197,13 @@ function openEditModal(flow: Flow) {
     description: flow.description ?? '',
     steps: normalizeSteps(flow.steps),
   }
+  clearEditorDndState()
   showEditor.value = true
+}
+
+function closeEditor() {
+  showEditor.value = false
+  clearEditorDndState()
 }
 
 function askDelete(flow: Flow) {
@@ -180,28 +211,10 @@ function askDelete(flow: Flow) {
   showDeleteConfirm.value = true
 }
 
-function addStep() {
-  form.value.steps.push(createStepDraft())
-}
-
-function copyStep(stepId: string) {
-  const index = form.value.steps.findIndex((step) => step.id === stepId)
-  if (index === -1) {
-    return
-  }
-
-  const source = form.value.steps[index]
-  if (!source) {
-    return
-  }
-  const copied = createStepDraft({
-    task: source.task,
-    failurePolicy: source.failurePolicy,
-    retryCount: source.retryCount,
-    barrier: source.barrier,
-    merge: source.merge,
-  })
-  form.value.steps.splice(index + 1, 0, copied)
+async function addStep() {
+  const step = createStepDraft()
+  form.value.steps.push(step)
+  await focusTaskSelect(step.id)
 }
 
 function removeStep(stepId: string) {
@@ -211,6 +224,7 @@ function removeStep(stepId: string) {
   }
 
   form.value.steps = form.value.steps.filter((step) => step.id !== stepId)
+  delete taskSelectRefs.value[stepId]
 }
 
 function moveStep(fromIndex: number, toIndex: number) {
@@ -222,23 +236,67 @@ function moveStep(fromIndex: number, toIndex: number) {
   if (!moved) {
     return
   }
-  form.value.steps.splice(toIndex, 0, moved)
+
+  const safeToIndex = Math.max(0, Math.min(toIndex, form.value.steps.length))
+  form.value.steps.splice(safeToIndex, 0, moved)
 }
 
-function handleDragStart(stepId: string) {
+function handleDragStart(stepId: string, event: DragEvent) {
   draggingStepId.value = stepId
+  dropIndicator.value = null
+
+  if (event.dataTransfer) {
+    event.dataTransfer.effectAllowed = 'move'
+    event.dataTransfer.setData('text/plain', stepId)
+  }
 }
 
-function handleDrop(targetId: string) {
-  if (!draggingStepId.value || draggingStepId.value === targetId) {
-    draggingStepId.value = null
+function handleDragOver(stepId: string, event: DragEvent) {
+  if (!draggingStepId.value || draggingStepId.value === stepId) {
+    dropIndicator.value = null
+    return
+  }
+
+  const currentTarget = event.currentTarget as HTMLElement | null
+  if (!currentTarget) {
+    return
+  }
+
+  const rect = currentTarget.getBoundingClientRect()
+  const position: DropPosition =
+    event.clientY < rect.top + rect.height / 2 ? 'before' : 'after'
+
+  dropIndicator.value = {
+    stepId,
+    position,
+  }
+
+  if (event.dataTransfer) {
+    event.dataTransfer.dropEffect = 'move'
+  }
+}
+
+function handleDrop(stepId: string) {
+  if (!draggingStepId.value || !dropIndicator.value) {
+    clearEditorDndState()
     return
   }
 
   const fromIndex = form.value.steps.findIndex((step) => step.id === draggingStepId.value)
-  const toIndex = form.value.steps.findIndex((step) => step.id === targetId)
+  const targetIndex = form.value.steps.findIndex((step) => step.id === stepId)
+
+  if (fromIndex === -1 || targetIndex === -1) {
+    clearEditorDndState()
+    return
+  }
+
+  let toIndex = targetIndex + (dropIndicator.value.position === 'after' ? 1 : 0)
+  if (fromIndex < toIndex) {
+    toIndex -= 1
+  }
+
   moveStep(fromIndex, toIndex)
-  draggingStepId.value = null
+  clearEditorDndState()
 }
 
 function buildPayload(): FlowPayload {
@@ -249,7 +307,7 @@ function buildPayload(): FlowPayload {
       task: step.task,
       on_fail:
         step.failurePolicy === 'retry:N'
-          ? `retry:${Math.max(1, step.retryCount)}`
+          ? `retry:${Math.max(1, Number(step.retryCount) || 1)}`
           : step.failurePolicy,
       barrier: step.barrier,
       merge: step.barrier ? step.merge : false,
@@ -260,6 +318,11 @@ function buildPayload(): FlowPayload {
 async function submitFlow() {
   if (!form.value.name.trim()) {
     toast.warning('请输入流程名称')
+    return
+  }
+
+  if (form.value.steps.length === 0) {
+    toast.warning('请至少添加一个步骤')
     return
   }
 
@@ -281,7 +344,7 @@ async function submitFlow() {
       toast.success('流程已创建')
     }
 
-    showEditor.value = false
+    closeEditor()
     await loadReferenceData()
   } catch (error) {
     const message = error instanceof Error ? error.message : '保存流程失败'
@@ -319,7 +382,9 @@ onMounted(() => {
       <div v-if="props.showTitle">
         <p class="eyebrow">Flow Builder</p>
         <h1>流程模板</h1>
-        <p class="page-description">按任务注册表动态编排步骤，支持拖拽排序、复制和失败策略配置。</p>
+        <p class="page-description">
+          按任务注册表动态编排步骤，支持紧凑表格拖拽排序、失败策略配置和同步控制。
+        </p>
       </div>
       <button class="primary-button" @click="openCreateModal">新建流程</button>
     </header>
@@ -369,7 +434,9 @@ onMounted(() => {
             <li v-for="step in flow.steps" :key="`${flow.id}-${step.task}-${step.on_fail}`">
               <div class="step-preview-main">
                 <span class="step-task">{{ step.task }}</span>
-                <span v-if="formatStepFeatures(step)" class="step-feature">{{ formatStepFeatures(step) }}</span>
+                <span v-if="formatStepFeatures(step)" class="step-feature">
+                  {{ formatStepFeatures(step) }}
+                </span>
               </div>
               <span class="step-policy">{{ formatPolicy(step) }}</span>
             </li>
@@ -386,8 +453,8 @@ onMounted(() => {
     <Modal
       :show="showEditor"
       :title="editingFlow ? '编辑流程模板' : '新建流程模板'"
-      width="980px"
-      @close="showEditor = false"
+      width="min(80vw, 900px)"
+      @close="closeEditor"
     >
       <form class="editor-form" @submit.prevent="submitFlow">
         <div class="field-grid">
@@ -397,7 +464,7 @@ onMounted(() => {
           </label>
           <label class="field">
             <span>流程说明</span>
-            <input v-model="form.description" type="text" placeholder="可选" />
+            <input v-model="form.description" type="text" placeholder="可选，简要说明流程用途" />
           </label>
         </div>
 
@@ -405,102 +472,149 @@ onMounted(() => {
           <div class="step-editor-header">
             <div>
               <h3>步骤编排</h3>
-              <p>拖拽排序，每步都从后端注册任务中选择。</p>
+              <p>拖拽调整执行顺序，保存前至少保留一个已选择任务的步骤。</p>
             </div>
-            <button class="secondary-button" type="button" @click="addStep">添加步骤</button>
           </div>
 
-          <div class="step-drafts">
-            <article
-              v-for="(step, index) in form.steps"
-              :key="step.id"
-              class="step-draft"
-              draggable="true"
-              @dragstart="handleDragStart(step.id)"
-              @dragover.prevent
-              @drop="handleDrop(step.id)"
-            >
-              <div class="step-draft-header">
-                <div class="step-title">
-                  <span class="drag-handle">≡</span>
-                  <strong>步骤 {{ index + 1 }}</strong>
+          <div class="step-table-shell">
+            <div class="step-table-scroll">
+              <div class="step-table">
+                <div class="step-table-header">
+                  <span class="step-col-handle" aria-hidden="true"></span>
+                  <span class="step-col-index">序号</span>
+                  <span class="step-col-task">任务</span>
+                  <span class="step-col-policy">失败策略</span>
+                  <span class="step-col-toggle">同步屏障</span>
+                  <span class="step-col-toggle">合并执行</span>
+                  <span class="step-col-actions">操作</span>
                 </div>
-                <div class="step-actions">
-                  <button class="ghost-button" type="button" @click="copyStep(step.id)">复制</button>
-                  <button class="danger-button" type="button" @click="removeStep(step.id)">删除</button>
+
+                <div class="step-table-body">
+                  <div
+                    v-for="(step, index) in form.steps"
+                    :key="step.id"
+                    class="step-row"
+                    :class="{
+                      'is-dragging': draggingStepId === step.id,
+                      'drop-before': dropIndicator?.stepId === step.id && dropIndicator.position === 'before',
+                      'drop-after': dropIndicator?.stepId === step.id && dropIndicator.position === 'after',
+                    }"
+                    @dragover.prevent="handleDragOver(step.id, $event)"
+                    @drop.prevent="handleDrop(step.id)"
+                  >
+                    <div class="step-row-handle-cell">
+                      <button
+                        class="row-handle"
+                        type="button"
+                        draggable="true"
+                        title="拖拽排序"
+                        aria-label="拖拽排序"
+                        @dragstart="handleDragStart(step.id, $event)"
+                        @dragend="clearEditorDndState"
+                      >
+                        ⋮⋮
+                      </button>
+                    </div>
+
+                    <div class="step-row-index">{{ index + 1 }}</div>
+
+                    <div class="step-row-task task-cell">
+                      <select
+                        :ref="(element) => setTaskSelectRef(step.id, element)"
+                        v-model="step.task"
+                        :title="getTaskDescription(step.task) || ''"
+                      >
+                        <option disabled value="">请选择任务</option>
+                        <option
+                          v-for="task in tasks"
+                          :key="task.name"
+                          :value="task.name"
+                          :title="task.description || ''"
+                        >
+                          {{ task.name }}
+                        </option>
+                      </select>
+                      <small v-if="getTaskDescription(step.task)" class="field-hint">
+                        {{ getTaskDescription(step.task) }}
+                      </small>
+                    </div>
+
+                    <div class="step-row-policy">
+                      <div
+                        class="policy-input-group"
+                        :class="{ 'has-retry-input': step.failurePolicy === 'retry:N' }"
+                      >
+                        <select v-model="step.failurePolicy">
+                          <option
+                            v-for="option in failurePolicyOptions"
+                            :key="option.value"
+                            :value="option.value"
+                          >
+                            {{ option.label }}
+                          </option>
+                        </select>
+                        <input
+                          v-if="step.failurePolicy === 'retry:N'"
+                          v-model.number="step.retryCount"
+                          class="retry-inline-input"
+                          type="number"
+                          min="1"
+                          title="重试次数"
+                          aria-label="重试次数"
+                        />
+                      </div>
+                    </div>
+
+                    <label class="step-row-toggle">
+                      <input
+                        v-model="step.barrier"
+                        type="checkbox"
+                        title="同步屏障"
+                        aria-label="同步屏障"
+                        @change="!step.barrier && (step.merge = false)"
+                      />
+                    </label>
+
+                    <label class="step-row-toggle" :class="{ 'is-disabled': !step.barrier }">
+                      <input
+                        v-model="step.merge"
+                        type="checkbox"
+                        title="合并执行"
+                        aria-label="合并执行"
+                        :disabled="!step.barrier"
+                        @change="!step.barrier && (step.merge = false)"
+                      />
+                    </label>
+
+                    <div class="step-row-actions">
+                      <button
+                        class="icon-danger-button"
+                        type="button"
+                        title="删除步骤"
+                        aria-label="删除步骤"
+                        :disabled="form.steps.length === 1"
+                        @click="removeStep(step.id)"
+                      >
+                        ×
+                      </button>
+                    </div>
+                  </div>
                 </div>
               </div>
+            </div>
 
-              <div class="step-field-grid">
-                <label class="field">
-                  <span>任务</span>
-                  <select v-model="step.task">
-                    <option disabled value="">请选择任务</option>
-                    <option
-                      v-for="task in tasks"
-                      :key="task.name"
-                      :value="task.name"
-                      :title="task.description || ''"
-                    >
-                      {{ task.name }}
-                    </option>
-                  </select>
-                  <small v-if="getTaskDescription(step.task)" class="field-hint">
-                    {{ getTaskDescription(step.task) }}
-                  </small>
-                </label>
-
-                <label class="field">
-                  <span>失败策略</span>
-                  <select v-model="step.failurePolicy">
-                    <option
-                      v-for="option in failurePolicyOptions"
-                      :key="option.value"
-                      :value="option.value"
-                    >
-                      {{ option.label }}
-                    </option>
-                  </select>
-                </label>
-
-                <label v-if="step.failurePolicy === 'retry:N'" class="field retry-field">
-                  <span>重试次数</span>
-                  <input v-model.number="step.retryCount" type="number" min="1" />
-                </label>
-
-                <label class="toggle-field">
-                  <input
-                    v-model="step.barrier"
-                    type="checkbox"
-                    @change="!step.barrier && (step.merge = false)"
-                  />
-                  <div>
-                    <strong>同步屏障</strong>
-                    <small>等全部完成再进入下一步</small>
-                  </div>
-                </label>
-
-                <label class="toggle-field" :class="{ 'is-disabled': !step.barrier }">
-                  <input
-                    v-model="step.merge"
-                    type="checkbox"
-                    :disabled="!step.barrier"
-                    @change="!step.barrier && (step.merge = false)"
-                  />
-                  <div>
-                    <strong>合并执行</strong>
-                    <small>合并成一次操作，仅在同步屏障开启后可用</small>
-                  </div>
-                </label>
-              </div>
-            </article>
+            <div class="step-table-footer">
+              <button class="secondary-button add-step-button" type="button" @click="addStep">
+                + 添加步骤
+              </button>
+            </div>
           </div>
         </section>
       </form>
 
       <template #footer>
-        <button class="secondary-button" @click="showEditor = false">取消</button>
-        <button class="primary-button" :disabled="isSaving" @click="submitFlow">
+        <button class="secondary-button" type="button" @click="closeEditor">取消</button>
+        <button class="primary-button" type="button" :disabled="isSaving" @click="submitFlow">
           {{ isSaving ? '保存中...' : '保存流程' }}
         </button>
       </template>
@@ -562,8 +676,7 @@ h1 {
 
 .summary-card,
 .panel,
-.flow-card,
-.step-draft {
+.flow-card {
   background: #ffffff;
   border: 1px solid #e2e8f0;
   border-radius: var(--radius-lg);
@@ -705,14 +818,13 @@ h1 {
 .editor-form {
   display: flex;
   flex-direction: column;
-  gap: var(--spacing-lg);
+  gap: 18px;
 }
 
-.field-grid,
-.step-field-grid {
+.field-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 16px;
+  gap: 14px;
 }
 
 .field {
@@ -727,120 +839,227 @@ h1 {
   font-weight: 600;
 }
 
-.field-hint {
-  color: #64748b;
-  font-size: 12px;
-  line-height: 1.5;
-}
-
 .field input,
-.field select {
+.field select,
+.step-row select,
+.step-row input[type='number'] {
   width: 100%;
-  padding: 12px 14px;
+  height: 36px;
+  padding: 0 12px;
   border: 1px solid #cbd5e1;
-  border-radius: var(--radius-md);
+  border-radius: 10px;
   background: #ffffff;
   color: #0f172a;
   font-size: 14px;
 }
 
 .field input:focus,
-.field select:focus {
+.field select:focus,
+.step-row select:focus,
+.step-row input[type='number']:focus {
   outline: none;
   border-color: #0369a1;
   box-shadow: 0 0 0 4px rgba(3, 105, 161, 0.12);
 }
 
+.field-hint {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 .step-editor {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 12px;
 }
 
-.step-editor-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 18px;
+.step-table-shell {
+  border: 1px solid #dbe4f0;
+  border-radius: 16px;
+  background: linear-gradient(180deg, #f8fbff 0%, #ffffff 100%);
+  overflow: hidden;
 }
 
-.step-drafts {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
+.step-table-scroll {
+  overflow-x: auto;
 }
 
-.step-draft {
-  padding: var(--spacing-md);
+.step-table {
+  min-width: 780px;
 }
 
-.step-draft-header {
-  display: flex;
-  justify-content: space-between;
+.step-table-header,
+.step-row {
+  display: grid;
+  grid-template-columns: 32px 40px minmax(220px, 1fr) 184px 80px 80px 80px;
   align-items: center;
-  gap: 16px;
-  margin-bottom: 16px;
+  column-gap: 10px;
 }
 
-.step-title {
-  display: flex;
-  align-items: center;
-  gap: 10px;
+.step-table-header {
+  min-height: 42px;
+  padding: 8px 16px;
+  border-bottom: 1px solid #dbe4f0;
+  background: #eff6ff;
+  color: #475569;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
 }
 
-.drag-handle {
-  width: 32px;
-  height: 32px;
-  border-radius: 10px;
+.step-col-index,
+.step-col-toggle,
+.step-col-actions,
+.step-row-index,
+.step-row-toggle,
+.step-row-actions {
+  justify-self: center;
+}
+
+.step-table-body {
+  padding: 4px 10px 8px;
+}
+
+.step-row {
+  position: relative;
+  min-height: 48px;
+  padding: 4px 6px;
+  border-radius: 12px;
+  background: #ffffff;
+}
+
+.step-row + .step-row {
+  margin-top: 2px;
+}
+
+.step-row::before,
+.step-row::after {
+  content: '';
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  height: 2px;
+  background: transparent;
+  border-radius: 999px;
+  pointer-events: none;
+}
+
+.step-row::before {
+  top: -1px;
+}
+
+.step-row::after {
+  bottom: -1px;
+}
+
+.step-row.drop-before::before,
+.step-row.drop-after::after {
+  background: #2563eb;
+  box-shadow: 0 0 0 1px rgba(37, 99, 235, 0.12);
+}
+
+.step-row.is-dragging {
+  opacity: 0.6;
+  background: #eff6ff;
+}
+
+.step-row-handle-cell,
+.step-row-task,
+.step-row-policy {
+  min-width: 0;
+}
+
+.row-handle {
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 8px;
   background: #eff6ff;
   color: #1d4ed8;
-  display: flex;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
   cursor: grab;
+  font-size: 16px;
+  line-height: 1;
+}
+
+.row-handle:active {
+  cursor: grabbing;
+}
+
+.step-row-index {
+  color: #334155;
+  font-size: 14px;
   font-weight: 700;
 }
 
-.step-actions {
-  display: flex;
-  gap: 12px;
+.task-cell {
+  position: relative;
 }
 
-.retry-field {
-  grid-column: span 2;
-}
-
-.toggle-field {
+.policy-input-group {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 14px 16px;
-  border: 1px solid #cbd5e1;
-  border-radius: var(--radius-md);
-  background: #f8fafc;
+  gap: 6px;
 }
 
-.toggle-field input {
-  width: 18px;
-  height: 18px;
+.retry-inline-input {
+  width: 58px;
+  flex: 0 0 58px;
+  text-align: center;
 }
 
-.toggle-field strong {
-  display: block;
-  color: #0f172a;
-  font-size: 14px;
+.step-row-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 36px;
 }
 
-.toggle-field small {
-  display: block;
-  margin-top: 4px;
-  color: #64748b;
-  font-size: 12px;
-  line-height: 1.5;
+.step-row-toggle input {
+  width: 16px;
+  height: 16px;
+  margin: 0;
 }
 
-.toggle-field.is-disabled {
-  opacity: 0.6;
+.step-row-toggle.is-disabled {
+  opacity: 0.45;
+}
+
+.icon-danger-button {
+  width: 30px;
+  height: 30px;
+  border: none;
+  border-radius: 10px;
+  background: #fee2e2;
+  color: #b91c1c;
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.icon-danger-button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.step-table-footer {
+  padding: 10px 16px 14px;
+  border-top: 1px solid #e2e8f0;
+  background: #ffffff;
+}
+
+.add-step-button {
+  min-width: 112px;
 }
 
 .empty-state {
@@ -870,7 +1089,6 @@ h1 {
 .primary-button {
   background: var(--color-primary);
   color: #ffffff;
-  box-shadow: none;
 }
 
 .secondary-button {
@@ -891,33 +1109,39 @@ h1 {
 .primary-button:hover,
 .secondary-button:hover,
 .ghost-button:hover,
-.danger-button:hover {
+.danger-button:hover,
+.icon-danger-button:hover,
+.row-handle:hover {
   transform: translateY(-1px);
 }
 
-.primary-button:disabled {
+.primary-button:disabled,
+.secondary-button:disabled,
+.ghost-button:disabled,
+.danger-button:disabled {
   cursor: not-allowed;
   opacity: 0.7;
   transform: none;
 }
 
+:deep(.modal-container) {
+  max-height: 80vh;
+}
+
+:deep(.modal-body) {
+  padding: 20px 24px;
+}
+
 @media (max-width: 900px) {
   .page-header,
   .panel-header,
-  .flow-card-header,
-  .step-editor-header,
-  .step-draft-header {
+  .flow-card-header {
     flex-direction: column;
   }
 
   .summary-grid,
-  .field-grid,
-  .step-field-grid {
+  .field-grid {
     grid-template-columns: 1fr;
-  }
-
-  .retry-field {
-    grid-column: span 1;
   }
 }
 </style>

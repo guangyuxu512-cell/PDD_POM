@@ -2766,3 +2766,22 @@
   - `python -m pytest -c tests/pytest.ini tests/unit/test_batch_execute_shop_name.py -q`
 - [x] 全量验证通过：`python -m pytest -c tests/pytest.ini tests/ -v`
 - [x] 全量验证结果：`485 passed, 16 warnings`
+## Prompt 129：流程编排弹窗改为紧凑表格行布局 ✅
+- [x] 更新 `frontend/src/views/FlowManage.vue`
+- [x] 弹窗宽度改为 `min(80vw, 900px)`，并通过 `:deep(.modal-container)` 将最大高度限制为 `80vh`
+- [x] 顶部流程名称 / 流程说明保留并排单行输入
+- [x] 步骤编辑区改为紧凑表格行布局，包含拖拽手柄、序号、任务、失败策略、同步屏障、合并执行、删除列
+- [x] 新增原生拖拽插入线、拖拽后自动重排和新增步骤后任务下拉自动聚焦
+- [x] 保存前新增“至少一个步骤 / 每步必须选择任务”校验
+- [x] 新增静态回归测试 `tests/unit/test_flow_manage_editor_static.py`
+- [x] 定向验证通过：
+  - `python -m pytest -c tests/pytest.ini tests/unit/test_frontend_display_details.py tests/unit/test_flow_manage_editor_static.py -v`
+  - `4 passed`
+- [x] 模板类型校验通过：
+  - `npx --prefix frontend vue-tsc -b frontend/tsconfig.json`
+- [x] 全量回归通过：
+  - `python -m pytest -c tests/pytest.ini tests/ -v`
+  - `487 passed, 16 warnings`
+- [ ] 前端构建命令在当前环境未通过：
+  - `npm --prefix frontend run build`
+  - 失败原因：`vite` 读取配置时启动 `esbuild` 子进程触发 `spawn EPERM`

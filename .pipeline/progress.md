@@ -528,3 +528,37 @@
 - 本轮修复只作用于“直接读取数据库中已有待执行 `flow_params`”的分支，不影响 `input_set_id` 输入集生成兼容 `flow_params` 的路径。
 - 已执行 `python -m pytest -c tests/pytest.ini tests/unit/test_execute_service.py -q` 与 `python -m pytest -c tests/pytest.ini tests/unit/test_batch_execute_shop_name.py -q`，均通过。
 - 已执行 `python -m pytest -c tests/pytest.ini tests/ -v`，结果为 `485 passed, 16 warnings`。
+## 任务摘要
+
+完成流程编排弹窗重构：将步骤编辑区从大卡片改为紧凑表格行布局，放大弹窗并补齐拖拽插入线、新增行聚焦与静态回归测试。
+## 改动文件列表
+
+- `frontend/src/views/FlowManage.vue`
+- `tests/unit/test_flow_manage_editor_static.py`
+- `PLAN.md`
+- `改造进度.md`
+- `.pipeline/progress.md`
+
+## 改动说明
+
+- `frontend/src/views/FlowManage.vue`：将流程编辑弹窗宽度调整为 `min(80vw, 900px)`，并把步骤编辑区重构为紧凑表格行布局；保留现有流程保存 payload，不改动 API 调用；新增原生拖拽插入线、步骤新增后任务下拉自动聚焦，以及保存前“至少一个步骤 / 每步必须选择任务”的校验。
+- `tests/unit/test_flow_manage_editor_static.py`：新增静态回归，覆盖弹窗尺寸、表格列结构、拖拽插入线、自动聚焦和保存前校验文案，防止回退到旧的大卡片布局。
+- `PLAN.md`：同步本轮弹窗改造项、验证命令和当前构建限制。
+- `改造进度.md`：同步记录本轮前端改造内容、验证结果和注意事项。
+- `.pipeline/progress.md`：记录本轮 Builder 执行结果。
+
+## 影响范围
+
+- 流程管理页中的流程新建 / 编辑弹窗
+- 流程步骤拖拽排序与新增步骤交互
+- 前端静态回归测试覆盖范围
+
+## 注意事项
+
+- 已执行 `python -m pytest -c tests/pytest.ini tests/unit/test_frontend_display_details.py tests/unit/test_flow_manage_editor_static.py -v`，结果为 `4 passed`。
+- 已执行 `npx --prefix frontend vue-tsc -b frontend/tsconfig.json`，通过。
+- 已执行 `python -m pytest -c tests/pytest.ini tests/ -v`，结果为 `487 passed, 16 warnings`。
+- `npm --prefix frontend run build` 在当前环境仍因 `vite` 启动 `esbuild` 子进程时报 `spawn EPERM` 失败，属于现有环境限制，不是本轮改动引入的问题。
+- `.pipeline/task.md` 为既有本地改动，本轮未修改。
+
+---
