@@ -3,7 +3,6 @@
 
 提供店铺管理的 REST API 接口。
 """
-from typing import Optional
 from fastapi import APIRouter, Query
 
 from backend.logging_config import get_logger
@@ -31,7 +30,8 @@ logger = get_logger()
 @路由.get("/", summary="获取店铺列表")
 async def 获取店铺列表(
     page: int = Query(1, ge=1, description="页码"),
-    page_size: int = Query(20, ge=1, le=100, description="每页大小")
+    page_size: int = Query(20, ge=1, le=100, description="每页大小"),
+    platform: str | None = Query(default=None, description="平台标识"),
 ) -> 统一响应:
     """
     获取店铺列表（分页）
@@ -44,7 +44,11 @@ async def 获取店铺列表(
         统一响应: 包含分页数据的响应
     """
     try:
-        结果 = await 店铺服务实例.获取全部(page=page, page_size=page_size)
+        结果 = await 店铺服务实例.获取全部(
+            page=page,
+            page_size=page_size,
+            platform=platform,
+        )
         return 成功(data=结果)
     except Exception as e:
         return 失败(f"获取店铺列表失败: {str(e)}")

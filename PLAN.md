@@ -2910,3 +2910,59 @@
 - [x] 全量回归通过：
   - `python -m pytest -c tests/pytest.ini tests/ -q`
   - `500 passed, 18 warnings`
+## Prompt 135：platform 字段、多平台基础注册与前端平台切换 ✅
+- [x] 更新 `backend/models/shop_model.py`
+- [x] `shops` 表新增 `platform` 字段，默认值为 `pdd`
+- [x] 更新 `backend/models/flow_model.py`
+- [x] `flows` 表新增 `platform` 字段，默认值为 `pdd`
+- [x] 更新 `backend/models/database.py`
+- [x] `task_logs` 表新增 `platform` 字段
+- [x] 启动时为旧库自动执行 `shops / flows / task_logs` 的 `platform` migration 并回填 `pdd`
+- [x] 更新 `backend/models/data_structure.py`
+- [x] 店铺创建请求、店铺响应、流程响应、任务日志响应补齐 `platform`
+- [x] 更新 `backend/services/shop_service.py`
+- [x] 店铺列表支持 `platform` 过滤
+- [x] 新建店铺时写入 `platform`
+- [x] 更新 `backend/api/shop_api.py`
+- [x] `GET /api/shops` 支持 `platform` 查询参数
+- [x] 更新 `backend/services/flow_service.py`
+- [x] 流程列表支持 `platform` 过滤
+- [x] 新建流程默认写入 `platform='pdd'`
+- [x] 更新 `backend/api/flow_api.py`
+- [x] `GET /api/flows` 支持 `platform` 查询参数
+- [x] 新增 `backend/api/platform_api.py`
+- [x] 新增 `GET /api/platforms`
+- [x] 更新 `backend/api/router.py`
+- [x] 注册平台列表接口路由
+- [x] 新增 `platforms/` 多平台基础注册框架：
+  - `platforms/base/base_platform.py`
+  - `platforms/pdd/platform.py`
+  - `platforms/__init__.py`
+  - `platforms/base/__init__.py`
+  - `platforms/pdd/__init__.py`
+- [x] 新增前端平台切换链路：
+  - `frontend/src/api/platforms.ts`
+  - `frontend/src/stores/platform.ts`
+  - `frontend/src/components/PlatformSelector.vue`
+- [x] 更新 `frontend/src/api/types.ts`
+- [x] `Shop` / `ShopPayload` 补齐 `platform`
+- [x] 更新 `frontend/src/api/shops.ts`
+- [x] 店铺列表请求支持 `platform` 查询参数
+- [x] 更新 `frontend/src/views/ShopManage.vue`
+- [x] 店铺页按当前平台刷新列表
+- [x] 新建店铺自动绑定当前平台
+- [x] 更新 `frontend/src/App.vue`
+- [x] 侧边栏挂载全局平台切换器
+- [x] 更新 `frontend/src/components/ShopCard.vue`
+- [x] 店铺卡片改用统一 `Shop` 类型，保持平台字段类型一致
+- [x] 新增回归测试：
+  - `tests/unit/test_platform_backend.py`
+  - `tests/unit/test_platform_frontend_static.py`
+- [x] 定向验证通过：
+  - `python -m pytest -c tests/pytest.ini tests/unit/test_platform_backend.py tests/unit/test_platform_frontend_static.py tests/unit/test_shop_and_flow_api.py tests/unit/test_database_model.py tests/unit/test_frontend_management_page.py -v`
+  - `19 passed`
+- [x] 前端类型校验通过：
+  - `npx --prefix frontend vue-tsc -b frontend/tsconfig.json`
+- [x] 全量回归通过：
+  - `python -m pytest -c tests/pytest.ini tests/ -v`
+  - `505 passed, 18 warnings`

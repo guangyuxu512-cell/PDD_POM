@@ -17,6 +17,7 @@ from backend.models.table_schema import 字段定义, 数据表定义, 生成数
 流程字段映射 = {
     "流程ID": "id",
     "名称": "name",
+    "平台": "platform",
     "步骤": "steps",
     "描述": "description",
     "创建时间": "created_at",
@@ -101,6 +102,7 @@ class 流程模型:
     流程ID: str
     名称: str
     步骤: list[流程步骤 | Mapping[str, Any]]
+    平台: str = "pdd"
     描述: str | None = None
     创建时间: datetime | None = None
     更新时间: datetime | None = None
@@ -112,6 +114,7 @@ class 流程模型:
             raise ValueError("流程 ID 不能为空")
         if not self.名称:
             raise ValueError("流程名称不能为空")
+        self.平台 = str(self.平台 or "pdd").strip().lower() or "pdd"
         self.步骤 = 标准化步骤列表(self.步骤)
 
     def 转数据库记录(self) -> dict[str, object]:
@@ -131,6 +134,7 @@ def 创建流程表定义() -> 数据表定义:
         字段列表=(
             字段定义("流程ID", "id", "TEXT", 主键=True),
             字段定义("名称", "name", "TEXT", 非空=True),
+            字段定义("平台", "platform", "TEXT", 非空=True, 默认值SQL="'pdd'"),
             字段定义("步骤", "steps", "TEXT", 非空=True),
             字段定义("描述", "description", "TEXT"),
             字段定义("创建时间", "created_at", "DATETIME", 默认值SQL="CURRENT_TIMESTAMP"),

@@ -755,3 +755,75 @@
 - `.pipeline/task.md` 为既有本地改动，本轮未修改。
 
 ---
+
+## 任务摘要
+
+完成 `platform` 字段迁移、多平台注册基础框架、平台列表接口和前端全局平台切换器，并让店铺列表与新建店铺绑定当前平台。
+
+## 改动文件列表
+
+- `backend/models/shop_model.py`
+- `backend/models/flow_model.py`
+- `backend/models/database.py`
+- `backend/models/data_structure.py`
+- `backend/services/shop_service.py`
+- `backend/api/shop_api.py`
+- `backend/services/flow_service.py`
+- `backend/api/flow_api.py`
+- `backend/api/platform_api.py`
+- `backend/api/router.py`
+- `platforms/__init__.py`
+- `platforms/base/__init__.py`
+- `platforms/base/base_platform.py`
+- `platforms/pdd/__init__.py`
+- `platforms/pdd/platform.py`
+- `frontend/src/api/types.ts`
+- `frontend/src/api/shops.ts`
+- `frontend/src/api/platforms.ts`
+- `frontend/src/stores/platform.ts`
+- `frontend/src/components/PlatformSelector.vue`
+- `frontend/src/components/ShopCard.vue`
+- `frontend/src/views/ShopManage.vue`
+- `frontend/src/App.vue`
+- `tests/unit/test_platform_backend.py`
+- `tests/unit/test_platform_frontend_static.py`
+- `PLAN.md`
+- `改造进度.md`
+- `.pipeline/progress.md`
+
+## 改动说明
+
+- `backend/models/shop_model.py`、`backend/models/flow_model.py`：为 `shops / flows` 增加 `platform` 字段和默认值 `pdd`，让新建数据天然带平台归属。
+- `backend/models/database.py`：为 `task_logs` 建表 SQL 增加 `platform`；初始化数据库时补齐旧库 `shops / flows / task_logs` 的 `platform` 字段，并把历史空值回填为 `pdd`，保证重复执行 migration 不报错。
+- `backend/models/data_structure.py`：店铺创建请求、店铺响应、流程响应、任务日志响应补齐 `platform` 字段，保持接口结构完整。
+- `backend/services/shop_service.py`、`backend/api/shop_api.py`：店铺列表支持 `platform` 查询参数过滤，新建店铺时写入归一化后的 `platform`。
+- `backend/services/flow_service.py`、`backend/api/flow_api.py`：流程列表支持 `platform` 过滤，新建流程默认写入 `platform='pdd'`。
+- `backend/api/platform_api.py`、`backend/api/router.py`：新增 `GET /api/platforms` 并注册路由，接口通过统一 `成功()` 响应返回平台注册表。
+- `platforms/`：新增多平台基础注册框架和 `PddPlatform`，提供 `register_platform / get_platform / list_platforms`，为第二个平台接入预留统一入口。
+- `frontend/src/api/types.ts`、`frontend/src/api/shops.ts`、`frontend/src/api/platforms.ts`：补齐前端 `platform` 类型与平台接口封装，店铺列表 API 支持带 `platform` 查询参数。
+- `frontend/src/stores/platform.ts`、`frontend/src/components/PlatformSelector.vue`、`frontend/src/App.vue`：新增全局平台 store 与平台选择器，侧边栏挂载切换入口，当前平台持久化到 `localStorage.selectedPlatform`。
+- `frontend/src/views/ShopManage.vue`：店铺列表按当前平台自动加载，平台切换后自动刷新；新建店铺时自动绑定当前平台，不增加额外表单项。
+- `frontend/src/components/ShopCard.vue`：改用统一 `Shop` 类型，消除新增 `platform` 字段后的类型分叉。
+- `tests/unit/test_platform_backend.py`：新增后端回归，覆盖 migration 回填、店铺/流程平台过滤、平台接口以及未注册平台异常路径。
+- `tests/unit/test_platform_frontend_static.py`：新增前端静态回归，覆盖平台 API、Pinia store、全局选择器和店铺页接线。
+- `PLAN.md`、`改造进度.md`、`.pipeline/progress.md`：同步记录本轮平台改造与验证结果。
+
+## 影响范围
+
+- `shops / flows / task_logs` 的数据结构与旧库升级逻辑
+- 店铺列表、流程列表的按平台过滤能力
+- 平台列表接口和未来多平台注册扩展入口
+- 前端全局平台切换状态、店铺管理页查询和新建店铺的默认归属
+- 平台相关后端/前端回归测试覆盖范围
+
+## 注意事项
+
+- 已执行 `python -m pytest -c tests/pytest.ini tests/unit/test_platform_backend.py tests/unit/test_platform_frontend_static.py tests/unit/test_shop_and_flow_api.py tests/unit/test_database_model.py tests/unit/test_frontend_management_page.py -v`，结果为 `19 passed`。
+- 已执行 `npx --prefix frontend vue-tsc -b frontend/tsconfig.json`，通过。
+- 已执行 `python -m pytest -c tests/pytest.ini tests/ -v`，结果为 `505 passed, 18 warnings`。
+- 当前 `GET /api/platforms` 只返回 `pdd`，后续新增平台时只需要补充平台注册实现，不需要重写接口结构。
+- 18 条 warning 中，16 条仍来自既有第三方依赖 `celery` 与 `openpyxl` 的 `datetime.utcnow()` 弃用提示，另外 2 条为既有 `PytestUnraisableExceptionWarning`，均不是本轮改动引入的问题。
+- 本轮未执行 `npm --prefix frontend run build`；当前环境此前已知存在 `esbuild` 子进程 `spawn EPERM` 限制。
+- `.pipeline/task.md` 为既有本地改动，本轮未修改。
+
+---

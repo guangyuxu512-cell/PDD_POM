@@ -60,6 +60,7 @@ class 分页响应(BaseModel):
 class 店铺创建请求(BaseModel):
     """创建店铺请求"""
     name: str = Field(description="店铺名称")
+    platform: str = Field(default="pdd", description="平台标识")
     username: Optional[str] = Field(default=None, description="登录用户名")
     password: Optional[str] = Field(default=None, description="登录密码")
     proxy: Optional[str] = Field(default=None, description="代理地址")
@@ -92,6 +93,7 @@ class 店铺响应(BaseModel):
     """店铺响应"""
     id: str = Field(description="店铺ID")
     name: str = Field(description="店铺名称")
+    platform: str = Field(default="pdd", description="平台标识")
     username: Optional[str] = Field(default=None, description="登录用户名")
     password: Optional[str] = Field(default=None, description="登录密码（脱敏）")
     proxy: Optional[str] = Field(default=None, description="代理地址")
@@ -127,6 +129,7 @@ class 任务日志响应(BaseModel):
     id: int = Field(description="日志ID")
     task_id: str = Field(description="任务ID")
     shop_id: Optional[str] = Field(default=None, description="店铺ID")
+    platform: Optional[str] = Field(default=None, description="平台标识")
     task_name: str = Field(description="任务名称")
     status: str = Field(description="状态")
     params: Optional[str] = Field(default=None, description="任务参数")
@@ -164,6 +167,7 @@ class 流程响应(BaseModel):
     """流程响应"""
     id: str = Field(description="流程ID")
     name: str = Field(description="流程名称")
+    platform: str = Field(default="pdd", description="平台标识")
     steps: List[流程步骤配置] = Field(description="流程步骤")
     description: Optional[str] = Field(default=None, description="流程描述")
     created_at: Optional[str] = Field(default=None, description="创建时间")

@@ -3,7 +3,7 @@
 
 提供流程模板 CRUD API。
 """
-from fastapi import APIRouter
+from fastapi import APIRouter, Query
 
 from backend.models.data_structure import (
     统一响应,
@@ -23,10 +23,12 @@ from backend.services.flow_service import 流程服务实例
 
 @路由.get("", include_in_schema=False)
 @路由.get("/", summary="获取流程列表")
-async def 获取流程列表() -> 统一响应:
+async def 获取流程列表(
+    platform: str | None = Query(default=None, description="平台标识"),
+) -> 统一响应:
     """获取流程模板列表。"""
     try:
-        return 成功(data=await 流程服务实例.获取全部())
+        return 成功(data=await 流程服务实例.获取全部(platform=platform))
     except Exception as e:
         return 失败(f"获取流程列表失败: {str(e)}")
 

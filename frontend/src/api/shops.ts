@@ -1,8 +1,14 @@
 import { api } from './index'
 import type { PaginatedList, Shop, ShopPayload } from './types'
 
-export function listShops() {
-  return api.get<PaginatedList<Shop>>('/api/shops')
+export function listShops(platform?: string) {
+  const params = new URLSearchParams()
+  if (platform?.trim()) {
+    params.set('platform', platform.trim())
+  }
+
+  const query = params.toString()
+  return api.get<PaginatedList<Shop>>(`/api/shops${query ? `?${query}` : ''}`)
 }
 
 export function createShop(payload: ShopPayload) {

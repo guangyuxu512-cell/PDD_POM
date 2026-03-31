@@ -17,6 +17,10 @@ from tasks.registry import 获取任务类, 初始化任务注册表
 class 流程服务:
     """流程模板业务服务。"""
 
+    def _标准化平台(self, 平台值: Any) -> str:
+        """将平台标识归一化为非空小写字符串。"""
+        return str(平台值 or "pdd").strip().lower() or "pdd"
+
     def _构建响应数据(self, 列名: List[str], 行数据) -> Dict[str, Any]:
         """将数据库记录转换为 API 返回结构。"""
         数据 = dict(zip(列名, 行数据))
@@ -52,15 +56,26 @@ class 流程服务:
 
         return [步骤.转字典() for 步骤 in 步骤列表]
 
-    async def 获取全部(self) -> Dict[str, Any]:
+    async def 获取全部(self, platform: str | None = None) -> Dict[str, Any]:
         """获取全部流程模板。"""
+        where_子句 = ""
+        查询参数: list[Any] = []
+        平台值 = str(platform or "").strip().lower()
+        if 平台值:
+            where_子句 = " WHERE platform = ?"
+            查询参数.append(平台值)
+
         async with 获取连接() as 连接:
-            async with 连接.execute("SELECT COUNT(*) FROM flows") as 游标:
+            async with 连接.execute(
+                f"SELECT COUNT(*) FROM flows{where_子句}",
+                查询参数,
+            ) as 游标:
                 结果 = await 游标.fetchone()
                 总数 = 结果[0] if 结果 else 0
 
             async with 连接.execute(
-                "SELECT * FROM flows ORDER BY created_at DESC"
+                f"SELECT * FROM flows{where_子句} ORDER BY created_at DESC",
+                查询参数,
             ) as 游标:
                 列名 = [描述[0] for 描述 in 游标.description]
                 行列表 = await 游标.fetchall()
@@ -92,9 +107,11 @@ class 流程服务:
 
         步骤列表 = self._解析步骤(数据.get("steps"))
         流程ID = str(uuid.uuid4())
+        平台 = self._标准化平台(数据.get("platform"))
         模型 = 流程模型(
             流程ID=流程ID,
             名称=流程名称,
+            平台=平台,
             步骤=步骤列表,
             描述=(str(数据["description"]).strip() if 数据.get("description") is not None else None),
         )
@@ -103,12 +120,13 @@ class 流程服务:
         async with 获取连接() as 连接:
             await 连接.execute(
                 """
-                INSERT INTO flows (id, name, steps, description)
-                VALUES (?, ?, ?, ?)
+                INSERT INTO flows (id, name, platform, steps, description)
+                VALUES (?, ?, ?, ?, ?)
                 """,
                 (
                     记录["id"],
                     记录["name"],
+                    记录["platform"],
                     记录["steps"],
                     记录["description"],
                 ),

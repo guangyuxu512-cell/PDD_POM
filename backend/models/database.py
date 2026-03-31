@@ -42,6 +42,7 @@ def _获取数据目录() -> Path:
         task_id TEXT NOT NULL,
         shop_id TEXT,
         task_name TEXT NOT NULL,
+        platform TEXT NOT NULL DEFAULT 'pdd',
         status TEXT NOT NULL,
         params TEXT,
         result TEXT,
@@ -269,6 +270,30 @@ def _获取数据目录() -> Path:
 """
 
 
+async def _获取字段集合(连接: aiosqlite.Connection, 表名: str) -> set[str]:
+    """读取指定数据表的全部字段名。"""
+    async with 连接.execute(f"PRAGMA table_info({表名})") as 游标:
+        return {行[1] for 行 in await 游标.fetchall()}
+
+
+async def _确保字段存在(
+    连接: aiosqlite.Connection,
+    表名: str,
+    字段名: str,
+    新增字段SQL: str,
+) -> None:
+    """为旧表补齐新增字段，重复执行时忽略重复列错误。"""
+    字段集合 = await _获取字段集合(连接, 表名)
+    if not 字段集合 or 字段名 in 字段集合:
+        return
+
+    try:
+        await 连接.execute(新增字段SQL)
+    except aiosqlite.OperationalError as 异常:
+        if "duplicate column name" not in str(异常).lower():
+            raise
+
+
 def 获取建表语句列表() -> list[str]:
     """返回数据库初始化需要执行的全部建表语句。"""
     return [
@@ -312,14 +337,12 @@ async def 配置SQLite连接(连接: aiosqlite.Connection) -> None:
 
 async def _补齐旧版表结构(连接: aiosqlite.Connection) -> None:
     """为旧数据库补齐新增字段，保证升级后可直接运行。"""
-    async with 连接.execute("PRAGMA table_info(operation_logs)") as 游标:
-        字段集合 = {行[1] for 行 in await 游标.fetchall()}
+    字段集合 = await _获取字段集合(连接, "operation_logs")
 
     if 字段集合 and "shop_name" not in 字段集合:
         await 连接.execute("ALTER TABLE operation_logs ADD COLUMN shop_name TEXT")
 
-    async with 连接.execute("PRAGMA table_info(task_params)") as 游标:
-        任务参数字段集合 = {行[1] for 行 in await 游标.fetchall()}
+    任务参数字段集合 = await _获取字段集合(连接, "task_params")
 
     if 任务参数字段集合 and "enabled" not in 任务参数字段集合:
         await 连接.execute(
@@ -331,8 +354,7 @@ async def _补齐旧版表结构(连接: aiosqlite.Connection) -> None:
             "ALTER TABLE task_params ADD COLUMN run_count INTEGER NOT NULL DEFAULT 0"
         )
 
-    async with 连接.execute("PRAGMA table_info(flow_params)") as 游标:
-        流程参数字段集合 = {行[1] for 行 in await 游标.fetchall()}
+    流程参数字段集合 = await _获取字段集合(连接, "flow_params")
 
     if 流程参数字段集合 and "step_results" not in 流程参数字段集合:
         await 连接.execute(
@@ -358,6 +380,32 @@ async def _补齐旧版表结构(连接: aiosqlite.Connection) -> None:
         await 连接.execute(
             "ALTER TABLE flow_params ADD COLUMN run_count INTEGER NOT NULL DEFAULT 0"
         )
+
+    await _确保字段存在(
+        连接,
+        "shops",
+        "platform",
+        "ALTER TABLE shops ADD COLUMN platform TEXT NOT NULL DEFAULT 'pdd'",
+    )
+    await _确保字段存在(
+        连接,
+        "flows",
+        "platform",
+        "ALTER TABLE flows ADD COLUMN platform TEXT NOT NULL DEFAULT 'pdd'",
+    )
+    await _确保字段存在(
+        连接,
+        "task_logs",
+        "platform",
+        "ALTER TABLE task_logs ADD COLUMN platform TEXT NOT NULL DEFAULT 'pdd'",
+    )
+
+    for 表名 in ("shops", "flows", "task_logs"):
+        当前字段集合 = await _获取字段集合(连接, 表名)
+        if "platform" in 当前字段集合:
+            await 连接.execute(
+                f"UPDATE {表名} SET platform = 'pdd' WHERE platform IS NULL OR TRIM(platform) = ''"
+            )
 
     await 初始化售后配置表(连接)
 

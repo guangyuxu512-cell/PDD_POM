@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { onMounted, ref, watch } from 'vue'
 
 import ConfirmDialog from '../components/ConfirmDialog.vue'
 import Modal from '../components/Modal.vue'
@@ -14,6 +14,7 @@ import {
   updateShop,
 } from '../api/shops'
 import type { Shop, ShopPayload } from '../api/types'
+import { usePlatformStore } from '../stores/platform'
 import { toast } from '../utils/toast'
 
 interface ShopFormModel {
@@ -34,6 +35,7 @@ const showDeleteConfirm = ref(false)
 const isSaving = ref(false)
 const editingShop = ref<Shop | null>(null)
 const deletingShopId = ref<string | null>(null)
+const platformStore = usePlatformStore()
 
 const formData = ref<ShopFormModel>({
   name: '',
@@ -63,7 +65,7 @@ function createEmptyForm(): ShopFormModel {
 
 async function loadShops() {
   try {
-    const result = await listShops()
+    const result = await listShops(platformStore.currentPlatform)
     shops.value = result.list
   } catch (error) {
     const message = error instanceof Error ? error.message : '加载店铺失败'
@@ -148,6 +150,7 @@ async function handleSave() {
       await updateShop(editingShop.value.id, payload)
       toast.success('店铺已更新')
     } else {
+      payload.platform = platformStore.currentPlatform
       await createShop(payload)
       toast.success('店铺已创建')
     }
@@ -222,6 +225,10 @@ async function testEmail() {
 }
 
 onMounted(() => {
+  void loadShops()
+})
+
+watch(() => platformStore.currentPlatform, () => {
   void loadShops()
 })
 </script>

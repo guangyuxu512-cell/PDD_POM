@@ -1,11 +1,15 @@
 <script setup lang="ts">
+import PlatformSelector from './components/PlatformSelector.vue'
 import Toast from './components/Toast.vue'
 </script>
 
 <template>
   <div class="app">
     <aside class="sidebar">
-      <div class="logo">自动化工作台</div>
+      <div class="sidebar-header">
+        <div class="logo">自动化工作台</div>
+        <PlatformSelector />
+      </div>
       <nav class="nav">
         <router-link to="/shops" class="nav-item">
           <span class="icon">🏪</span>
@@ -59,11 +63,17 @@ import Toast from './components/Toast.vue'
   flex-shrink: 0;
 }
 
-.logo {
+.sidebar-header {
   padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.logo {
   font-size: 18px;
   font-weight: 600;
-  border-bottom: 1px solid var(--color-border);
   color: var(--color-text);
 }
 
@@ -129,7 +139,6 @@ import Toast from './components/Toast.vue'
 
   .logo {
     font-size: 16px;
-    padding: 16px;
   }
 
   .nav-item {

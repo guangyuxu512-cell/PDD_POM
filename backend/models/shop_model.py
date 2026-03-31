@@ -15,6 +15,7 @@ from backend.models.table_schema import 字段定义, 数据表定义, 生成数
 店铺字段映射 = {
     "店铺ID": "id",
     "名称": "name",
+    "平台": "platform",
     "账号": "username",
     "密码": "password",
     "代理": "proxy",
@@ -40,6 +41,7 @@ class 店铺模型:
 
     店铺ID: str
     名称: str
+    平台: str = "pdd"
     账号: str | None = None
     密码: str | None = None
     代理: str | None = None
@@ -71,6 +73,7 @@ def 创建店铺表定义() -> 数据表定义:
         字段列表=(
             字段定义("店铺ID", "id", "TEXT", 主键=True),
             字段定义("名称", "name", "TEXT", 非空=True),
+            字段定义("平台", "platform", "TEXT", 非空=True, 默认值SQL="'pdd'"),
             字段定义("账号", "username", "TEXT"),
             字段定义("密码", "password", "TEXT"),
             字段定义("代理", "proxy", "TEXT"),

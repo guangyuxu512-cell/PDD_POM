@@ -1,19 +1,7 @@
 <script setup lang="ts">
-import StatusBadge from './StatusBadge.vue'
+import type { Shop } from '../api/types'
 
-interface Shop {
-  id: string
-  name: string
-  username?: string | null
-  proxy?: string | null
-  status: string
-  last_login?: string | null
-  cookie_status?: string | null
-  smtp_user?: string | null
-  smtp_host?: string | null
-  smtp_port?: number | null
-  smtp_protocol?: string | null
-}
+import StatusBadge from './StatusBadge.vue'
 
 interface Props {
   shop: Shop

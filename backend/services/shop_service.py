@@ -22,6 +22,10 @@ class 店铺服务:
     def __init__(self):
         """初始化店铺服务"""
 
+    def _标准化平台(self, 平台值: Any) -> str:
+        """将平台标识归一化为非空小写字符串。"""
+        return str(平台值 or "pdd").strip().lower() or "pdd"
+
     def _获取密钥文件路径(self) -> Path:
         """在未显式配置 ENCRYPTION_KEY 时，使用持久化密钥文件保证重启后可解密。"""
         return Path(配置实例.DATA_DIR) / ".encryption.key"
@@ -127,7 +131,12 @@ class 店铺服务:
                 店铺数据["smtp_pass"] = None
         return 店铺数据
 
-    async def 获取全部(self, page: int = 1, page_size: int = 20) -> Dict[str, Any]:
+    async def 获取全部(
+        self,
+        page: int = 1,
+        page_size: int = 20,
+        platform: str | None = None,
+    ) -> Dict[str, Any]:
         """
         分页获取所有店铺
 
@@ -140,18 +149,28 @@ class 店铺服务:
         """
         page = max(page, 1)
         page_size = max(page_size, 1)
+        where_子句 = ""
+        查询参数: List[Any] = []
+
+        平台值 = str(platform or "").strip().lower()
+        if 平台值:
+            where_子句 = " WHERE platform = ?"
+            查询参数.append(平台值)
 
         async with 获取连接() as 连接:
             # 查询总数
-            async with 连接.execute("SELECT COUNT(*) FROM shops") as 游标:
+            async with 连接.execute(
+                f"SELECT COUNT(*) FROM shops{where_子句}",
+                查询参数,
+            ) as 游标:
                 结果 = await 游标.fetchone()
                 总数 = 结果[0] if 结果 else 0
 
             # 查询分页数据
             偏移量 = (page - 1) * page_size
             async with 连接.execute(
-                "SELECT * FROM shops ORDER BY created_at DESC LIMIT ? OFFSET ?",
-                (page_size, 偏移量)
+                f"SELECT * FROM shops{where_子句} ORDER BY created_at DESC LIMIT ? OFFSET ?",
+                [*查询参数, page_size, 偏移量]
             ) as 游标:
                 列名 = [描述[0] for 描述 in 游标.description]
                 行列表 = await 游标.fetchall()
@@ -234,6 +253,7 @@ class 店铺服务:
 
         # 生成 UUID
         店铺ID = str(uuid.uuid4())
+        平台 = self._标准化平台(数据.get("platform"))
 
         # 创建用户数据目录
         用户目录 = Path(配置实例.DATA_DIR) / "profiles" / 店铺ID
@@ -253,14 +273,15 @@ class 店铺服务:
             await 连接.execute(
                 """
                 INSERT INTO shops (
-                    id, name, username, password, proxy, user_agent,
+                    id, name, platform, username, password, proxy, user_agent,
                     profile_dir, cookie_path, status, smtp_host, smtp_port,
                     smtp_user, smtp_pass, smtp_protocol, remark
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     店铺ID,
                     店铺名称,
+                    平台,
                     数据.get("username"),
                     密码,
                     数据.get("proxy"),
