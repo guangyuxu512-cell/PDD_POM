@@ -597,3 +597,77 @@
 - `.pipeline/task.md` 为既有本地改动，本轮未修改。
 
 ---
+
+## 任务摘要
+
+进一步压缩流程编排弹窗内的步骤表格行高度和控件尺寸，让 6 步流程更容易在弹窗内一屏显示。
+
+## 改动文件列表
+
+- `frontend/src/views/FlowManage.vue`
+- `tests/unit/test_flow_manage_editor_static.py`
+- `PLAN.md`
+- `改造进度.md`
+- `.pipeline/progress.md`
+
+## 改动说明
+
+- `frontend/src/views/FlowManage.vue`：按任务给定数值收紧步骤区样式，将 `.step-row` 调整为 `min-height: 40px`、`padding: 2px 6px`、`border-radius: 8px`，将相邻步骤间距压到 `1px`；将 `.step-table-header` 压缩为 `36px` 高度；将步骤区输入框和下拉框高度统一调为 `32px` 且圆角为 `6px`；同步缩小拖拽手柄和删除按钮尺寸，减少弹窗内垂直占用，同时保留现有拖拽、下拉、checkbox 和删除交互逻辑不变。
+- `tests/unit/test_flow_manage_editor_static.py`：新增样式密度静态回归，覆盖步骤表头高度、步骤行高度、相邻行间距、步骤区控件高度、拖拽手柄尺寸和删除按钮尺寸，防止样式回退。
+- `PLAN.md`、`改造进度.md`、`.pipeline/progress.md`：同步记录本轮步骤区压缩改造和验证结果。
+
+## 影响范围
+
+- 流程管理页流程编辑弹窗的步骤表格区视觉密度
+- 6 步及以上流程在编辑弹窗内的可见性
+- FlowManage 页面相关静态回归覆盖范围
+
+## 注意事项
+
+- 已执行 `python -m pytest -c tests/pytest.ini tests/unit/test_frontend_display_details.py tests/unit/test_flow_manage_editor_static.py tests/unit/test_flow_manage_list_static.py -v`，结果为 `7 passed`。
+- 已执行 `npx --prefix frontend vue-tsc -b frontend/tsconfig.json`，通过。
+- 已执行 `python -m pytest -c tests/pytest.ini tests/ -q`，结果为 `490 passed, 16 warnings`。
+- 16 条 warning 仍来自既有第三方依赖 `celery` 与 `openpyxl` 的 `datetime.utcnow()` 弃用提示，不是本轮改动引入的问题。
+- 本轮仅调整前端样式密度，未改动流程保存 payload、拖拽排序逻辑或后端 API。
+- 本轮未重新执行 `npm --prefix frontend run build`；当前环境此前已知存在 `esbuild` 子进程 `spawn EPERM` 限制。
+- `.pipeline/task.md` 为既有本地改动，本轮未修改。
+
+---
+
+## 任务摘要
+
+将批量执行页和定时任务页统一改为紧凑表格布局：批量执行状态区表格化并支持详情展开，定时任务列表改为开关 + 表格，并把弹窗尺寸与流程管理页对齐。
+
+## 改动文件列表
+
+- `frontend/src/views/BatchExecute.vue`
+- `frontend/src/views/ScheduleManage.vue`
+- `tests/unit/test_batch_execute_schedule_static.py`
+- `PLAN.md`
+- `改造进度.md`
+- `.pipeline/progress.md`
+
+## 改动说明
+
+- `frontend/src/views/BatchExecute.vue`：移除页面对 `BatchStatusPanel` 的依赖，在页面内直接实现状态表格；新增批次单行汇总文案、店铺执行状态彩色标签、进度条、耗时列和“查看详情”展开步骤明细；保留左侧执行配置面板、批量启动/停止逻辑和 SSE 状态流不变。
+- `frontend/src/views/ScheduleManage.vue`：删除 `schedule-grid / schedule-card` 卡片式列表，改为 `schedule-table`；新增开关列用于启用/禁用计划，任务名称支持点击进入编辑，目标店铺数改为紧凑 badge；顶部统计区压成单行 `inline-stats`；将新建/编辑弹窗宽度调整为 `min(80vw, 900px)` 并通过 `:deep(.modal-container)` 限制到 `80vh`。
+- `tests/unit/test_batch_execute_schedule_static.py`：新增静态回归，覆盖批量执行页表格结构、状态标签颜色映射、进度条和详情入口，以及定时任务页表格列、开关控件、弹窗尺寸和旧卡片结构移除。
+- `PLAN.md`、`改造进度.md`、`.pipeline/progress.md`：同步记录本轮页面表格化改造和验证结果。
+
+## 影响范围
+
+- 批量执行页的实时状态展示与步骤详情查看入口
+- 定时任务页的列表展示密度、启停交互和弹窗尺寸
+- 批量执行 / 定时任务相关前端静态回归覆盖范围
+
+## 注意事项
+
+- 已执行 `python -m pytest -c tests/pytest.ini tests/unit/test_batch_execute_schedule_static.py tests/unit/test_frontend_management_page.py tests/unit/test_batch_execute_shop_name.py -v`，结果为 `13 passed`。
+- 已执行 `npx --prefix frontend vue-tsc -b frontend/tsconfig.json`，通过。
+- 已执行 `python -m pytest -c tests/pytest.ini tests/ -q`，结果为 `494 passed, 16 warnings`。
+- 首次全量回归时，`tests/unit/test_anti_detection.py::test_随机延迟在范围内` 出现一次调度抖动导致的超时；单测复跑通过，随后全量复跑通过，未发现与本轮前端改动有关的稳定失败。
+- 16 条 warning 仍来自既有第三方依赖 `celery` 与 `openpyxl` 的 `datetime.utcnow()` 弃用提示，不是本轮改动引入的问题。
+- 本轮未执行 `npm --prefix frontend run build`；当前环境此前已知存在 `esbuild` 子进程 `spawn EPERM` 限制。
+- `.pipeline/task.md` 为既有本地改动，本轮未修改。
+
+---

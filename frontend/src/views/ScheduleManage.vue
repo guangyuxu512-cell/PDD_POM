@@ -100,66 +100,8 @@ function getTriggerLabel(schedule: Schedule) {
   return schedule.cron_expr || '--'
 }
 
-function getOverlapPolicyLabel(policy: string) {
-  if (policy === 'skip') {
-    return '跳过本轮'
-  }
-
-  if (policy === 'parallel') {
-    return '允许并行'
-  }
-
-  return '等上轮完成'
-}
-
-function getRuntimeStatus(schedule: Schedule) {
-  if (!schedule.enabled) {
-    return {
-      key: 'paused',
-      label: '已暂停',
-      color: '#64748b',
-      background: 'rgba(148, 163, 184, 0.2)',
-    }
-  }
-
-  const lastRunAt = parseDateTime(schedule.last_run_at)?.getTime()
-  const now = Date.now()
-  const activeWindow = schedule.interval_seconds
-    ? Math.min(schedule.interval_seconds * 1000, 5 * 60 * 1000)
-    : 60 * 1000
-
-  if (lastRunAt && now - lastRunAt < activeWindow) {
-    return {
-      key: 'executing',
-      label: '执行中',
-      color: '#b45309',
-      background: 'rgba(245, 158, 11, 0.18)',
-    }
-  }
-
-  return {
-    key: 'running',
-    label: '运行中',
-    color: '#047857',
-    background: 'rgba(16, 185, 129, 0.14)',
-  }
-}
-
-function getRecentResultLabel(schedule: Schedule) {
-  if (!schedule.last_run_at) {
-    return '暂无执行记录'
-  }
-
-  const runtimeStatus = getRuntimeStatus(schedule)
-  if (runtimeStatus.key === 'executing') {
-    return '执行中'
-  }
-
-  if (!schedule.enabled) {
-    return '暂停中'
-  }
-
-  return '最近已触发'
+function getShopSummary(schedule: Schedule) {
+  return schedule.shop_ids.map(getShopName).join('、') || '--'
 }
 
 function createEmptyForm(): ScheduleFormModel {
@@ -352,29 +294,17 @@ onMounted(() => {
       <button class="primary-button" @click="openCreateModal">新建定时任务</button>
     </header>
 
-    <section class="summary-grid">
-      <article class="summary-card">
-        <span class="summary-label">总任务数</span>
-        <strong>{{ totalSchedules }}</strong>
-        <span class="summary-note">全部定时计划</span>
-      </article>
-      <article class="summary-card">
-        <span class="summary-label">运行中</span>
-        <strong>{{ enabledSchedules }}</strong>
-        <span class="summary-note">计划保持启用</span>
-      </article>
-      <article class="summary-card">
-        <span class="summary-label">已暂停</span>
-        <strong>{{ pausedSchedules }}</strong>
-        <span class="summary-note">不会继续触发</span>
-      </article>
-    </section>
+    <p class="inline-stats">
+      共 <strong>{{ totalSchedules }}</strong> 条计划 ·
+      <strong>{{ enabledSchedules }}</strong> 条启用 ·
+      <strong>{{ pausedSchedules }}</strong> 条暂停
+    </p>
 
     <section class="panel">
       <div class="panel-header">
         <div>
           <h2>任务列表</h2>
-          <p>运行状态中的“执行中”按最近触发时间做前端推断，后端当前未单独提供计划执行态字段。</p>
+          <p>定时任务统一使用表格展示，启停开关、编辑和删除均在同一行完成。</p>
         </div>
       </div>
 
@@ -383,77 +313,65 @@ onMounted(() => {
         <p>当前还没有定时任务。</p>
         <button class="secondary-button" @click="openCreateModal">创建第一条计划</button>
       </div>
-      <div v-else class="schedule-grid">
-        <article v-for="schedule in schedules" :key="schedule.id" class="schedule-card">
-          <div class="schedule-card-header">
-            <div>
-              <div class="schedule-status">
-                <span
-                  class="status-dot"
-                  :style="{ background: getRuntimeStatus(schedule).color }"
-                />
-                <span
-                  class="status-pill"
-                  :style="{
-                    color: getRuntimeStatus(schedule).color,
-                    background: getRuntimeStatus(schedule).background,
-                  }"
-                >
-                  {{ getRuntimeStatus(schedule).label }}
-                </span>
-              </div>
-              <h3>{{ schedule.name }}</h3>
-              <p>{{ getFlowName(schedule.flow_id) }}</p>
-            </div>
-            <span class="trigger-pill">{{ getTriggerLabel(schedule) }}</span>
-          </div>
-
-          <dl class="schedule-meta">
-            <div>
-              <dt>店铺</dt>
-              <dd>{{ schedule.shop_ids.map(getShopName).join('、') }}</dd>
-            </div>
-            <div>
-              <dt>并发</dt>
-              <dd>{{ schedule.concurrency }}</dd>
-            </div>
-            <div>
-              <dt>未完成策略</dt>
-              <dd>{{ getOverlapPolicyLabel(schedule.overlap_policy) }}</dd>
-            </div>
-            <div>
-              <dt>上轮执行时间</dt>
-              <dd>{{ formatDateTime(schedule.last_run_at) }}</dd>
-            </div>
-            <div>
-              <dt>最近结果</dt>
-              <dd>{{ getRecentResultLabel(schedule) }}</dd>
-            </div>
-            <div>
-              <dt>下次触发</dt>
-              <dd>{{ formatDateTime(schedule.next_run_at) }}</dd>
-            </div>
-          </dl>
-
-          <div class="schedule-actions">
-            <button class="ghost-button" @click="openEditModal(schedule)">编辑</button>
-            <button
-              class="secondary-button"
-              :disabled="actioningId === schedule.id"
-              @click="toggleSchedule(schedule)"
-            >
-              {{ schedule.enabled ? '暂停' : '恢复' }}
-            </button>
-            <button class="danger-button" @click="askDelete(schedule)">删除</button>
-          </div>
-        </article>
+      <div v-else class="table-shell">
+        <table class="schedule-table">
+          <thead>
+            <tr>
+              <th style="width: 84px">开关</th>
+              <th style="width: 180px">任务名称</th>
+              <th style="width: 180px">执行流程</th>
+              <th style="width: 160px">执行周期</th>
+              <th style="width: 170px">上次执行</th>
+              <th style="width: 170px">下次执行</th>
+              <th style="width: 96px">目标店铺数</th>
+              <th style="width: 140px">操作</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="schedule in schedules" :key="schedule.id">
+              <td class="cell-center">
+                <label class="switch">
+                  <input
+                    type="checkbox"
+                    :checked="schedule.enabled"
+                    :disabled="actioningId === schedule.id"
+                    @change="toggleSchedule(schedule)"
+                  />
+                  <span class="switch-slider" />
+                </label>
+              </td>
+              <td class="cell-name">
+                <a class="name-link" href="#" @click.prevent="openEditModal(schedule)">
+                  {{ schedule.name }}
+                </a>
+              </td>
+              <td class="cell-ellipsis" :title="getFlowName(schedule.flow_id)">
+                {{ getFlowName(schedule.flow_id) }}
+              </td>
+              <td>{{ getTriggerLabel(schedule) }}</td>
+              <td>{{ formatDateTime(schedule.last_run_at) }}</td>
+              <td>{{ formatDateTime(schedule.next_run_at) }}</td>
+              <td class="cell-center" :title="getShopSummary(schedule)">
+                <span class="count-badge">{{ schedule.shop_ids.length }}</span>
+              </td>
+              <td class="cell-center cell-actions">
+                <button class="ghost-button btn-sm" :disabled="actioningId === schedule.id" @click="openEditModal(schedule)">
+                  编辑
+                </button>
+                <button class="danger-button btn-sm" :disabled="actioningId === schedule.id" @click="askDelete(schedule)">
+                  删除
+                </button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
       </div>
     </section>
 
     <Modal
       :show="showEditor"
       :title="editingSchedule ? '编辑定时任务' : '新建定时任务'"
-      width="920px"
+      width="min(80vw, 900px)"
       @close="showEditor = false"
     >
       <form class="editor-form" @submit.prevent="submitSchedule">
@@ -607,43 +525,23 @@ h1 {
   line-height: 1.6;
 }
 
-.summary-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 16px;
+.inline-stats {
+  margin: 0;
+  color: #64748b;
+  font-size: 14px;
 }
 
-.summary-card,
+.inline-stats strong {
+  color: #1e293b;
+  font-weight: 700;
+}
+
 .panel,
-.schedule-card,
 .selector-panel {
   background: #ffffff;
   border: 1px solid #e2e8f0;
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-sm);
-}
-
-.summary-card {
-  padding: 20px 22px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.summary-label {
-  font-size: 13px;
-  color: #64748b;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-}
-
-.summary-card strong {
-  font-size: 30px;
-}
-
-.summary-note {
-  color: #94a3b8;
-  font-size: 14px;
 }
 
 .panel {
@@ -667,90 +565,130 @@ h1 {
   line-height: 1.5;
 }
 
-.schedule-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-  gap: 18px;
+.table-shell {
+  overflow-x: auto;
 }
 
-.schedule-card {
-  padding: 22px;
-  display: flex;
-  flex-direction: column;
-  gap: 18px;
+.schedule-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  font-size: 14px;
 }
 
-.schedule-card-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 16px;
+.schedule-table th {
+  padding: 10px 12px;
+  border-bottom: 2px solid #e2e8f0;
+  color: #475569;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-align: left;
+  text-transform: uppercase;
+  white-space: nowrap;
 }
 
-.schedule-status {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 10px;
+.schedule-table td {
+  height: 44px;
+  padding: 10px 12px;
+  border-bottom: 1px solid #f1f5f9;
+  color: #334155;
+  line-height: 1.4;
+  vertical-align: middle;
 }
 
-.status-dot {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
+.schedule-table tbody tr:hover {
+  background: #f8fafc;
 }
 
-.status-pill,
-.trigger-pill {
-  padding: 6px 12px;
+.cell-center {
+  text-align: center;
+}
+
+.cell-name,
+.cell-ellipsis {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.name-link {
+  color: #1d4ed8;
+  cursor: pointer;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.name-link:hover {
+  text-decoration: underline;
+}
+
+.count-badge {
+  display: inline-block;
+  padding: 2px 10px;
   border-radius: 999px;
+  background: rgba(59, 130, 246, 0.12);
+  color: #1d4ed8;
   font-size: 12px;
   font-weight: 700;
 }
 
-.trigger-pill {
-  background: rgba(59, 130, 246, 0.12);
-  color: #1d4ed8;
+.cell-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
   white-space: nowrap;
 }
 
-.schedule-card-header h3 {
-  margin: 0;
-  font-size: var(--font-size-h2);
+.switch {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
 }
 
-.schedule-card-header p {
-  margin-top: 8px;
-  color: #64748b;
+.switch input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
 }
 
-.schedule-meta {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px 18px;
+.switch-slider {
+  position: relative;
+  width: 42px;
+  height: 24px;
+  border-radius: 999px;
+  background: #cbd5e1;
+  transition: background 0.2s ease;
 }
 
-.schedule-meta div {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
+.switch-slider::after {
+  content: '';
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #ffffff;
+  transition: transform 0.2s ease;
 }
 
-.schedule-meta dt {
-  color: #94a3b8;
-  font-size: 12px;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
+.switch input:checked + .switch-slider {
+  background: var(--color-success);
 }
 
-.schedule-meta dd {
-  color: #334155;
-  line-height: 1.5;
+.switch input:checked + .switch-slider::after {
+  transform: translateX(18px);
 }
 
-.schedule-actions {
-  display: flex;
-  gap: 12px;
+.switch input:disabled + .switch-slider {
+  opacity: 0.5;
+}
+
+.btn-sm {
+  padding: 6px 12px;
+  font-size: 13px;
 }
 
 .editor-form {
@@ -910,25 +848,30 @@ h1 {
 
 .primary-button:disabled,
 .secondary-button:disabled,
+.ghost-button:disabled,
 .danger-button:disabled {
   cursor: not-allowed;
   opacity: 0.65;
   transform: none;
 }
 
-@media (max-width: 900px) {
-  .page-header,
-  .schedule-card-header,
-  .schedule-meta,
-  .schedule-actions {
-    flex-direction: column;
-  }
+:deep(.modal-container) {
+  max-height: 80vh;
+}
 
-  .summary-grid,
+:deep(.modal-body) {
+  padding: 20px 24px;
+}
+
+@media (max-width: 900px) {
   .field-grid,
   .shop-grid,
   .mode-switch {
     grid-template-columns: 1fr;
+  }
+
+  .page-header {
+    flex-direction: column;
   }
 }
 </style>

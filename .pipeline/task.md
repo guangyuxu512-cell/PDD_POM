@@ -1,164 +1,51 @@
-文件：frontend/src/views/FlowManage.vue
+文件：frontend/src/views/BatchExecute.vue
 
-目标：把流程管理页从大卡片布局改为紧凑信息密度。
+目标：将批量执行页面改为紧凑表格布局。
 
-─── 修改 1：统计栏压缩 ───
+因为这个文件较大（需完整查看现有结构），给 Codex 的核心指令：
 
-删除 <template> 中以下整段：
+1. 执行状态区域：不管现在用的是什么布局（卡片/列表），全部改为 <table> 表格：
+   列定义：店铺名称 | 当前步骤 | 进度 | 状态 | 耗时 | 操作
 
-  <section class="summary-grid">
-    <article class="summary-card">
-      <span class="summary-label">流程数</span>
-      <strong> totalFlows </strong>
-      <span class="summary-note">已保存模板</span>
-    </article>
-    <article class="summary-card">
-      <span class="summary-label">步骤总数</span>
-      <strong> totalSteps </strong>
-      <span class="summary-note">来自全部流程</span>
-    </article>
-    <article class="summary-card">
-      <span class="summary-label">可用任务</span>
-      <strong> tasks.length </strong>
-      <span class="summary-note">自动读取后端注册表</span>
-    </article>
-  </section>
+2. 状态列用彩色标签（Tag）：
+   - waiting → 灰色背景 "等待中"
+   - running → 蓝色背景 "执行中"
+   - completed → 绿色背景 "已完成"
+   - failed → 红色背景 "失败"
+   - stopped → 黄色背景 "已停止"
 
-替换为一行内联统计文本：
+3. 进度列用一个简单的 CSS 进度条：
+   <div class="progress-bar"><div class="progress-fill" :style="{width: percent + '%'}"></div></div>
 
-  <p class="inline-stats">
-    共 <strong> totalFlows </strong> 个流程 · 
-    <strong> totalSteps </strong> 个步骤 · 
-    <strong> tasks.length </strong> 个可用任务
-  </p>
+4. 表格上方用一行汇总文字（类似 FlowManage 的 inline-stats）：
+   "批次 {id} · 总计 {n} · ✅ {completed} · 🔄 {running} · ❌ {failed}"
 
-删除 <style> 中 .summary-grid、.summary-card、.summary-label、.summary-card strong、.summary-note 相关样式。
+5. 表格每行高度不超过 44px。
 
-新增样式：
-  .inline-stats {
-    color: #64748b;
-    font-size: 14px;
-    margin: 0;
-  }
-  .inline-stats strong {
-    color: #1e293b;
-    font-weight: 700;
-  }
-
-─── 修改 2：模板列表改为表格 ───
-
-删除 <template> 中以下整段（从 <div v-else class="flow-grid"> 到对应的 </div>）：
-
-  <div v-else class="flow-grid">
-    <article v-for="flow in flows" :key="flow.id" class="flow-card">
-      ...整个 flow-card...
-    </article>
-  </div>
-
-替换为 HTML 表格：
-
-  <table v-else class="flow-table">
-    <thead>
-      <tr>
-        <th style="width:48px">#</th>
-        <th style="width:140px">流程名称</th>
-        <th>描述</th>
-        <th style="width:64px">步骤</th>
-        <th>步骤摘要</th>
-        <th style="width:140px">操作</th>
-      </tr>
-    </thead>
-    <tbody>
-      <tr v-for="(flow, index) in flows" :key="flow.id">
-        <td class="cell-center"> index + 1 </td>
-        <td>
-          <a class="flow-name-link" @click="openEditModal(flow)"> flow.name </a>
-        </td>
-        <td class="cell-desc"> flow.description || '—' </td>
-        <td class="cell-center">
-          <span class="step-badge"> flow.steps.length </span>
-        </td>
-        <td class="cell-summary">
-           flow.steps.map(s => s.task).join(' → ') 
-        </td>
-        <td class="cell-center">
-          <button class="ghost-button btn-sm" @click="openEditModal(flow)">编辑</button>
-          <button class="danger-button btn-sm" @click="askDelete(flow)">删除</button>
-        </td>
-      </tr>
-    </tbody>
-  </table>
-
-删除 <style> 中 .flow-grid、.flow-card、.flow-card-header、.step-count、
-.step-list-preview、.step-preview-main、.step-task、.step-policy、
-.step-feature、.flow-actions 相关样式。
-
-新增样式：
-  .flow-table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 14px;
-  }
-  .flow-table th {
-    text-align: left;
-    padding: 10px 12px;
-    border-bottom: 2px solid #e2e8f0;
-    color: #475569;
-    font-size: 12px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    white-space: nowrap;
-  }
-  .flow-table td {
-    padding: 10px 12px;
-    border-bottom: 1px solid #f1f5f9;
-    color: #334155;
-    vertical-align: middle;
-  }
-  .flow-table tbody tr:hover {
-    background: #f8fafc;
-  }
-  .cell-center {
-    text-align: center;
-  }
-  .cell-desc {
-    color: #94a3b8;
-    max-width: 200px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-  .cell-summary {
-    color: #64748b;
-    font-size: 13px;
-  }
-  .flow-name-link {
-    color: #1d4ed8;
-    font-weight: 600;
-    cursor: pointer;
-    text-decoration: none;
-  }
-  .flow-name-link:hover {
-    text-decoration: underline;
-  }
-  .step-badge {
-    display: inline-block;
-    padding: 2px 10px;
-    border-radius: 999px;
-    background: rgba(59,130,246,0.12);
-    color: #1d4ed8;
-    font-size: 12px;
-    font-weight: 700;
-  }
-  .btn-sm {
-    padding: 6px 12px;
-    font-size: 13px;
-  }
+样式参考 FlowManage.vue 中 .flow-table 的风格保持一致。
 
 验收：
-- 页面顶部统计栏变成一行文字
-- 模板列表是表格行，每行高度约 44px
-- 10 个流程可在一屏内显示
-- 点击流程名称可打开编辑弹窗
-- 编辑/删除按钮功能正常
+- 10 个店铺执行时表格流畅更新
+- 状态标签颜色正确
+- 点击"查看详情"可看步骤明细
+
+文件：frontend/src/views/ScheduleManage.vue
+
+目标：统一改为表格风格。
+
+1. 定时任务列表改为 <table>：
+   列定义：开关(Switch) | 任务名称 | 执行流程 | 执行周期 | 上次执行 | 下次执行 | 目标店铺数 | 操作
+
+2. 表格行高不超过 44px。
+
+3. 删除所有大卡片相关的 HTML 和 CSS（如 .task-card、.schedule-card 等）。
+
+4. 新增/编辑弹窗保持与 FlowManage 编辑弹窗一致的风格：
+   width="min(80vw, 900px)", max-height: 80vh
+
+5. 样式参考 FlowManage.vue 的 .flow-table 风格。
+
+验收：
+- 5+ 个定时任务在一屏内显示
+- 开关可切换启用/禁用
+- 视觉风格与流程管理页一致

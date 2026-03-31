@@ -2807,3 +2807,57 @@
 - [x] 全量回归通过：
   - `python -m pytest -c tests/pytest.ini tests/ -q`
   - `489 passed, 16 warnings`
+## Prompt 131：流程编排弹窗步骤行继续压缩 ✅
+- [x] 更新 `frontend/src/views/FlowManage.vue`
+- [x] 将 `.step-row` 调整为更紧凑的真实表格行：
+  - `min-height: 40px`
+  - `padding: 2px 6px`
+  - `border-radius: 8px`
+- [x] 将 `.step-row + .step-row` 间距压缩到 `1px`
+- [x] 将 `.step-table-header` 压缩为：
+  - `min-height: 36px`
+  - `padding: 6px 16px`
+- [x] 将步骤区表单控件高度统一压缩到 `32px`，圆角调整为 `6px`
+- [x] 将拖拽手柄缩为 `24px * 24px`，删除按钮缩为 `26px * 26px`
+- [x] 将 `.step-table-body` 内边距调整为 `2px 10px 4px`
+- [x] 更新 `tests/unit/test_flow_manage_editor_static.py`
+- [x] 静态回归覆盖上述关键尺寸，防止样式回退
+- [x] 定向验证通过：
+  - `python -m pytest -c tests/pytest.ini tests/unit/test_frontend_display_details.py tests/unit/test_flow_manage_editor_static.py tests/unit/test_flow_manage_list_static.py -v`
+  - `7 passed`
+- [x] 模板类型校验通过：
+  - `npx --prefix frontend vue-tsc -b frontend/tsconfig.json`
+- [x] 全量回归通过：
+  - `python -m pytest -c tests/pytest.ini tests/ -q`
+  - `490 passed, 16 warnings`
+## Prompt 132：批量执行页与定时任务页统一改为紧凑表格 ✅
+- [x] 更新 `frontend/src/views/BatchExecute.vue`
+- [x] 移除 `BatchStatusPanel` 的页面级使用，在页面内直接改为紧凑状态表格
+- [x] 批量执行状态区表格列改为：店铺名称 / 当前步骤 / 进度 / 状态 / 耗时 / 操作
+- [x] 状态列改为彩色标签：
+  - `waiting` → 灰色“等待中”
+  - `running` → 蓝色“执行中”
+  - `completed` → 绿色“已完成”
+  - `failed` → 红色“失败”
+  - `stopped` → 黄色“已停止”
+- [x] 进度列改为 CSS 进度条
+- [x] 表格上方新增单行汇总文字：批次 ID / 总计 / 完成 / 运行 / 失败
+- [x] 每行新增“查看详情”，可展开步骤明细表
+- [x] 更新 `frontend/src/views/ScheduleManage.vue`
+- [x] 将定时任务列表改为紧凑 `schedule-table`
+- [x] 列改为：开关 / 任务名称 / 执行流程 / 执行周期 / 上次执行 / 下次执行 / 目标店铺数 / 操作
+- [x] 行高统一压到 `44px`
+- [x] 移除 `schedule-card / schedule-grid` 卡片式列表结构
+- [x] 定时任务弹窗宽度改为 `min(80vw, 900px)`，并通过 `:deep(.modal-container)` 收口到 `80vh`
+- [x] 新增静态回归 `tests/unit/test_batch_execute_schedule_static.py`
+- [x] 静态回归覆盖：
+  - 批量执行页表格结构、彩色标签、进度条和详情入口
+  - 定时任务页表格结构、开关列、弹窗尺寸与旧卡片结构移除
+- [x] 定向验证通过：
+  - `python -m pytest -c tests/pytest.ini tests/unit/test_batch_execute_schedule_static.py tests/unit/test_frontend_management_page.py tests/unit/test_batch_execute_shop_name.py -v`
+  - `13 passed`
+- [x] 模板类型校验通过：
+  - `npx --prefix frontend vue-tsc -b frontend/tsconfig.json`
+- [x] 全量回归通过：
+  - `python -m pytest -c tests/pytest.ini tests/ -q`
+  - `494 passed, 16 warnings`

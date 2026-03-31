@@ -801,10 +801,10 @@ h1 {
 .step-row select,
 .step-row input[type='number'] {
   width: 100%;
-  height: 36px;
+  height: 32px;
   padding: 0 12px;
   border: 1px solid #cbd5e1;
-  border-radius: 10px;
+  border-radius: 6px;
   background: #ffffff;
   color: #0f172a;
   font-size: 14px;
@@ -861,8 +861,8 @@ h1 {
 }
 
 .step-table-header {
-  min-height: 42px;
-  padding: 8px 16px;
+  min-height: 36px;
+  padding: 6px 16px;
   border-bottom: 1px solid #dbe4f0;
   background: #eff6ff;
   color: #475569;
@@ -882,19 +882,19 @@ h1 {
 }
 
 .step-table-body {
-  padding: 4px 10px 8px;
+  padding: 2px 10px 4px;
 }
 
 .step-row {
   position: relative;
-  min-height: 48px;
-  padding: 4px 6px;
-  border-radius: 12px;
+  min-height: 40px;
+  padding: 2px 6px;
+  border-radius: 8px;
   background: #ffffff;
 }
 
 .step-row + .step-row {
-  margin-top: 2px;
+  margin-top: 1px;
 }
 
 .step-row::before,
@@ -935,17 +935,17 @@ h1 {
 }
 
 .row-handle {
-  width: 28px;
-  height: 28px;
+  width: 24px;
+  height: 24px;
   border: none;
-  border-radius: 8px;
+  border-radius: 6px;
   background: #eff6ff;
   color: #1d4ed8;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   cursor: grab;
-  font-size: 16px;
+  font-size: 14px;
   line-height: 1;
 }
 
@@ -993,13 +993,13 @@ h1 {
 }
 
 .icon-danger-button {
-  width: 30px;
-  height: 30px;
+  width: 26px;
+  height: 26px;
   border: none;
-  border-radius: 10px;
+  border-radius: 6px;
   background: #fee2e2;
   color: #b91c1c;
-  font-size: 18px;
+  font-size: 15px;
   line-height: 1;
   cursor: pointer;
 }
