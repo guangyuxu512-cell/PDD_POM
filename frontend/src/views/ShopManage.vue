@@ -1,11 +1,5 @@
 ﻿<script setup lang="ts">
-import {
-  Listbox,
-  ListboxButton,
-  ListboxOption,
-  ListboxOptions,
-} from '@headlessui/vue'
-import { computed, onMounted, ref, watch } from 'vue'
+import { onMounted, ref } from 'vue'
 
 import ConfirmDialog from '../components/ConfirmDialog.vue'
 import Modal from '../components/Modal.vue'
@@ -20,7 +14,6 @@ import {
   updateShop,
 } from '../api/shops'
 import type { Shop, ShopPayload } from '../api/types'
-import { usePlatformStore } from '../stores/platform'
 import { toast } from '../utils/toast'
 
 interface ShopFormModel {
@@ -41,8 +34,6 @@ const showDeleteConfirm = ref(false)
 const isSaving = ref(false)
 const editingShop = ref<Shop | null>(null)
 const deletingShopId = ref<string | null>(null)
-const platformStore = usePlatformStore()
-const formPlatform = ref(platformStore.currentPlatform)
 const inputClass =
   'w-full rounded-md border border-brand-300/50 bg-white px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500'
 
@@ -56,15 +47,6 @@ const formData = ref<ShopFormModel>({
   smtp_user: '',
   smtp_pass: '',
   smtp_protocol: 'imap',
-})
-
-const selectedFormPlatform = computed(
-  () => platformStore.platforms.find((platform) => platform.id === formPlatform.value) || platformStore.platforms[0],
-)
-
-const currentPlatformLabel = computed(() => {
-  const p = platformStore.platforms.find(pl => pl.id === platformStore.currentPlatform)
-  return p ? `${p.icon} ${p.name}` : '选择平台'
 })
 
 function createEmptyForm(): ShopFormModel {
@@ -83,7 +65,7 @@ function createEmptyForm(): ShopFormModel {
 
 async function loadShops() {
   try {
-    const result = await listShops(platformStore.currentPlatform)
+    const result = await listShops()
     shops.value = result.list
   } catch (error) {
     const message = error instanceof Error ? error.message : '加载店铺失败'
@@ -94,13 +76,11 @@ async function loadShops() {
 function openAddModal() {
   editingShop.value = null
   formData.value = createEmptyForm()
-  formPlatform.value = platformStore.currentPlatform
   showModal.value = true
 }
 
 function openEditModal(shop: Shop) {
   editingShop.value = shop
-  formPlatform.value = shop.platform || 'pdd'
   formData.value = {
     name: shop.name ?? '',
     username: shop.username ?? '',
@@ -170,7 +150,6 @@ async function handleSave() {
       await updateShop(editingShop.value.id, payload)
       toast.success('店铺已更新')
     } else {
-      payload.platform = formPlatform.value
       await createShop(payload)
       toast.success('店铺已创建')
     }
@@ -245,10 +224,6 @@ async function testEmail() {
 }
 
 onMounted(() => {
-  void platformStore.loadPlatforms().then(loadShops)
-})
-
-watch(() => platformStore.currentPlatform, () => {
   void loadShops()
 })
 </script>
@@ -258,48 +233,10 @@ watch(() => platformStore.currentPlatform, () => {
     <div class="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
       <div class="space-y-1">
         <h1 class="text-2xl font-semibold text-gray-900">店铺管理</h1>
-        <p class="text-sm text-brand-500">按平台管理店铺账号、代理与邮箱连接配置。</p>
+        <p class="text-sm text-brand-500">管理店铺账号、代理与邮箱连接配置。</p>
       </div>
 
       <div class="flex flex-col gap-3 sm:flex-row sm:items-center">
-        <Listbox :model-value="platformStore.currentPlatform" @update:model-value="platformStore.setPlatform($event)">
-          <div class="relative w-44">
-            <ListboxButton class="flex w-full items-center justify-between rounded-md border border-brand-300 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm transition hover:border-brand-500">
-              <span class="truncate">{{ currentPlatformLabel }}</span>
-              <svg class="h-4 w-4 text-brand-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
-              </svg>
-            </ListboxButton>
-            <transition
-              enter-active-class="transition duration-100 ease-out"
-              enter-from-class="scale-95 opacity-0"
-              enter-to-class="scale-100 opacity-100"
-              leave-active-class="transition duration-75 ease-in"
-              leave-from-class="scale-100 opacity-100"
-              leave-to-class="scale-95 opacity-0"
-            >
-              <ListboxOptions class="absolute z-20 mt-2 w-full rounded-md border border-brand-300 bg-white py-1 shadow-lg focus:outline-none">
-                <ListboxOption
-                  v-for="p in platformStore.platforms"
-                  :key="p.id"
-                  v-slot="{ active, selected }"
-                  :value="p.id"
-                  as="template"
-                >
-                  <li
-                    :class="[
-                      'cursor-pointer px-3 py-2 text-sm',
-                      active ? 'bg-brand-100 text-brand-900' : 'text-brand-700',
-                      selected ? 'font-medium' : '',
-                    ]"
-                  >
-                    {{ p.icon }} {{ p.name }}
-                  </li>
-                </ListboxOption>
-              </ListboxOptions>
-            </transition>
-          </div>
-        </Listbox>
         <button
           type="button"
           class="rounded-md bg-brand-900 px-3 py-2 text-sm font-medium text-white transition hover:bg-brand-700"
@@ -311,7 +248,7 @@ watch(() => platformStore.currentPlatform, () => {
     </div>
 
     <div v-if="shops.length === 0" class="rounded-md border border-brand-300/50 bg-white px-6 py-14 text-center shadow-sm">
-      <p class="text-sm text-brand-500">当前平台下暂无店铺数据。</p>
+      <p class="text-sm text-brand-500">暂无店铺数据。</p>
     </div>
 
     <div v-else class="overflow-x-auto rounded-md border border-brand-300/50 bg-white shadow-sm">
@@ -390,63 +327,10 @@ watch(() => platformStore.currentPlatform, () => {
         <section class="space-y-4">
           <div class="space-y-1">
             <h2 class="text-sm font-medium text-gray-900">基本信息</h2>
-            <p class="text-xs text-brand-500">维护平台归属、账号和代理配置。</p>
+            <p class="text-xs text-brand-500">维护店铺名称、账号和代理配置。</p>
           </div>
 
-          <div class="grid gap-4 md:grid-cols-2">
-            <div class="space-y-2">
-              <label class="text-xs font-medium text-brand-700">所属平台</label>
-              <Listbox v-model="formPlatform" :disabled="!!editingShop">
-                <div class="relative">
-                  <ListboxButton
-                    :class="[
-                      inputClass,
-                      'flex items-center justify-between text-left',
-                      editingShop ? 'cursor-not-allowed bg-brand-100 text-brand-300' : '',
-                    ]"
-                  >
-                    <span class="truncate">
-                      {{ selectedFormPlatform?.icon }} {{ selectedFormPlatform?.name }}
-                    </span>
-                    <svg class="h-4 w-4 text-brand-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
-                      <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
-                    </svg>
-                  </ListboxButton>
-
-                  <transition
-                    enter-active-class="transition duration-100 ease-out"
-                    enter-from-class="scale-95 opacity-0"
-                    enter-to-class="scale-100 opacity-100"
-                    leave-active-class="transition duration-75 ease-in"
-                    leave-from-class="scale-100 opacity-100"
-                    leave-to-class="scale-95 opacity-0"
-                  >
-                    <ListboxOptions
-                      class="absolute z-10 mt-2 max-h-60 w-full overflow-auto rounded-md border border-brand-300/50 bg-white py-1 shadow-lg focus:outline-none"
-                    >
-                      <ListboxOption
-                        v-for="p in platformStore.platforms"
-                        :key="p.id"
-                        v-slot="{ active, selected }"
-                        :value="p.id"
-                        as="template"
-                      >
-                        <li
-                          :class="[
-                            'cursor-default px-3 py-2 text-sm',
-                            active ? 'bg-brand-100 text-brand-900' : 'text-brand-700',
-                            selected ? 'font-medium' : '',
-                          ]"
-                        >
-                          {{ p.icon }} {{ p.name }}
-                        </li>
-                      </ListboxOption>
-                    </ListboxOptions>
-                  </transition>
-                </div>
-              </Listbox>
-            </div>
-
+          <div class="grid gap-4 md:grid-cols-1">
             <div class="space-y-2">
               <label class="text-xs font-medium text-brand-700">店铺名称</label>
               <input v-model="formData.name" :class="inputClass" type="text" required />

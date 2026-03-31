@@ -1243,3 +1243,118 @@
 - 18 条 warning 仍来自既有第三方依赖 `celery`、`openpyxl` 与既有 `PytestUnraisableExceptionWarning`
 - 旧 `frontend/src/views/task-params/*.css` 文件本轮确认已不存在，源码中也无残留引用
 - 当前环境此前已知存在 `npm run dev` 的 `spawn EPERM`，本轮未执行 dev server 验收
+
+---
+
+## 任务摘要
+
+完成 CSV 导入弹窗的 Tailwind 重写，并把受影响弹窗/表单页的标签与说明文字加深到任务单要求的灰阶。
+
+## 改动文件列表
+
+- `frontend/src/views/task-params/ImportCsvModal.vue`
+- `frontend/src/components/Modal.vue`
+- `frontend/src/components/ConfirmDialog.vue`
+- `frontend/src/views/AftersaleConfig.vue`
+- `frontend/src/views/RuleManage.vue`
+- `tests/unit/test_headless_ui_components_static.py`
+- `tests/unit/test_flow_params_import_static_page.py`
+- `tests/unit/test_task_params_dynamic_type.py`
+- `tests/unit/test_after_sale_config_page.py`
+- `tests/unit/test_rule_config_page.py`
+- `PLAN.md`
+- `改造进度.md`
+- `.pipeline/progress.md`
+
+## 改动说明
+
+- `frontend/src/views/task-params/ImportCsvModal.vue`：删除旧 `<style scoped>`，按任务单改为纯 Tailwind 结构；绑定方式按钮切到选中深色 / 未选中白底描边；任务/流程下拉使用清晰的 `border-brand-300`；模板说明框、下载模板按钮、文件上传按钮和 footer 操作区统一到新品牌风格。
+- `frontend/src/components/Modal.vue`：弹窗正文默认文字改为 `text-gray-700`，让说明文案比之前更深一档。
+- `frontend/src/components/ConfirmDialog.vue`：确认弹窗正文说明文字同步改到 `text-gray-700`。
+- `frontend/src/views/AftersaleConfig.vue`、`frontend/src/views/RuleManage.vue`：将弹窗/表单标签文字从 `text-gray-600` 收口到 `text-gray-800`，仅调整视觉层，不改业务逻辑。
+- `tests/unit/test_headless_ui_components_static.py`、`tests/unit/test_flow_params_import_static_page.py`、`tests/unit/test_task_params_dynamic_type.py`、`tests/unit/test_after_sale_config_page.py`、`tests/unit/test_rule_config_page.py`：同步更新静态回归，覆盖新导入弹窗结构、去除 `<style>`、文件上传按钮样式以及标签灰阶变更。
+- `frontend/src/style.css`：已复核当前冷灰蓝 `brand-*` 色板与任务单一致，本轮未再修改源码。
+
+## 影响范围
+
+- 任务参数管理页的 CSV 导入弹窗视觉与可读性
+- 公共弹窗正文默认说明文字
+- 售后配置页与规则配置页中的表单/弹窗标签层
+- 前端静态回归中与导入弹窗结构、标签灰阶和正文颜色相关的断言
+
+## 注意事项
+
+- 已执行 `python -m pytest -c tests/pytest.ini tests/unit/test_headless_ui_components_static.py tests/unit/test_flow_params_import_static_page.py tests/unit/test_task_params_dynamic_type.py tests/unit/test_after_sale_config_page.py tests/unit/test_rule_config_page.py -q`，结果为 `13 passed`。
+- 已执行 `cd frontend && npm run build`。
+- 已执行 `python -m pytest -c tests/pytest.ini -q`，结果为 `514 passed, 18 warnings`。
+- 18 条 warning 仍来自既有第三方依赖 `celery`、`openpyxl` 与既有 `PytestUnraisableExceptionWarning`，不是本轮改动引入的问题。
+- `.pipeline/task.md` 为既有本地改动，本轮未修改。
+- 当前环境此前已知存在 `npm run dev` 的 `spawn EPERM`，本轮未执行 dev server 验收。
+
+---
+
+## 任务摘要
+
+移除仓库中的多平台抽象层，删除平台注册接口与前端平台切换链路，让项目回归单平台 PDD 模式，同时补齐对应的后端、前端静态和回归测试。
+
+## 改动文件列表
+
+- `backend/api/platform_api.py`（删除）
+- `backend/api/router.py`
+- `backend/api/shop_api.py`
+- `frontend/src/api/platforms.ts`（删除）
+- `frontend/src/stores/platform.ts`（删除）
+- `frontend/src/api/types.ts`
+- `frontend/src/api/shops.ts`
+- `frontend/src/views/ShopManage.vue`
+- `platforms/__init__.py`（删除）
+- `platforms/base/__init__.py`（删除）
+- `platforms/base/base_platform.py`（删除）
+- `platforms/douyin/__init__.py`（删除）
+- `platforms/douyin/platform.py`（删除）
+- `platforms/pdd/__init__.py`（删除）
+- `platforms/pdd/platform.py`（删除）
+- `platforms/taobao/__init__.py`（删除）
+- `platforms/taobao/platform.py`（删除）
+- `tests/unit/test_platform_backend.py`
+- `tests/unit/test_platform_frontend_static.py`
+- `tests/unit/test_shop_platform_modal_static.py`
+- `tests/unit/test_shop_card_task_params_display.py`
+- `tests/unit/test_shop_restore.py`
+- `PLAN.md`
+- `改造进度.md`
+- `.pipeline/progress.md`
+
+## 改动说明
+
+- `backend/api/platform_api.py`：删除平台列表接口；`/api/platforms` 不再作为可用 API 暴露。
+- `backend/api/router.py`：移除 `platform_api` 的导入与路由注册，后端路由入口回收为单平台结构。
+- `backend/api/shop_api.py`：创建店铺时不再信任外部传入的 `platform`，统一固定写入 `platform="pdd"`，避免单平台场景下出现脏数据。
+- `frontend/src/api/platforms.ts`、`frontend/src/stores/platform.ts`：删除前端平台 API 与平台状态仓库，前端不再维护平台列表和当前平台上下文。
+- `frontend/src/api/types.ts`：删除 `Platform` 接口，并从 `ShopPayload` 中移除 `platform?: string`，让前端表单输入与单平台模型一致。
+- `frontend/src/api/shops.ts`：将 `listShops()` 收口为无参版本，统一请求 `/api/shops`，不再携带平台筛选。
+- `frontend/src/views/ShopManage.vue`：移除页头平台切换、弹窗“所属平台”字段、`usePlatformStore` 相关状态与计算属性；页面文案、空状态和表单布局调整为单平台 PDD 版本。
+- `platforms/` 目录：删除 `base_platform` 注册抽象和 `douyin`、`taobao`、`pdd` 平台壳层实现，彻底移除多平台基础设施。
+- `tests/unit/test_platform_backend.py`：改为验证 `/api/platforms` 已不存在，以及店铺创建即使传入其他平台也会被固定保存为 `pdd`。
+- `tests/unit/test_platform_frontend_static.py`、`tests/unit/test_shop_platform_modal_static.py`：改为校验前端已删除平台 store、平台 API、平台类型、店铺页头平台切换和弹窗平台字段。
+- `tests/unit/test_shop_card_task_params_display.py`、`tests/unit/test_shop_restore.py`：同步清理与多平台 UI 相关的静态断言，保持店铺管理页回归稳定。
+- `PLAN.md`、`改造进度.md`、`.pipeline/progress.md`：补充记录本轮单平台回收改造、验证结果与环境限制说明。
+
+## 影响范围
+
+- 后端 API 路由注册与店铺创建入口
+- 前端店铺管理页的数据加载方式、页面结构与表单字段
+- 多平台抽象目录与平台注册链路
+- 与平台切换、平台字段、平台 API 相关的单元测试和静态回归测试
+
+## 注意事项
+
+- 已执行 `python -c "from backend.api.router import 注册所有路由; print('ok')"`，导入验证通过。
+- 已执行 `python -m pytest -c tests/pytest.ini tests/unit/test_platform_backend.py tests/unit/test_platform_frontend_static.py tests/unit/test_shop_platform_modal_static.py tests/unit/test_shop_card_task_params_display.py tests/unit/test_shop_restore.py -q`，结果为 `10 passed`。
+- 已执行 `cd frontend && npm run build`。
+- 已执行 `python -m pytest -c tests/pytest.ini -q`，结果为 `512 passed, 18 warnings`。
+- 已执行 `rg -n "platformStore|usePlatformStore|listPlatforms|platform\.ts|from platforms|import platforms|import platform_api|platform_api|get_platform|list_platforms|register_platform|BasePlatform" backend frontend/src -g "*.py" -g "*.ts" -g "*.vue"`，无匹配结果。
+- 保留 `shops`、`flows` 等数据表中的 `platform` 列，不做数据库迁移，单平台固定值为 `pdd`。
+- `.pipeline/task.md` 为既有本地变更，本轮未修改。
+- `python -m backend.main` 在当前环境可进入 Uvicorn 启动流程，但后续受 Windows 权限限制触发 `PermissionError: [WinError 5]`，未能完成运行态验收。
+- `cd frontend && npm run dev -- --host 127.0.0.1` 在当前环境仍触发 `spawn EPERM`，未能完成 dev server 运行态验收。

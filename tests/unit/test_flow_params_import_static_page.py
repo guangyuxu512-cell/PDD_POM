@@ -47,5 +47,12 @@ class 测试_流程参数导入静态页:
             "绑定流程",
             "请选择流程",
             "流程模式下，除“店铺ID”外的列都会进入流程共享参数。",
+            'class="space-y-5"',
+            "border-brand-300 bg-white px-3 py-2 text-sm text-gray-900",
+            "file:bg-brand-700",
+            "text-sm font-medium text-gray-800",
+            "text-xs text-gray-600",
         ]:
             assert 关键字 in 弹窗文件
+
+        assert "<style" not in 弹窗文件

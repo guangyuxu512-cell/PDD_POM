@@ -5,7 +5,6 @@
 """
 from fastapi import FastAPI
 
-from backend.api.platform_api import 路由 as 平台路由
 from backend.api.shop_api import 路由 as 店铺路由
 from backend.api.flow_api import 路由 as 流程路由
 from backend.api.flow_input_api import 路由 as 流程输入路由
@@ -27,7 +26,6 @@ from backend.api.after_sale_config_api import 路由 as 售后配置路由
 
 # 所有路由列表
 所有路由 = [
-    平台路由,
     店铺路由,
     流程路由,
     流程输入路由,

@@ -68,6 +68,7 @@ async def 创建店铺(请求: 店铺创建请求) -> 统一响应:
     """
     try:
         店铺数据 = 请求.model_dump(exclude_none=True)
+        店铺数据["platform"] = "pdd"
         店铺 = await 店铺服务实例.创建(店铺数据)
         return 成功(data=店铺, message="创建成功")
     except Exception as e:

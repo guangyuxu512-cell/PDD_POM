@@ -148,17 +148,19 @@ class 测试_店铺页面布局:
         assert "ShopCard" not in 店铺页
         assert '<div v-else class="overflow-x-auto rounded-md border border-brand-300/50 bg-white shadow-sm">' in 店铺页
         assert '<table class="w-full min-w-[900px] table-fixed divide-y divide-brand-300/30">' in 店铺页
-        assert "Listbox" in 店铺页
+        assert "暂无店铺数据。" in 店铺页
         assert "邮箱配置" in 店铺页
         assert "测试连接" in 店铺页
         assert "openShopBrowser" in 店铺页
         assert "checkShopStatus" in 店铺页
+        assert "const result = await listShops()" in 店铺页
         assert "shops-grid" not in 店铺页
         assert "summary-grid" not in 店铺页
         assert "Resource Workspace" not in 店铺页
         assert "总数" not in 店铺页
         assert "<style" not in 店铺页
         assert not 店铺卡片路径.exists()
+        assert "Listbox" not in 店铺页
 
         assert "bg-emerald-500" in 状态徽标
         assert "bg-brand-300" in 状态徽标

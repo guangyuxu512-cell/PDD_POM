@@ -71,7 +71,7 @@ const emit = defineEmits<{
                 </button>
               </div>
 
-              <div class="modal-body flex-1 overflow-y-auto px-5 py-4 text-sm text-brand-700">
+              <div class="modal-body flex-1 overflow-y-auto px-5 py-4 text-sm text-gray-700">
                 <slot />
               </div>
 

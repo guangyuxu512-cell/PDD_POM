@@ -19,7 +19,7 @@ class 测试_HeadlessUI公共组件:
         assert "DialogPanel" in 弹窗文件
         assert "TransitionRoot" in 弹窗文件
         assert 'class="modal-container flex max-h-[90vh] w-full flex-col overflow-hidden rounded-md border border-brand-300/50 bg-white shadow-lg"' in 弹窗文件
-        assert 'class="modal-body flex-1 overflow-y-auto px-5 py-4 text-sm text-brand-700"' in 弹窗文件
+        assert 'class="modal-body flex-1 overflow-y-auto px-5 py-4 text-sm text-gray-700"' in 弹窗文件
         assert "bg-black/30 backdrop-blur-sm" in 弹窗文件
         assert "<style" not in 弹窗文件
         assert "background: #1e1e2e;" not in 弹窗文件
@@ -36,6 +36,7 @@ class 测试_HeadlessUI公共组件:
         assert "bg-rose-600 text-white hover:bg-rose-700" in 确认框文件
         assert "bg-brand-900 text-white hover:bg-brand-700" in 确认框文件
         assert "border border-brand-300/50 bg-white" in 确认框文件
+        assert "text-sm leading-6 text-gray-700" in 确认框文件
         assert "bg-black/30 backdrop-blur-sm" in 确认框文件
         assert "<style" not in 确认框文件
         assert "btn-info" not in 确认框文件

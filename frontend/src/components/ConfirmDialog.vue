@@ -101,7 +101,7 @@ function handleClose() {
                   <DialogTitle class="text-lg font-semibold text-gray-900">
                     {{ props.title }}
                   </DialogTitle>
-                  <p class="text-sm leading-6 text-brand-700">
+                  <p class="text-sm leading-6 text-gray-700">
                     {{ props.message }}
                   </p>
                 </div>

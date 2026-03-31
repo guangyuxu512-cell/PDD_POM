@@ -3173,3 +3173,69 @@
   - `514 passed, 18 warnings`
 - [ ] `cd frontend && npm run dev`
   - 当前环境此前已知存在 `spawn EPERM`，本轮未执行 dev server 验收
+## Prompt 144：重写 CSV 导入弹窗并加深弹窗标签灰阶 ✅
+- [x] 复核 `frontend/src/style.css` 冷灰蓝 `brand-*` 色板已满足任务单，无需额外修改
+- [x] 重写 `frontend/src/views/task-params/ImportCsvModal.vue`
+- [x] 删除旧 `<style scoped>`，改为纯 Tailwind 模板
+- [x] 绑定方式按钮改为选中深色 / 未选中白底描边
+- [x] 任务/流程下拉框统一使用 `border-brand-300`
+- [x] 模板说明区、下载模板按钮、文件上传按钮和 footer 操作区统一到任务单指定样式
+- [x] 更新 `frontend/src/components/Modal.vue`、`frontend/src/components/ConfirmDialog.vue`
+- [x] 弹窗正文说明文字加深到 `text-gray-700`
+- [x] 更新 `frontend/src/views/AftersaleConfig.vue`、`frontend/src/views/RuleManage.vue`
+- [x] 弹窗/表单标签从 `text-gray-600` 收口到 `text-gray-800`
+- [x] 更新静态回归：
+  - `tests/unit/test_headless_ui_components_static.py`
+  - `tests/unit/test_flow_params_import_static_page.py`
+  - `tests/unit/test_task_params_dynamic_type.py`
+  - `tests/unit/test_after_sale_config_page.py`
+  - `tests/unit/test_rule_config_page.py`
+- [x] 定向验证通过：
+  - `python -m pytest -c tests/pytest.ini tests/unit/test_headless_ui_components_static.py tests/unit/test_flow_params_import_static_page.py tests/unit/test_task_params_dynamic_type.py tests/unit/test_after_sale_config_page.py tests/unit/test_rule_config_page.py -q`
+  - `13 passed`
+- [x] 前端构建验证通过：
+  - `cd frontend && npm run build`
+- [x] 全量回归通过：
+  - `python -m pytest -c tests/pytest.ini -q`
+  - `514 passed, 18 warnings`
+- [ ] `cd frontend && npm run dev`
+  - 当前环境此前已知存在 `spawn EPERM`，本轮未执行 dev server 验收
+## Prompt 145：移除多平台抽象并回归单平台 PDD ✅
+- [x] 删除 `backend/api/platform_api.py`
+- [x] 删除整个 `platforms/` 目录中的平台注册与空壳实现
+- [x] 更新 `backend/api/router.py`
+- [x] 移除平台 API 路由注册与相关导入
+- [x] 更新 `backend/api/shop_api.py`
+- [x] 创建店铺时忽略请求中的 `platform`，统一固定写入 `platform="pdd"`
+- [x] 删除 `frontend/src/stores/platform.ts`
+- [x] 删除 `frontend/src/api/platforms.ts`
+- [x] 更新 `frontend/src/api/types.ts`
+- [x] 删除 `Platform` 接口与 `ShopPayload.platform`
+- [x] 更新 `frontend/src/api/shops.ts`
+- [x] `listShops()` 改为无参请求 `/api/shops`
+- [x] 重构 `frontend/src/views/ShopManage.vue`
+- [x] 移除页头平台切换、弹窗“所属平台”字段与 `platformStore` 依赖
+- [x] 店铺管理页文案与布局回收为单平台模式
+- [x] 更新回归测试：
+  - `tests/unit/test_platform_backend.py`
+  - `tests/unit/test_platform_frontend_static.py`
+  - `tests/unit/test_shop_platform_modal_static.py`
+  - `tests/unit/test_shop_card_task_params_display.py`
+  - `tests/unit/test_shop_restore.py`
+- [x] 后端导入验证通过：
+  - `python -c "from backend.api.router import 注册所有路由; print('ok')"`
+- [x] 定向验证通过：
+  - `python -m pytest -c tests/pytest.ini tests/unit/test_platform_backend.py tests/unit/test_platform_frontend_static.py tests/unit/test_shop_platform_modal_static.py tests/unit/test_shop_card_task_params_display.py tests/unit/test_shop_restore.py -q`
+  - `10 passed`
+- [x] 前端构建验证通过：
+  - `cd frontend && npm run build`
+- [x] 全量回归通过：
+  - `python -m pytest -c tests/pytest.ini -q`
+  - `512 passed, 18 warnings`
+- [x] 残留引用扫描通过：
+  - `rg -n "platformStore|usePlatformStore|listPlatforms|platform\\.ts|from platforms|import platforms|import platform_api|platform_api|get_platform|list_platforms|register_platform|BasePlatform" backend frontend/src -g "*.py" -g "*.ts" -g "*.vue"`
+  - 无匹配
+- [ ] `python -m backend.main`
+  - 当前环境可进入 Uvicorn 启动流程，但受 Windows 权限限制触发 `PermissionError: [WinError 5]`
+- [ ] `cd frontend && npm run dev -- --host 127.0.0.1`
+  - 当前环境启动 Vite dev server 仍触发 `spawn EPERM`

@@ -48,3 +48,5 @@ class 测试_任务参数任务类型动态化:
         assert "currentTemplateColumns.join('、')" in 弹窗文件
         assert "currentRequiredFields.join('、')" in 弹窗文件
         assert "流程模式下，除“店铺ID”外的列都会进入流程共享参数。" in 弹窗文件
+        assert "store.selectedFile?.name || '未选择文件'" in 弹窗文件
+        assert "<style" not in 弹窗文件

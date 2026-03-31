@@ -46,12 +46,16 @@ class 测试_售后配置页:
             "📭 暂无白名单配置",
             "🏪 暂无店铺，请先创建店铺",
             "border-t border-brand-300/30 pt-4",
+            'text-xs font-medium text-gray-800">店铺选择',
+            'text-xs font-medium text-gray-800">飞书 Webhook',
+            'text-xs font-medium text-gray-800">优先处理类型',
         ]:
             assert 关键字 in 页面文件
 
         for 已移除关键字 in [
             "<style",
             "<select",
+            'text-xs font-medium text-gray-600">店铺选择',
         ]:
             assert 已移除关键字 not in 页面文件
 

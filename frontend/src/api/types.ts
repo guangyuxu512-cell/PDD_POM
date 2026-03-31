@@ -5,12 +5,6 @@ export interface PaginatedList<T> {
   page_size?: number
 }
 
-export interface Platform {
-  id: string
-  name: string
-  icon: string
-}
-
 export interface Shop {
   id: string
   name: string
@@ -35,7 +29,6 @@ export interface Shop {
 
 export interface ShopPayload {
   name: string
-  platform?: string
   username?: string
   password?: string
   proxy?: string

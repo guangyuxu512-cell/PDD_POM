@@ -18,7 +18,7 @@ class 测试_店铺展示与任务参数显示:
         店铺卡片路径 = 仓库根目录 / "frontend/src/components/ShopCard.vue"
 
         assert '<table class="w-full min-w-[900px] table-fixed divide-y divide-brand-300/30">' in 店铺页
-        assert "当前平台下暂无店铺数据。" in 店铺页
+        assert "暂无店铺数据。" in 店铺页
         assert "StatusBadge :status=\"shop.status\" type=\"shop\"" in 店铺页
         assert "shop.smtp_user || '未配置'" in 店铺页
         assert "shop.last_login ? new Date(shop.last_login).toLocaleString('zh-CN')" in 店铺页

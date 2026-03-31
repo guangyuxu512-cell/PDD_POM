@@ -61,6 +61,9 @@ class 测试_规则配置页:
             '<Listbox v-model="condition.op">',
             '<Listbox v-model="action.action">',
             "overflow-x-auto",
+            'text-xs font-medium text-gray-800">筛选:',
+            'text-xs font-medium text-gray-800">规则名称',
+            'text-xs font-medium text-gray-800">测试数据（JSON）',
         ]:
             assert 关键字 in 页面文件
 
@@ -69,6 +72,7 @@ class 测试_规则配置页:
             "modal-content",
             "<style",
             "<select",
+            'text-xs font-medium text-gray-600">规则名称',
         ]:
             assert 已移除关键字 not in 页面文件
 
