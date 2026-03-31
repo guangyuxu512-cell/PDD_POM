@@ -1,4 +1,10 @@
 <script setup lang="ts">
+import {
+  Listbox,
+  ListboxButton,
+  ListboxOption,
+  ListboxOptions,
+} from '@headlessui/vue'
 import { computed, nextTick, onMounted, ref } from 'vue'
 
 import ConfirmDialog from '../components/ConfirmDialog.vue'
@@ -41,7 +47,7 @@ const editingFlow = ref<Flow | null>(null)
 const deletingFlow = ref<Flow | null>(null)
 const draggingStepId = ref<string | null>(null)
 const dropIndicator = ref<DropIndicator | null>(null)
-const taskSelectRefs = ref<Record<string, HTMLSelectElement | null>>({})
+const taskSelectRefs = ref<Record<string, HTMLElement | null>>({})
 
 // 保留“重试N次”关键词，供前端静态回归断言使用。
 
@@ -78,7 +84,7 @@ function clearEditorDndState() {
 }
 
 function setTaskSelectRef(stepId: string, element: unknown) {
-  taskSelectRefs.value[stepId] = element instanceof HTMLSelectElement ? element : null
+  taskSelectRefs.value[stepId] = element instanceof HTMLElement ? element : null
 }
 
 async function focusTaskSelect(stepId: string) {
@@ -358,72 +364,106 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="page">
-    <header class="page-header">
-      <div v-if="props.showTitle">
-        <p class="eyebrow">Flow Builder</p>
-        <h1>流程模板</h1>
-        <p class="page-description">
+  <div class="space-y-6">
+    <header class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+      <div v-if="props.showTitle" class="space-y-2">
+        <p class="text-xs font-semibold uppercase tracking-[0.2em] text-amber-600">Flow Builder</p>
+        <h1 class="text-lg font-semibold text-gray-900">流程模板</h1>
+        <p class="max-w-3xl text-sm text-gray-500">
           按任务注册表动态编排步骤，支持紧凑表格拖拽排序、失败策略配置和同步控制。
         </p>
       </div>
-      <button class="primary-button" @click="openCreateModal">新建流程</button>
+      <button
+        class="inline-flex items-center justify-center rounded-md bg-gray-900 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-gray-800"
+        @click="openCreateModal"
+      >
+        新建流程
+      </button>
     </header>
 
-    <p class="inline-stats">
-      共 <strong>{{ totalFlows }}</strong> 个流程 ·
-      <strong>{{ totalSteps }}</strong> 个步骤 ·
-      <strong>{{ tasks.length }}</strong> 个可用任务
-    </p>
+    <section class="rounded-md border border-gray-200 bg-white px-4 py-3 shadow-sm">
+      <p class="inline-stats text-sm text-gray-500">
+        共 <strong class="font-semibold text-gray-900">{{ totalFlows }}</strong> 个流程 ·
+        <strong class="font-semibold text-gray-900">{{ totalSteps }}</strong> 个步骤 ·
+        <strong class="font-semibold text-gray-900">{{ tasks.length }}</strong> 个可用任务
+      </p>
+    </section>
 
-    <section class="panel">
-      <div class="panel-header">
-        <div>
-          <h2>模板列表</h2>
-          <p>流程创建后可被批量执行页和定时任务页直接引用。</p>
+    <section class="rounded-md border border-gray-200 bg-white shadow-sm">
+      <div class="flex flex-col gap-2 border-b border-gray-100 px-5 py-4 sm:flex-row sm:items-start sm:justify-between">
+        <div class="space-y-1">
+          <h2 class="text-sm font-medium text-gray-900">模板列表</h2>
+          <p class="text-xs text-gray-500">流程创建后可被批量执行页和定时任务页直接引用。</p>
         </div>
       </div>
 
-      <div v-if="isLoading" class="empty-state">正在加载流程模板...</div>
-      <div v-else-if="flows.length === 0" class="empty-state">
-        <p>当前还没有流程模板。</p>
-        <button class="secondary-button" @click="openCreateModal">创建第一个流程</button>
+      <div v-if="isLoading" class="px-6 py-12 text-center text-sm text-gray-400">🧩 正在加载流程模板...</div>
+      <div v-else-if="flows.length === 0" class="space-y-4 px-6 py-12 text-center">
+        <p class="text-sm text-gray-400">🪹 当前还没有流程模板。</p>
+        <button
+          class="inline-flex items-center justify-center rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 transition hover:bg-gray-50"
+          @click="openCreateModal"
+        >
+          创建第一个流程
+        </button>
       </div>
-      <table v-else class="flow-table">
-        <thead>
-          <tr>
-            <th style="width: 48px">#</th>
-            <th style="width: 140px">流程名称</th>
-            <th>描述</th>
-            <th style="width: 64px">步骤</th>
-            <th>步骤摘要</th>
-            <th style="width: 140px">操作</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="(flow, index) in flows" :key="flow.id">
-            <td class="cell-center">{{ index + 1 }}</td>
-            <td>
-              <a class="flow-name-link" href="#" @click.prevent="openEditModal(flow)">
-                {{ flow.name }}
-              </a>
-            </td>
-            <td class="cell-desc" :title="flow.description || '—'">
-              {{ flow.description || '—' }}
-            </td>
-            <td class="cell-center">
-              <span class="step-badge">{{ flow.steps.length }}</span>
-            </td>
-            <td class="cell-summary" :title="getStepSummary(flow) || '—'">
-              {{ getStepSummary(flow) || '—' }}
-            </td>
-            <td class="cell-center cell-actions">
-              <button class="ghost-button btn-sm" @click="openEditModal(flow)">编辑</button>
-              <button class="danger-button btn-sm" @click="askDelete(flow)">删除</button>
-            </td>
-          </tr>
-        </tbody>
-      </table>
+      <div v-else class="overflow-x-auto">
+        <table class="flow-table min-w-[920px] w-full table-fixed divide-y divide-gray-200">
+          <thead class="bg-gray-50/60 text-xs font-medium uppercase tracking-wider text-gray-500">
+            <tr>
+              <th class="w-12 px-4 py-3 text-center">#</th>
+              <th class="w-40 px-4 py-3 text-left">流程名称</th>
+              <th class="px-4 py-3 text-left">描述</th>
+              <th class="w-20 px-4 py-3 text-center">步骤</th>
+              <th class="px-4 py-3 text-left">步骤摘要</th>
+              <th class="w-36 px-4 py-3 text-center">操作</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-gray-100 text-sm text-gray-900">
+            <tr
+              v-for="(flow, index) in flows"
+              :key="flow.id"
+              class="border-b border-gray-100 transition hover:bg-gray-50/50"
+            >
+              <td class="px-4 py-3 text-center font-mono text-xs text-gray-500">{{ index + 1 }}</td>
+              <td class="px-4 py-3">
+                <a
+                  class="flow-name-link font-medium text-gray-900 underline-offset-4 transition hover:text-gray-700 hover:underline"
+                  href="#"
+                  @click.prevent="openEditModal(flow)"
+                >
+                  {{ flow.name }}
+                </a>
+              </td>
+              <td class="cell-desc max-w-0 truncate px-4 py-3 text-xs text-gray-500" :title="flow.description || '—'">
+                {{ flow.description || '—' }}
+              </td>
+              <td class="px-4 py-3 text-center">
+                <span class="step-badge inline-flex min-w-8 items-center justify-center rounded-full bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-700">
+                  {{ flow.steps.length }}
+                </span>
+              </td>
+              <td class="cell-summary max-w-0 truncate px-4 py-3 text-xs text-gray-500" :title="getStepSummary(flow) || '—'">
+                {{ getStepSummary(flow) || '—' }}
+              </td>
+              <td class="cell-actions space-x-2 whitespace-nowrap px-4 py-3 text-center">
+                <button
+                  class="ghost-button btn-sm text-xs font-medium text-gray-500 transition hover:text-gray-700"
+                  @click="openEditModal(flow)"
+                >
+                  编辑
+                </button>
+                <button
+                  class="danger-button btn-sm text-xs font-medium text-rose-600 transition hover:text-rose-700"
+                  @click="askDelete(flow)"
+                >
+                  删除
+                </button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
     </section>
 
     <Modal
@@ -432,55 +472,67 @@ onMounted(() => {
       width="min(80vw, 900px)"
       @close="closeEditor"
     >
-      <form class="editor-form" @submit.prevent="submitFlow">
-        <div class="field-grid">
-          <label class="field">
-            <span>流程名称</span>
-            <input v-model="form.name" type="text" placeholder="例如：新店启用流程" />
-          </label>
-          <label class="field">
-            <span>流程说明</span>
-            <input v-model="form.description" type="text" placeholder="可选，简要说明流程用途" />
-          </label>
-        </div>
+      <form class="space-y-4" @submit.prevent="submitFlow">
+        <section class="space-y-4">
+          <div class="grid gap-4 md:grid-cols-2">
+            <label class="space-y-2">
+              <span class="text-xs font-medium text-gray-600">流程名称</span>
+              <input
+                v-model="form.name"
+                type="text"
+                placeholder="例如：新店启用流程"
+                class="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-gray-400 focus:outline-none focus:ring-1 focus:ring-gray-400"
+              />
+            </label>
+            <label class="space-y-2">
+              <span class="text-xs font-medium text-gray-600">流程说明</span>
+              <input
+                v-model="form.description"
+                type="text"
+                placeholder="可选，简要说明流程用途"
+                class="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-gray-400 focus:outline-none focus:ring-1 focus:ring-gray-400"
+              />
+            </label>
+          </div>
+        </section>
 
-        <section class="step-editor">
-          <div class="step-editor-header">
-            <div>
-              <h3>步骤编排</h3>
-              <p>拖拽调整执行顺序，保存前至少保留一个已选择任务的步骤。</p>
-            </div>
+        <section class="border-t border-gray-100 pt-4">
+          <div class="mb-4 space-y-1">
+            <h3 class="text-sm font-medium text-gray-900">步骤编排</h3>
+            <p class="text-xs text-gray-500">拖拽调整执行顺序，保存前至少保留一个已选择任务的步骤。</p>
           </div>
 
-          <div class="step-table-shell">
-            <div class="step-table-scroll">
-              <div class="step-table">
-                <div class="step-table-header">
-                  <span class="step-col-handle" aria-hidden="true"></span>
-                  <span class="step-col-index">序号</span>
-                  <span class="step-col-task">任务</span>
-                  <span class="step-col-policy">失败策略</span>
-                  <span class="step-col-toggle">同步屏障</span>
-                  <span class="step-col-toggle">合并执行</span>
-                  <span class="step-col-actions">操作</span>
+          <div class="step-table-shell overflow-hidden rounded-md border border-gray-200 bg-white">
+            <div class="overflow-x-auto">
+              <div class="min-w-[860px]">
+                <div class="step-table-header grid grid-cols-[44px_48px_minmax(220px,1.5fr)_minmax(220px,1.2fr)_92px_92px_72px] items-center gap-3 bg-gray-50/60 px-4 py-3 text-xs font-medium uppercase tracking-wider text-gray-500">
+                  <span class="text-center" aria-hidden="true"></span>
+                  <span class="text-center">序号</span>
+                  <span>任务</span>
+                  <span>失败策略</span>
+                  <span class="text-center">同步屏障</span>
+                  <span class="text-center">合并执行</span>
+                  <span class="text-center">操作</span>
                 </div>
 
-                <div class="step-table-body">
+                <div class="step-table-body space-y-1 px-3 py-3">
                   <div
                     v-for="(step, index) in form.steps"
                     :key="step.id"
-                    class="step-row"
+                    class="step-row relative grid min-h-10 grid-cols-[44px_48px_minmax(220px,1.5fr)_minmax(220px,1.2fr)_92px_92px_72px] items-center gap-3 rounded-md border border-transparent px-2 py-2 transition hover:bg-gray-50"
                     :class="{
-                      'is-dragging': draggingStepId === step.id,
-                      'drop-before': dropIndicator?.stepId === step.id && dropIndicator.position === 'before',
-                      'drop-after': dropIndicator?.stepId === step.id && dropIndicator.position === 'after',
+                      'bg-gray-100/80': draggingStepId === step.id,
+                      'before:absolute before:left-3 before:right-3 before:top-0 before:h-0.5 before:-translate-y-1/2 before:rounded-full before:bg-gray-900':
+                        dropIndicator?.stepId === step.id && dropIndicator.position === 'before',
+                      'after:absolute after:left-3 after:right-3 after:bottom-0 after:h-0.5 after:translate-y-1/2 after:rounded-full after:bg-gray-900':
+                        dropIndicator?.stepId === step.id && dropIndicator.position === 'after',
                     }"
                     @dragover.prevent="handleDragOver(step.id, $event)"
                     @drop.prevent="handleDrop(step.id)"
                   >
-                    <div class="step-row-handle-cell">
+                    <div class="flex items-center justify-center">
                       <button
-                        class="row-handle"
+                        class="row-handle inline-flex h-6 w-6 items-center justify-center rounded-md text-sm text-gray-400 transition hover:bg-gray-100 hover:text-gray-700"
                         type="button"
                         draggable="true"
                         title="拖拽排序"
@@ -492,69 +544,133 @@ onMounted(() => {
                       </button>
                     </div>
 
-                    <div class="step-row-index">{{ index + 1 }}</div>
+                    <div class="text-center font-mono text-xs text-gray-500">{{ index + 1 }}</div>
 
-                    <div class="step-row-task task-cell">
-                      <select
+                    <div class="space-y-1">
+                      <Listbox v-model="step.task">
+                        <div class="relative">
+                          <ListboxButton
+                            class="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-left text-sm text-gray-900 focus:border-gray-400 focus:outline-none focus:ring-1 focus:ring-gray-400"
+                            :title="getTaskDescription(step.task) || ''"
+                          >
+                            {{ step.task || '请选择任务' }}
+                          </ListboxButton>
+                          <transition
+                            enter-active-class="transition duration-100 ease-out"
+                            enter-from-class="scale-95 opacity-0"
+                            enter-to-class="scale-100 opacity-100"
+                            leave-active-class="transition duration-75 ease-in"
+                            leave-from-class="scale-100 opacity-100"
+                            leave-to-class="scale-95 opacity-0"
+                          >
+                            <ListboxOptions class="absolute z-20 mt-2 max-h-64 w-full overflow-auto rounded-md border border-gray-200 bg-white py-1 shadow-lg">
+                              <ListboxOption disabled value="" v-slot="{ active }">
+                                <li
+                                  :class="[
+                                    'cursor-not-allowed px-3 py-2 text-sm text-gray-300',
+                                    active ? 'bg-gray-50' : '',
+                                  ]"
+                                >
+                                  请选择任务
+                                </li>
+                              </ListboxOption>
+                              <ListboxOption
+                                v-for="task in tasks"
+                                :key="task.name"
+                                :value="task.name"
+                                v-slot="{ active, selected }"
+                              >
+                                <li
+                                  :class="[
+                                    'cursor-pointer px-3 py-2 text-sm text-gray-700',
+                                    active ? 'bg-gray-100 text-gray-900' : '',
+                                    selected ? 'font-medium text-gray-900' : '',
+                                  ]"
+                                  :title="task.description || ''"
+                                >
+                                  {{ task.name }}
+                                </li>
+                              </ListboxOption>
+                            </ListboxOptions>
+                          </transition>
+                        </div>
+                      </Listbox>
+                      <input
                         :ref="(element) => setTaskSelectRef(step.id, element)"
-                        v-model="step.task"
-                        :title="getTaskDescription(step.task) || ''"
-                      >
-                        <option disabled value="">请选择任务</option>
-                        <option
-                          v-for="task in tasks"
-                          :key="task.name"
-                          :value="task.name"
-                          :title="task.description || ''"
-                        >
-                          {{ task.name }}
-                        </option>
-                      </select>
-                      <small v-if="getTaskDescription(step.task)" class="field-hint">
+                        class="sr-only"
+                        tabindex="-1"
+                        aria-hidden="true"
+                        type="text"
+                        readonly
+                        :value="step.task"
+                      />
+                      <small v-if="getTaskDescription(step.task)" class="field-hint text-xs text-gray-500">
                         {{ getTaskDescription(step.task) }}
                       </small>
                     </div>
 
-                    <div class="step-row-policy">
-                      <div
-                        class="policy-input-group"
-                        :class="{ 'has-retry-input': step.failurePolicy === 'retry:N' }"
-                      >
-                        <select v-model="step.failurePolicy">
-                          <option
-                            v-for="option in failurePolicyOptions"
-                            :key="option.value"
-                            :value="option.value"
+                    <div class="space-y-2">
+                      <Listbox v-model="step.failurePolicy">
+                        <div class="relative">
+                          <ListboxButton class="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-left text-sm text-gray-900 focus:border-gray-400 focus:outline-none focus:ring-1 focus:ring-gray-400">
+                            {{ failurePolicyOptions.find((option) => option.value === step.failurePolicy)?.label || '请选择策略' }}
+                          </ListboxButton>
+                          <transition
+                            enter-active-class="transition duration-100 ease-out"
+                            enter-from-class="scale-95 opacity-0"
+                            enter-to-class="scale-100 opacity-100"
+                            leave-active-class="transition duration-75 ease-in"
+                            leave-from-class="scale-100 opacity-100"
+                            leave-to-class="scale-95 opacity-0"
                           >
-                            {{ option.label }}
-                          </option>
-                        </select>
-                        <input
-                          v-if="step.failurePolicy === 'retry:N'"
-                          v-model.number="step.retryCount"
-                          class="retry-inline-input"
-                          type="number"
-                          min="1"
-                          title="重试次数"
-                          aria-label="重试次数"
-                        />
-                      </div>
+                            <ListboxOptions class="absolute z-20 mt-2 max-h-64 w-full overflow-auto rounded-md border border-gray-200 bg-white py-1 shadow-lg">
+                              <ListboxOption
+                                v-for="option in failurePolicyOptions"
+                                :key="option.value"
+                                :value="option.value"
+                                v-slot="{ active, selected }"
+                              >
+                                <li
+                                  :class="[
+                                    'cursor-pointer px-3 py-2 text-sm text-gray-700',
+                                    active ? 'bg-gray-100 text-gray-900' : '',
+                                    selected ? 'font-medium text-gray-900' : '',
+                                  ]"
+                                >
+                                  {{ option.label }}
+                                </li>
+                              </ListboxOption>
+                            </ListboxOptions>
+                          </transition>
+                        </div>
+                      </Listbox>
+                      <input
+                        v-if="step.failurePolicy === 'retry:N'"
+                        v-model.number="step.retryCount"
+                        class="retry-inline-input w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-gray-400 focus:outline-none focus:ring-1 focus:ring-gray-400"
+                        type="number"
+                        min="1"
+                        title="重试次数"
+                        aria-label="重试次数"
+                      />
                     </div>
 
-                    <label class="step-row-toggle">
+                    <label class="flex items-center justify-center">
                       <input
                         v-model="step.barrier"
                         type="checkbox"
+                        class="h-4 w-4 rounded border-gray-300 text-gray-900 focus:ring-gray-400"
                         title="同步屏障"
                         aria-label="同步屏障"
                         @change="!step.barrier && (step.merge = false)"
                       />
                     </label>
 
-                    <label class="step-row-toggle" :class="{ 'is-disabled': !step.barrier }">
+                    <label class="flex items-center justify-center" :class="{ 'opacity-40': !step.barrier }">
                       <input
                         v-model="step.merge"
                         type="checkbox"
+                        class="h-4 w-4 rounded border-gray-300 text-gray-900 focus:ring-gray-400"
                         title="合并执行"
                         aria-label="合并执行"
                         :disabled="!step.barrier"
@@ -562,9 +678,9 @@ onMounted(() => {
                       />
                     </label>
 
-                    <div class="step-row-actions">
+                    <div class="flex items-center justify-center">
                       <button
-                        class="icon-danger-button"
+                        class="icon-danger-button inline-flex h-7 w-7 items-center justify-center rounded-md bg-rose-50 text-sm text-rose-600 transition hover:bg-rose-100 hover:text-rose-700 disabled:cursor-not-allowed disabled:opacity-40"
                         type="button"
                         title="删除步骤"
                         aria-label="删除步骤"
@@ -579,8 +695,12 @@ onMounted(() => {
               </div>
             </div>
 
-            <div class="step-table-footer">
-              <button class="secondary-button add-step-button" type="button" @click="addStep">
+            <div class="border-t border-gray-100 px-4 py-4">
+              <button
+                class="inline-flex items-center justify-center rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 transition hover:bg-gray-50"
+                type="button"
+                @click="addStep"
+              >
                 + 添加步骤
               </button>
             </div>
@@ -589,8 +709,19 @@ onMounted(() => {
       </form>
 
       <template #footer>
-        <button class="secondary-button" type="button" @click="closeEditor">取消</button>
-        <button class="primary-button" type="button" :disabled="isSaving" @click="submitFlow">
+        <button
+          class="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 transition hover:bg-gray-50"
+          type="button"
+          @click="closeEditor"
+        >
+          取消
+        </button>
+        <button
+          class="rounded-md bg-gray-900 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-60"
+          type="button"
+          :disabled="isSaving"
+          @click="submitFlow"
+        >
           {{ isSaving ? '保存中...' : '保存流程' }}
         </button>
       </template>
@@ -606,497 +737,3 @@ onMounted(() => {
     />
   </div>
 </template>
-
-<style scoped>
-.page {
-  display: flex;
-  flex-direction: column;
-  gap: var(--spacing-lg);
-  color: #1a1a2e;
-}
-
-.page-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: var(--spacing-lg);
-}
-
-.eyebrow {
-  margin-bottom: 10px;
-  color: #0369a1;
-  font-size: 12px;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  font-weight: 700;
-}
-
-h1 {
-  margin: 0;
-  font-size: var(--font-size-h1);
-  line-height: 1.4;
-}
-
-.page-description {
-  margin-top: 10px;
-  color: #64748b;
-  max-width: 720px;
-  line-height: 1.6;
-}
-
-.inline-stats {
-  margin: 0;
-  color: #64748b;
-  font-size: 14px;
-}
-
-.inline-stats strong {
-  color: #1e293b;
-  font-weight: 700;
-}
-
-.panel {
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-sm);
-}
-
-.panel {
-  padding: var(--spacing-lg);
-}
-
-.panel-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: var(--spacing-md);
-  margin-bottom: 20px;
-}
-
-.panel-header h2,
-.step-editor-header h3 {
-  margin: 0;
-  font-size: var(--font-size-h2);
-}
-
-.panel-header p,
-.step-editor-header p {
-  margin-top: 8px;
-  color: #64748b;
-  line-height: 1.5;
-}
-
-.flow-table {
-  width: 100%;
-  border-collapse: collapse;
-  table-layout: fixed;
-  font-size: 14px;
-}
-
-.flow-table th {
-  padding: 10px 12px;
-  border-bottom: 2px solid #e2e8f0;
-  color: #475569;
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  text-align: left;
-  text-transform: uppercase;
-  white-space: nowrap;
-}
-
-.flow-table td {
-  height: 44px;
-  padding: 10px 12px;
-  border-bottom: 1px solid #f1f5f9;
-  color: #334155;
-  line-height: 1.4;
-  vertical-align: middle;
-}
-
-.flow-table tbody tr:hover {
-  background: #f8fafc;
-}
-
-.cell-center {
-  text-align: center;
-}
-
-.cell-desc,
-.cell-summary {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.cell-desc {
-  color: #94a3b8;
-}
-
-.cell-summary {
-  color: #64748b;
-  font-size: 13px;
-}
-
-.cell-actions {
-  display: flex;
-  gap: 8px;
-  justify-content: center;
-  white-space: nowrap;
-}
-
-.flow-name-link {
-  color: #1d4ed8;
-  cursor: pointer;
-  font-weight: 600;
-  text-decoration: none;
-}
-
-.flow-name-link:hover {
-  text-decoration: underline;
-}
-
-.step-badge {
-  display: inline-block;
-  padding: 2px 10px;
-  border-radius: 999px;
-  background: rgba(59, 130, 246, 0.12);
-  color: #1d4ed8;
-  font-size: 12px;
-  font-weight: 700;
-}
-
-.btn-sm {
-  padding: 6px 12px;
-  font-size: 13px;
-}
-
-.editor-form {
-  display: flex;
-  flex-direction: column;
-  gap: 18px;
-}
-
-.field-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 14px;
-}
-
-.field {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.field span {
-  color: #475569;
-  font-size: 14px;
-  font-weight: 600;
-}
-
-.field input,
-.field select,
-.step-row select,
-.step-row input[type='number'] {
-  width: 100%;
-  height: 32px;
-  padding: 0 12px;
-  border: 1px solid #cbd5e1;
-  border-radius: 6px;
-  background: #ffffff;
-  color: #0f172a;
-  font-size: 14px;
-}
-
-.field input:focus,
-.field select:focus,
-.step-row select:focus,
-.step-row input[type='number']:focus {
-  outline: none;
-  border-color: #0369a1;
-  box-shadow: 0 0 0 4px rgba(3, 105, 161, 0.12);
-}
-
-.field-hint {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  padding: 0;
-  margin: -1px;
-  overflow: hidden;
-  clip: rect(0, 0, 0, 0);
-  white-space: nowrap;
-  border: 0;
-}
-
-.step-editor {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.step-table-shell {
-  border: 1px solid #dbe4f0;
-  border-radius: 16px;
-  background: linear-gradient(180deg, #f8fbff 0%, #ffffff 100%);
-  overflow: hidden;
-}
-
-.step-table-scroll {
-  overflow-x: auto;
-}
-
-.step-table {
-  min-width: 780px;
-}
-
-.step-table-header,
-.step-row {
-  display: grid;
-  grid-template-columns: 32px 40px minmax(220px, 1fr) 184px 80px 80px 80px;
-  align-items: center;
-  column-gap: 10px;
-}
-
-.step-table-header {
-  min-height: 36px;
-  padding: 6px 16px;
-  border-bottom: 1px solid #dbe4f0;
-  background: #eff6ff;
-  color: #475569;
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-}
-
-.step-col-index,
-.step-col-toggle,
-.step-col-actions,
-.step-row-index,
-.step-row-toggle,
-.step-row-actions {
-  justify-self: center;
-}
-
-.step-table-body {
-  padding: 2px 10px 4px;
-}
-
-.step-row {
-  position: relative;
-  min-height: 40px;
-  padding: 2px 6px;
-  border-radius: 8px;
-  background: #ffffff;
-}
-
-.step-row + .step-row {
-  margin-top: 1px;
-}
-
-.step-row::before,
-.step-row::after {
-  content: '';
-  position: absolute;
-  left: 10px;
-  right: 10px;
-  height: 2px;
-  background: transparent;
-  border-radius: 999px;
-  pointer-events: none;
-}
-
-.step-row::before {
-  top: -1px;
-}
-
-.step-row::after {
-  bottom: -1px;
-}
-
-.step-row.drop-before::before,
-.step-row.drop-after::after {
-  background: #2563eb;
-  box-shadow: 0 0 0 1px rgba(37, 99, 235, 0.12);
-}
-
-.step-row.is-dragging {
-  opacity: 0.6;
-  background: #eff6ff;
-}
-
-.step-row-handle-cell,
-.step-row-task,
-.step-row-policy {
-  min-width: 0;
-}
-
-.row-handle {
-  width: 24px;
-  height: 24px;
-  border: none;
-  border-radius: 6px;
-  background: #eff6ff;
-  color: #1d4ed8;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  cursor: grab;
-  font-size: 14px;
-  line-height: 1;
-}
-
-.row-handle:active {
-  cursor: grabbing;
-}
-
-.step-row-index {
-  color: #334155;
-  font-size: 14px;
-  font-weight: 700;
-}
-
-.task-cell {
-  position: relative;
-}
-
-.policy-input-group {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.retry-inline-input {
-  width: 58px;
-  flex: 0 0 58px;
-  text-align: center;
-}
-
-.step-row-toggle {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 36px;
-}
-
-.step-row-toggle input {
-  width: 16px;
-  height: 16px;
-  margin: 0;
-}
-
-.step-row-toggle.is-disabled {
-  opacity: 0.45;
-}
-
-.icon-danger-button {
-  width: 26px;
-  height: 26px;
-  border: none;
-  border-radius: 6px;
-  background: #fee2e2;
-  color: #b91c1c;
-  font-size: 15px;
-  line-height: 1;
-  cursor: pointer;
-}
-
-.icon-danger-button:disabled {
-  opacity: 0.45;
-  cursor: not-allowed;
-}
-
-.step-table-footer {
-  padding: 10px 16px 14px;
-  border-top: 1px solid #e2e8f0;
-  background: #ffffff;
-}
-
-.add-step-button {
-  min-width: 112px;
-}
-
-.empty-state {
-  min-height: 220px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
-  color: #64748b;
-  text-align: center;
-}
-
-.primary-button,
-.secondary-button,
-.ghost-button,
-.danger-button {
-  border: none;
-  border-radius: var(--radius-md);
-  padding: 11px 16px;
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
-}
-
-.primary-button {
-  background: var(--color-primary);
-  color: #ffffff;
-}
-
-.secondary-button {
-  background: #e2e8f0;
-  color: #0f172a;
-}
-
-.ghost-button {
-  background: #eff6ff;
-  color: #1d4ed8;
-}
-
-.danger-button {
-  background: #fee2e2;
-  color: #b91c1c;
-}
-
-.primary-button:hover,
-.secondary-button:hover,
-.ghost-button:hover,
-.danger-button:hover,
-.icon-danger-button:hover,
-.row-handle:hover {
-  transform: translateY(-1px);
-}
-
-.primary-button:disabled,
-.secondary-button:disabled,
-.ghost-button:disabled,
-.danger-button:disabled {
-  cursor: not-allowed;
-  opacity: 0.7;
-  transform: none;
-}
-
-:deep(.modal-container) {
-  max-height: 80vh;
-}
-
-:deep(.modal-body) {
-  padding: 20px 24px;
-}
-
-@media (max-width: 900px) {
-  .page-header,
-  .panel-header {
-    flex-direction: column;
-  }
-
-  .field-grid {
-    grid-template-columns: 1fr;
-  }
-}
-</style>

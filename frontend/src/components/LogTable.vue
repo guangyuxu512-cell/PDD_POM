@@ -18,117 +18,56 @@ interface Props {
 
 withDefaults(defineProps<Props>(), {
   loading: false,
-  showShop: false
+  showShop: false,
 })
 </script>
 
 <template>
-  <div class="table-container">
-    <div v-if="loading" class="loading-state">
-      <div class="spinner"></div>
-      <p>加载中...</p>
+  <div class="overflow-hidden rounded-md border border-gray-200 bg-white shadow-sm">
+    <div v-if="loading" class="flex min-h-[220px] flex-col items-center justify-center gap-3 text-gray-500">
+      <span class="h-8 w-8 animate-spin rounded-full border-2 border-gray-200 border-t-gray-400" />
+      <p class="text-sm">加载中...</p>
     </div>
-    <div v-else-if="logs.length === 0" class="empty-state">
-      <p>暂无数据</p>
+
+    <div v-else-if="logs.length === 0" class="flex min-h-[220px] items-center justify-center text-sm text-gray-500">
+      暂无数据
     </div>
-    <table v-else class="log-table">
-      <thead>
-        <tr>
-          <th style="width: 180px">时间</th>
-          <th v-if="showShop" style="width: 120px">店铺</th>
-          <th style="width: 100px">级别</th>
-          <th style="width: 120px">来源</th>
-          <th>内容</th>
-          <th v-if="$slots.actions" style="width: 100px">操作</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr v-for="log in logs" :key="log.id">
-          <td>{{ log.timestamp }}</td>
-          <td v-if="showShop">{{ log.shop_name || '-' }}</td>
-          <td>
-            <StatusBadge :status="log.level" type="log" />
-          </td>
-          <td>{{ log.source }}</td>
-          <td>{{ log.message }}</td>
-          <td v-if="$slots.actions">
-            <slot name="actions" :log="log" />
-          </td>
-        </tr>
-      </tbody>
-    </table>
+
+    <div v-else class="overflow-x-auto">
+      <table class="min-w-full table-fixed">
+        <thead class="bg-gray-50/60 text-xs font-medium uppercase tracking-wider text-gray-500">
+          <tr>
+            <th class="w-44 px-4 py-3 text-right font-medium">时间</th>
+            <th v-if="showShop" class="w-36 px-4 py-3 text-left font-medium">店铺</th>
+            <th class="w-28 px-4 py-3 text-left font-medium">级别</th>
+            <th class="w-32 px-4 py-3 text-left font-medium">来源</th>
+            <th class="px-4 py-3 text-left font-medium">内容</th>
+            <th v-if="$slots.actions" class="w-28 px-4 py-3 text-right font-medium">操作</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="log in logs" :key="log.id" class="border-b border-gray-100 hover:bg-gray-50/50">
+            <td class="px-4 py-3 text-right font-mono text-xs text-gray-500">
+              {{ log.timestamp }}
+            </td>
+            <td v-if="showShop" class="px-4 py-3 text-sm text-gray-900">
+              {{ log.shop_name || '-' }}
+            </td>
+            <td class="px-4 py-3 text-sm text-gray-900">
+              <StatusBadge :status="log.level" type="log" />
+            </td>
+            <td class="px-4 py-3 font-mono text-xs uppercase tracking-wide text-gray-500">
+              {{ log.source }}
+            </td>
+            <td class="px-4 py-3 text-sm leading-6 text-gray-900">
+              {{ log.message }}
+            </td>
+            <td v-if="$slots.actions" class="px-4 py-3 text-right text-sm text-gray-900">
+              <slot name="actions" :log="log" />
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
   </div>
 </template>
-
-<style scoped>
-.table-container {
-  background: white;
-  border-radius: var(--radius-md);
-  overflow: hidden;
-  border: 1px solid #e5e7eb;
-  min-height: 200px;
-  position: relative;
-}
-
-.loading-state,
-.empty-state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 48px;
-  color: #6b7280;
-}
-
-.spinner {
-  width: 40px;
-  height: 40px;
-  border: 4px solid #e5e7eb;
-  border-top-color: #3b82f6;
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
-  margin-bottom: 16px;
-}
-
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-.log-table {
-  width: 100%;
-  border-collapse: collapse;
-}
-
-.log-table thead {
-  background: #f9fafb;
-}
-
-.log-table th {
-  padding: 16px;
-  text-align: left;
-  font-weight: 600;
-  font-size: 14px;
-  color: #1a1a2e;
-}
-
-.log-table tbody tr {
-  border-bottom: 1px solid #e5e7eb;
-  transition: background 0.2s;
-}
-
-.log-table tbody tr:nth-child(even) {
-  background: #f9fafb;
-}
-
-.log-table tbody tr:hover {
-  background: #eff6ff;
-}
-
-.log-table td {
-  padding: 16px;
-  font-size: 14px;
-  color: #1a1a2e;
-}
-</style>

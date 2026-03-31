@@ -43,7 +43,10 @@ class 测试_前端管理页:
 
         for 路径 in ["/shops", "/business", "/aftersale-config", "/data", "/monitor", "/settings"]:
             assert f"path: '{路径}'" in 路由文件
-            assert f'to="{路径}"' in 入口文件
+            assert f"path: '{路径}'" in 入口文件
+
+        assert ':to="item.path"' in 入口文件
+        assert "const navItems = [" in 入口文件
 
         for 视图文件 in [
             "ShopManage.vue",

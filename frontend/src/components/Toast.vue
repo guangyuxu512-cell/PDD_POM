@@ -1,65 +1,58 @@
 <script setup lang="ts">
+import {
+  TransitionChild,
+  TransitionRoot,
+} from '@headlessui/vue'
 import { toasts } from '../utils/toast'
+
+const toneClasses = {
+  success: 'border-emerald-200 bg-emerald-50 text-emerald-800',
+  error: 'border-rose-200 bg-rose-50 text-rose-800',
+  warning: 'border-amber-200 bg-amber-50 text-amber-800',
+  info: 'border-gray-200 bg-gray-50 text-gray-800',
+} as const
+
+const iconLabels = {
+  success: '✓',
+  error: '✕',
+  warning: '!',
+  info: 'i',
+} as const
 </script>
 
 <template>
   <Teleport to="body">
-    <div class="toast-container">
-      <TransitionGroup name="toast">
-        <div
-          v-for="t in toasts"
-          :key="t.id"
-          class="toast"
-          :class="t.type"
+    <div class="fixed right-4 top-4 z-50 flex w-full max-w-sm flex-col gap-3" aria-live="polite">
+      <TransitionRoot
+        v-for="t in toasts"
+        :key="t.id"
+        appear
+        :show="true"
+        as="template"
+      >
+        <TransitionChild
+          as="template"
+          enter="transform ease-out duration-200"
+          enter-from="translate-x-4 opacity-0"
+          enter-to="translate-x-0 opacity-100"
+          leave="transform ease-in duration-150"
+          leave-from="translate-x-0 opacity-100"
+          leave-to="translate-x-4 opacity-0"
         >
-          <span class="toast-icon">
-            {{ t.type === 'success' ? '✓' : t.type === 'error' ? '✗' : t.type === 'warning' ? '⚠' : 'ℹ' }}
-          </span>
-          <span class="toast-message">{{ t.message }}</span>
-        </div>
-      </TransitionGroup>
+          <div
+            :class="[
+              'pointer-events-auto flex items-start gap-3 rounded-md border px-4 py-3 shadow-lg',
+              toneClasses[t.type],
+            ]"
+            role="status"
+          >
+            <span class="mt-0.5 inline-flex h-5 w-5 items-center justify-center rounded-full text-sm font-semibold">
+              {{ iconLabels[t.type] }}
+            </span>
+            <span class="text-sm leading-6">{{ t.message }}</span>
+          </div>
+        </TransitionChild>
+      </TransitionRoot>
     </div>
   </Teleport>
 </template>
-
-<style scoped>
-.toast-container {
-  position: fixed;
-  top: 20px;
-  right: 20px;
-  z-index: 9999;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.toast {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 12px 20px;
-  border-radius: 8px;
-  background: #1e293b;
-  color: #e0e0e0;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-  min-width: 250px;
-}
-
-.toast.success { border-left: 4px solid #4ade80; }
-.toast.error { border-left: 4px solid #ef4444; }
-.toast.warning { border-left: 4px solid #f59e0b; }
-.toast.info { border-left: 4px solid #3b82f6; }
-
-.toast-icon { font-size: 16px; }
-.toast.success .toast-icon { color: #4ade80; }
-.toast.error .toast-icon { color: #ef4444; }
-.toast.warning .toast-icon { color: #f59e0b; }
-.toast.info .toast-icon { color: #3b82f6; }
-
-.toast-message { font-size: 14px; }
-
-.toast-enter-active,
-.toast-leave-active { transition: all 0.3s ease; }
-.toast-enter-from { opacity: 0; transform: translateX(100px); }
-.toast-leave-to { opacity: 0; transform: translateX(100px); }
-</style>

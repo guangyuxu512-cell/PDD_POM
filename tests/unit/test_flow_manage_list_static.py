@@ -12,24 +12,26 @@ def 读取文件(相对路径: str) -> str:
 
 
 class 测试_流程管理列表静态页:
-    def test_流程管理页_统计栏改为单行文案且列表改为表格(self):
+    def test_流程管理页改为_tailwind统计栏与表格列表(self):
         页面文件 = 读取文件("frontend/src/views/FlowManage.vue")
 
         for 关键字 in [
-            'class="inline-stats"',
-            '共 <strong>{{ totalFlows }}</strong> 个流程',
-            '<strong>{{ totalSteps }}</strong> 个步骤',
-            '<strong>{{ tasks.length }}</strong> 个可用任务',
-            'class="flow-table"',
-            '流程名称',
-            '步骤摘要',
-            'class="flow-name-link"',
+            'class="inline-stats text-sm text-gray-500"',
+            "{{ totalFlows }}",
+            "{{ totalSteps }}",
+            "{{ tasks.length }}",
+            '<table class="flow-table min-w-[920px] w-full table-fixed divide-y divide-gray-200">',
+            "流程名称",
+            "步骤摘要",
+            'class="flow-name-link font-medium text-gray-900 underline-offset-4 transition hover:text-gray-700 hover:underline"',
             'href="#"',
             '@click.prevent="openEditModal(flow)"',
-            'class="step-badge"',
-            'class="ghost-button btn-sm"',
-            'class="danger-button btn-sm"',
-            "getStepSummary(flow) || '—'",
+            'class="step-badge inline-flex min-w-8 items-center justify-center rounded-full bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-700"',
+            'class="ghost-button btn-sm text-xs font-medium text-gray-500 transition hover:text-gray-700"',
+            'class="danger-button btn-sm text-xs font-medium text-rose-600 transition hover:text-rose-700"',
+            "getStepSummary(flow) ||",
+            "🪹 当前还没有流程模板。",
+            "overflow-x-auto",
         ]:
             assert 关键字 in 页面文件
 
@@ -38,21 +40,29 @@ class 测试_流程管理列表静态页:
             'class="summary-card"',
             'class="flow-grid"',
             'class="flow-card"',
+            "<style",
         ]:
             assert 旧结构 not in 页面文件
 
-    def test_流程管理页_表格样式保持紧凑密度(self):
+    def test_流程管理页表格密度依赖_tailwind原子类(self):
         页面文件 = 读取文件("frontend/src/views/FlowManage.vue")
 
         for 关键字 in [
-            '.inline-stats {',
-            '.flow-table {',
-            'table-layout: fixed;',
-            'height: 44px;',
-            '.cell-desc,',
-            '.cell-summary {',
-            '.cell-actions {',
-            '.btn-sm {',
-            '.flow-name-link:hover {',
+            "table-fixed divide-y divide-gray-200",
+            "border-b border-gray-100 transition hover:bg-gray-50/50",
+            "font-mono text-xs text-gray-500",
+            "max-w-0 truncate px-4 py-3 text-xs text-gray-500",
+            "space-x-2 whitespace-nowrap px-4 py-3 text-center",
         ]:
             assert 关键字 in 页面文件
+
+        for 旧样式片段 in [
+            ".inline-stats {",
+            ".flow-table {",
+            ".cell-desc,",
+            ".cell-summary {",
+            ".cell-actions {",
+            ".btn-sm {",
+            ".flow-name-link:hover {",
+        ]:
+            assert 旧样式片段 not in 页面文件

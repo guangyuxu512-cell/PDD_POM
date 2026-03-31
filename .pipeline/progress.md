@@ -95,6 +95,87 @@
 
 ## 任务摘要
 
+用 Tailwind 重写了前端主布局入口 `App.vue`，把侧边栏切成 Linear 风格白底极简布局，并同步更新相关静态回归测试。
+
+## 改动文件列表
+
+- `frontend/src/App.vue`
+- `tests/unit/test_platform_frontend_static.py`
+- `tests/unit/test_frontend_management_page.py`
+- `tests/unit/test_after_sale_config_page.py`
+- `PLAN.md`
+- `改造进度.md`
+- `.pipeline/progress.md`
+
+## 改动说明
+
+- `frontend/src/App.vue`：引入 `useRoute`，新增 `navItems` 数据源，用 `v-for` 渲染左侧导航；将旧深色侧边栏改为白底、灰色细边框、浅灰选中态的 Linear 风格，并把整文件切成纯 Tailwind class，删除原有 `<style scoped>`。
+- `tests/unit/test_platform_frontend_static.py`：更新 App 主布局断言，改为校验 `useRoute`、`navItems`、`bg-gray-50` 主背景、白底侧边栏、浅灰选中态，以及旧深色样式和 `<style>` 块已移除。
+- `tests/unit/test_frontend_management_page.py`：导航入口断言从硬编码 `to="/..."` 调整为 `navItems` 数据源和 `:to="item.path"` 动态路由写法，兼容新的实现结构。
+- `tests/unit/test_after_sale_config_page.py`：售后配置导航断言同步改为新的动态导航实现，继续保证 `App.vue` 中存在该入口。
+- `PLAN.md`、`改造进度.md`、`.pipeline/progress.md`：同步记录本轮 Builder 执行结果和验证情况。
+
+## 影响范围
+
+- 前端主布局入口与所有页面共享的侧边栏导航
+- 售后配置、店铺管理、业务管理、数据管理、运行监控、设置页的全局入口展示
+- 与 `App.vue` 结构和导航实现相关的前端静态回归
+
+## 注意事项
+
+- 已执行 `python -m pytest -c tests/pytest.ini tests/unit/test_platform_frontend_static.py tests/unit/test_frontend_management_page.py tests/unit/test_after_sale_config_page.py -v`，结果为 `9 passed`。
+- 已执行 `cd frontend && npm run build`，构建通过。
+- 已尝试 `cd frontend && npm run dev -- --host 127.0.0.1`，当前环境仍因 `esbuild` 子进程 `spawn EPERM` 无法完成 Vite dev server 启动验收。
+- 已执行 `python -m pytest -c tests/pytest.ini tests/ -v`，结果为 `513 passed, 18 warnings`。
+- 18 条 warning 仍来自既有第三方依赖 `celery`、`openpyxl` 的弃用提示，以及既有 `PytestUnraisableExceptionWarning`，不是本轮改动引入的问题。
+- `.pipeline/task.md` 为既有本地变更，本轮未修改。
+
+---
+
+## 任务摘要
+
+用 Headless UI + Tailwind 重写了 `Modal`、`ConfirmDialog`、`Toast` 三个核心公共组件，保留既有调用接口并补齐静态回归测试。
+
+## 改动文件列表
+
+- `frontend/src/components/Modal.vue`
+- `frontend/src/components/ConfirmDialog.vue`
+- `frontend/src/components/Toast.vue`
+- `tests/unit/test_shop_platform_modal_static.py`
+- `tests/unit/test_headless_ui_components_static.py`
+- `PLAN.md`
+- `改造进度.md`
+- `.pipeline/progress.md`
+
+## 改动说明
+
+- `frontend/src/components/Modal.vue`：改为 Headless UI `Dialog` 结构，使用白底、灰边框、毛玻璃遮罩和 Tailwind 过渡动画；删除原生 `<style>`，同时保留 `.modal-container`、`.modal-body` 等 class，兼容页面里已存在的 `:deep(...)` 样式钩子。
+- `frontend/src/components/ConfirmDialog.vue`：改为 Headless UI `Dialog`，保留 `show/title/message/type` 和 `confirmText/cancelText` 用法；新增 `close` emit，遮罩和 ESC 关闭时继续按 `cancel` 语义回调；危险确认按钮改为 `rose`，普通确认按钮改为灰黑主按钮，移除旧蓝色样式。
+- `frontend/src/components/Toast.vue`：改为右上角固定定位，使用 Headless UI Transition 和 Tailwind class 渲染提示；将类型颜色收口为 `emerald / rose / amber / gray`，移除原有蓝色 `info` 提示色和旧 `<style>` 块。
+- `tests/unit/test_shop_platform_modal_static.py`：更新 Modal 相关断言，改为校验新的 Headless UI 白底弹窗壳层，同时保留店铺页表单现有样式断言。
+- `tests/unit/test_headless_ui_components_static.py`：新增组件级静态回归，覆盖 Modal / ConfirmDialog / Toast 的 Headless UI 接入、Tailwind 样式、兼容 emits，以及“无蓝色 / 无 `<style>`”的反向断言。
+- `PLAN.md`、`改造进度.md`、`.pipeline/progress.md`：同步记录本轮 Builder 执行结果与验证情况。
+
+## 影响范围
+
+- 前端公共弹窗组件与提示组件的视觉样式
+- `ShopManage`、`FlowManage`、`ScheduleManage`、`TaskMonitor`、`TaskParamsManage`、`BrowserManager`、`LogViewer` 等依赖公共组件的页面
+- 前端静态回归中与弹窗组件结构、样式和兼容 class 相关的断言
+
+## 注意事项
+
+- 已执行 `python -m pytest -c tests/pytest.ini tests/unit/test_headless_ui_components_static.py tests/unit/test_shop_platform_modal_static.py tests/unit/test_batch_execute_schedule_static.py tests/unit/test_flow_manage_editor_static.py tests/unit/test_frontend_tailwind_static.py -v`，结果为 `14 passed`。
+- 已执行 `cd frontend && npm run build`，构建通过。
+- 已尝试 `cd frontend && npm run dev -- --host 127.0.0.1`，当前环境仍因 `esbuild` 子进程 `spawn EPERM` 无法完成 Vite dev server 启动验收。
+- 已执行 `python -m pytest -c tests/pytest.ini tests/ -v`，结果为 `513 passed, 18 warnings`。
+- 18 条 warning 仍来自既有第三方依赖 `celery`、`openpyxl` 的弃用提示，以及既有 `PytestUnraisableExceptionWarning`，不是本轮改动引入的问题。
+- 本轮只重写了公共组件外壳，页面插槽里的表单/按钮视觉仍沿用各页面原有实现。
+- `.pipeline/task.md` 为既有本地变更，本轮未修改。
+
+---
+
+## 任务摘要
+
 替换 PyInstaller 的 backend / celery-worker spec 为显式模块收集方案，并修正 Electron 打包 exe 路径到 `--onedir` 子目录结构。
 
 ## 改动文件列表
@@ -917,3 +998,167 @@
 - `.pipeline/task.md` 为既有本地改动，本轮未修改。
 
 ---
+## 任务摘要
+
+完成前端 Tailwind 样式基建接入，移除旧 CSS 变量入口和 Vite 默认示例组件，并补齐对应静态回归测试。
+
+## 改动文件列表
+
+- `frontend/package.json`
+- `frontend/package-lock.json`
+- `frontend/vite.config.ts`
+- `frontend/src/style.css`
+- `frontend/src/main.ts`
+- `frontend/src/styles/variables.css`
+- `frontend/src/components/HelloWorld.vue`
+- `tests/unit/test_frontend_tailwind_static.py`
+- `PLAN.md`
+- `改造进度.md`
+- `.pipeline/progress.md`
+
+## 改动说明
+
+- `frontend/package.json`、`frontend/package-lock.json`：新增 `tailwindcss`、`@tailwindcss/vite`、`@headlessui/vue` 依赖，并同步锁定安装结果。
+- `frontend/vite.config.ts`：为 Vite 增加 `tailwindcss()` 插件，同时保留原有开发端口和 `/api` 代理配置。
+- `frontend/src/style.css`：替换为 Tailwind v4 的 `@import "tailwindcss";` 入口，只保留全局 `body` 字体和字体平滑基础样式。
+- `frontend/src/main.ts`：删除旧 `./styles/variables.css` 引入，让全局样式只从 Tailwind 入口加载。
+- `frontend/src/styles/variables.css`、`frontend/src/components/HelloWorld.vue`：按任务要求删除旧 CSS 变量文件和 Vite 默认示例组件。
+- `tests/unit/test_frontend_tailwind_static.py`：新增前端静态回归，覆盖 Tailwind 依赖、Vite 插件、全局样式入口和旧文件删除的正常/反向断言。
+- `PLAN.md`、`改造进度.md`、`.pipeline/progress.md`：同步记录本轮任务和验证结果。
+
+## 影响范围
+
+- 前端 Vite 构建链路与样式入口
+- 全局 CSS reset 与页面默认字体基线
+- 后续 Headless UI 组件接入的依赖前置条件
+- 前端静态回归覆盖范围
+
+## 注意事项
+
+- 已执行 `python -m pytest -c tests/pytest.ini tests/unit/test_frontend_tailwind_static.py -v`，结果为 `2 passed`。
+- 已执行 `cd frontend && npm run build`，构建通过。
+- 已尝试 `cd frontend && npm run dev -- --host 127.0.0.1`，当前环境仍因 Node 子进程 `spawn EPERM` 无法完成 Vite dev server 启动验收。
+- 已执行 `python -m pytest -c tests/pytest.ini tests/ -v`，结果为 `510 passed, 18 warnings`。
+- 18 条 warning 仍来自既有第三方依赖 `celery`、`openpyxl` 的弃用提示，以及既有 `PytestUnraisableExceptionWarning`，不是本轮改动引入的问题。
+- 本轮按任务要求移除了旧 CSS 变量系统，现有页面中大量依赖 `var(--...)` 的样式会暂时失效，页面变丑属于预期现象。
+- 安装依赖时由于全局 npm 缓存目录权限不足，使用 `npm install ... --cache .npm-cache` 完成，临时缓存目录已删除。
+- `.pipeline/task.md` 为既有本地变更，本轮未修改。
+
+---
+
+## 任务摘要
+
+用 Tailwind + Headless UI 完成店铺管理页和 6 个中等复杂度页面的灰阶重写，移除相关 `<style>` 块，并同步更新静态回归测试。
+
+## 改动文件列表
+
+- `frontend/src/views/ShopManage.vue`
+- `frontend/src/components/ShopCard.vue`
+- `frontend/src/components/StatusBadge.vue`
+- `frontend/src/components/PlatformSelector.vue`
+- `frontend/src/views/Settings.vue`
+- `frontend/src/views/TaskMonitor.vue`
+- `frontend/src/views/LogViewer.vue`
+- `frontend/src/views/TaskParamsManage.vue`
+- `frontend/src/views/BatchExecute.vue`
+- `frontend/src/views/BrowserManager.vue`
+- `frontend/src/components/StatCard.vue`
+- `frontend/src/components/LogTable.vue`
+- `frontend/src/components/BrowserStatus.vue`
+- `tests/unit/test_platform_frontend_static.py`
+- `tests/unit/test_shop_platform_modal_static.py`
+- `tests/unit/test_shop_card_task_params_display.py`
+- `tests/unit/test_shop_restore.py`
+- `tests/unit/test_task_params_page.py`
+- `tests/unit/test_batch_execute_schedule_static.py`
+- `tests/unit/test_frontend_tailwind_static.py`
+- `PLAN.md`
+- `改造进度.md`
+- `.pipeline/progress.md`
+
+## 改动说明
+
+- `frontend/src/views/ShopManage.vue`：将页面 header 收口为标题、平台胶囊按钮组和“新增店铺”按钮同排布局；店铺列表改为紧凑行列表；弹窗表单改成白底灰阶输入样式，并把所属平台切换成 Headless UI `Listbox`，同时保持原有 script 业务逻辑不变。
+- `frontend/src/components/ShopCard.vue`：从大卡片改成 Linear 风格行项，统一展示店铺名称、账号、代理、状态和文本化操作按钮，减少纵向占用。
+- `frontend/src/components/StatusBadge.vue`：收口为极简 dot + text 形式，同时兼容店铺状态、任务状态和日志级别，不再保留旧彩色块状标签。
+- `frontend/src/components/PlatformSelector.vue`：按任务要求删除，平台切换入口完全合并进 `ShopManage.vue` 的 header。
+- `frontend/src/views/Settings.vue`：切成白底灰边框卡片布局，统一表单、按钮和状态块的 Tailwind 风格。
+- `frontend/src/views/TaskMonitor.vue`：任务筛选区、统计区和表格全部改成灰阶卡片与标准表格结构，去掉旧蓝色样式和页面内 `<style>`。
+- `frontend/src/views/LogViewer.vue`：日志筛选、导出入口和日志表格改为统一 Tailwind 结构，表头、徽标和空状态与新设计保持一致。
+- `frontend/src/views/TaskParamsManage.vue`：仅重写页面壳层和列表布局，保持子 tab 业务逻辑与子文件不动，满足本轮任务范围约束。
+- `frontend/src/views/BatchExecute.vue`：将批次配置和状态区直接内联到页面中，统一成灰阶卡片、表格和 badge 风格，避免继续依赖旧色系布局。
+- `frontend/src/views/BrowserManager.vue`：浏览器配置区、实例列表和状态展示统一改成 Tailwind 卡片与表格结构，移除旧 `<style>`。
+- `frontend/src/components/StatCard.vue`：改成极简数字卡片，标题使用浅灰小字，指标使用 `font-mono` 大号数字。
+- `frontend/src/components/LogTable.vue`：改成标准 Tailwind 日志表格，时间列右对齐、级别列使用浅底 badge。
+- `frontend/src/components/BrowserStatus.vue`：改成极简 dot 状态指示器，和其他状态展示组件保持一致。
+- `tests/unit/test_platform_frontend_static.py`：更新店铺页 header 平台切换、胶囊按钮组和 Tailwind 结构断言。
+- `tests/unit/test_shop_platform_modal_static.py`：更新店铺弹窗、平台下拉和白底表单样式的静态断言。
+- `tests/unit/test_shop_card_task_params_display.py`：更新店铺项和任务参数展示的紧凑行结构断言。
+- `tests/unit/test_shop_restore.py`：更新店铺恢复相关 UI 入口与新行列表结构断言。
+- `tests/unit/test_task_params_page.py`：更新 `TaskParamsManage.vue` 新卡片化页面结构断言。
+- `tests/unit/test_batch_execute_schedule_static.py`：更新 `BatchExecute.vue` 内联配置区、状态表和 Tailwind 结构断言。
+- `tests/unit/test_frontend_tailwind_static.py`：补充这批页面和组件“无 `<style>` 块、使用 Tailwind class” 的静态约束。
+- `PLAN.md`、`改造进度.md`、`.pipeline/progress.md`：同步记录本轮 Builder 执行结果与验证情况。
+
+## 影响范围
+
+- 店铺管理页的平台切换、列表展示和新增/编辑店铺弹窗
+- 设置页、任务监控页、日志查看页、任务参数页、批量执行页、浏览器管理页的统一灰阶视觉层
+- `ShopCard`、`StatusBadge`、`StatCard`、`LogTable`、`BrowserStatus` 等前端公共展示组件
+- 前端静态回归中与 Tailwind / Headless UI 结构、“无蓝色”与“无 `<style>`”约束相关的断言
+
+## 注意事项
+
+- 已执行 `cd frontend && npm run build`。
+- 已执行 `python -m pytest -c tests/pytest.ini tests/ -v`，结果为 `514 passed, 18 warnings`。
+- 18 条 warning 仍来自既有第三方依赖 `celery`、`openpyxl` 的弃用提示，以及既有 `PytestUnraisableExceptionWarning`，不是本轮改动引入的问题。
+- 本轮未重新执行 `cd frontend && npm run dev`；当前环境此前已知存在 Vite `spawn EPERM` 限制。
+- `TaskParamsManage.vue` 本轮仅调整页面壳层，子 tab 文件未纳入修改范围。
+- `.pipeline/task.md` 为既有本地变更，本轮未修改。
+---
+
+## 任务摘要
+
+用 Tailwind + Headless UI 完成 `FlowManage.vue`、`AftersaleConfig.vue`、`RuleManage.vue`、`ScheduleManage.vue` 4 个复杂页面的重写，并同步更新对应静态回归测试。
+
+## 改动文件列表
+
+- `frontend/src/views/FlowManage.vue`
+- `frontend/src/views/AftersaleConfig.vue`
+- `frontend/src/views/RuleManage.vue`
+- `frontend/src/views/ScheduleManage.vue`
+- `tests/unit/test_flow_manage_editor_static.py`
+- `tests/unit/test_flow_manage_list_static.py`
+- `tests/unit/test_after_sale_config_page.py`
+- `tests/unit/test_rule_config_page.py`
+- `tests/unit/test_batch_execute_schedule_static.py`
+- `tests/unit/test_frontend_display_details.py`
+- `PLAN.md`
+- `改造进度.md`
+- `.pipeline/progress.md`
+
+## 改动说明
+
+- `frontend/src/views/FlowManage.vue`：把流程列表和编辑弹窗改为 Tailwind 表格结构；任务选择与失败策略改用 Headless UI `Listbox`；保留新增步骤聚焦、拖拽排序、失败策略重试次数、同步屏障和合并执行逻辑；为满足“移除原生 select”约束，将聚焦兜底控件调整为隐藏 `input`。
+- `frontend/src/views/AftersaleConfig.vue`：把店铺切换改为 `Listbox`；将售后配置表单拆为多段 section；白名单改为 `overflow-x-auto` 表格；标签录入统一为 Tailwind chip 结构；删除旧 `<style>`。
+- `frontend/src/views/RuleManage.vue`：筛选器、规则编辑器、动作编辑器和测试匹配全部切到 `Listbox`；列表改为 Tailwind 表格；页面级弹窗统一使用 Headless UI `Modal`；按任务要求保留 `window.confirm` 删除确认，不改 script 业务逻辑。
+- `frontend/src/views/ScheduleManage.vue`：把列表切成表格结构；流程、并发数、重叠策略切到 `Listbox`；触发模式改用 Headless UI `TabGroup`；店铺多选与空状态统一为新的 Tailwind 布局；删除旧 `<style>`。
+- `tests/unit/test_flow_manage_editor_static.py`、`tests/unit/test_flow_manage_list_static.py`、`tests/unit/test_after_sale_config_page.py`、`tests/unit/test_rule_config_page.py`、`tests/unit/test_batch_execute_schedule_static.py`、`tests/unit/test_frontend_display_details.py`：把旧 CSS / 旧 modal 结构断言更新为新的 Tailwind / Headless UI 结构断言，并补充“无 `<style>` / 无原生 `<select>` / 使用 `Modal` / `Listbox` / `TabGroup`”等回归点。
+- `PLAN.md`、`改造进度.md`、`.pipeline/progress.md`：同步记录本轮 Builder 执行结果与验证情况。
+
+## 影响范围
+
+- 流程模板管理页的列表、编辑弹窗和拖拽步骤编排
+- 售后配置页的店铺切换、白名单配置和多分段表单布局
+- 规则配置页的筛选器、规则编辑、测试匹配和弹窗承载方式
+- 定时任务页的列表、编辑弹窗、触发模式切换和店铺多选
+- 相关前端静态回归测试覆盖范围
+
+## 注意事项
+
+- 已执行 `python -m pytest -c tests/pytest.ini tests/unit/test_flow_manage_editor_static.py tests/unit/test_flow_manage_list_static.py tests/unit/test_after_sale_config_page.py tests/unit/test_rule_config_page.py tests/unit/test_batch_execute_schedule_static.py tests/unit/test_frontend_display_details.py -q`，结果为 `17 passed`。
+- 已执行 `cd frontend && npm run build`。
+- 已执行 `python -m pytest -c tests/pytest.ini tests/ -v`，结果为 `514 passed, 18 warnings`。
+- 18 条 warning 仍来自既有第三方依赖 `celery`、`openpyxl` 和既有 `PytestUnraisableExceptionWarning`，不是本轮改动引入的问题。
+- 本轮未执行 `cd frontend && npm run dev`；当前环境此前已知存在 Vite `spawn EPERM`。
+- `.pipeline/task.md` 为既有本地变更，本轮未修改。

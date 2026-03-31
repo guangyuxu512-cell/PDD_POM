@@ -7,12 +7,13 @@ import { listShops } from '../api/shops'
 import { listAvailableTasks } from '../api/tasks'
 import type { AvailableTask, BatchShopState, BatchSnapshot, Flow, Shop } from '../api/types'
 import { toast } from '../utils/toast'
-import ExecuteConfigPanel from './batch-execute/ExecuteConfigPanel.vue'
 
 interface ShopTimeline {
   startedAt?: number
   finishedAt?: number
 }
+
+type ExecuteMode = 'flow' | 'task'
 
 const props = withDefaults(defineProps<{ showTitle?: boolean }>(), {
   showTitle: true,
@@ -28,18 +29,61 @@ const batchSnapshot = ref<BatchSnapshot | null>(null)
 const currentBatchId = ref('')
 const expandedShopId = ref<string | null>(null)
 const shopTimeline = ref<Record<string, ShopTimeline>>({})
+const mode = ref<ExecuteMode>('flow')
+const selectedFlowId = ref('')
+const selectedTaskName = ref('')
+const selectedShopIds = ref<string[]>([])
+const concurrency = ref(1)
+const inputClass =
+  'w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-gray-400 focus:outline-none focus:ring-1 focus:ring-gray-400'
+const secondaryButtonClass =
+  'rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60'
+const primaryButtonClass =
+  'rounded-md bg-gray-900 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:bg-gray-400'
+const dangerButtonClass =
+  'rounded-md bg-rose-600 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-rose-700 disabled:cursor-not-allowed disabled:bg-rose-300'
 
 let statusSource: EventSource | null = null
 
 const hasActiveBatch = computed(() => batchSnapshot.value?.status === 'running')
+const totalShops = computed(() => shops.value.length)
+const isAllSelected = computed(
+  () => totalShops.value > 0 && selectedShopIds.value.length === totalShops.value,
+)
 const batchShops = computed(() => Object.values(batchSnapshot.value?.shops ?? {}))
 const batchInlineStats = computed(() => {
-  if (!batchSnapshot.value) {
-    return ''
+  if (!batchSnapshot.value) return ''
+  return `批次 ${batchSnapshot.value.batch_id} · 总计 ${batchSnapshot.value.total} · 完成 ${batchSnapshot.value.completed} · 运行 ${batchSnapshot.value.running} · 失败 ${batchSnapshot.value.failed}`
+})
+
+watch(
+  () => flows.value,
+  (items) => {
+    if (!selectedFlowId.value && items[0]) {
+      selectedFlowId.value = items[0].id
+    }
+  },
+  { immediate: true },
+)
+
+watch(
+  () => tasks.value,
+  (items) => {
+    if (!selectedTaskName.value && items[0]) {
+      selectedTaskName.value = items[0].name
+    }
+  },
+  { immediate: true },
+)
+
+function toggleSelectAll() {
+  if (isAllSelected.value) {
+    selectedShopIds.value = []
+    return
   }
 
-  return `批次 ${batchSnapshot.value.batch_id} · 总计 ${batchSnapshot.value.total} · ✅ ${batchSnapshot.value.completed} · 🔄 ${batchSnapshot.value.running} · ❌ ${batchSnapshot.value.failed}`
-})
+  selectedShopIds.value = shops.value.map((shop) => shop.id)
+}
 
 function closeStatusStream() {
   if (statusSource) {
@@ -92,32 +136,20 @@ watch(
 )
 
 function parseDateTime(value?: string | null) {
-  if (!value) {
-    return null
-  }
-
+  if (!value) return null
   const date = new Date(value.replace(' ', 'T'))
-  if (Number.isNaN(date.getTime())) {
-    return null
-  }
-
+  if (Number.isNaN(date.getTime())) return null
   return date
 }
 
 function formatDateTime(value?: string | null) {
   const date = parseDateTime(value)
-  if (!date) {
-    return '--'
-  }
-
+  if (!date) return '--'
   return date.toLocaleString('zh-CN', { hour12: false })
 }
 
 function formatSeconds(value: number) {
-  if (value < 60) {
-    return `${value}s`
-  }
-
+  if (value < 60) return `${value}s`
   const minutes = Math.floor(value / 60)
   const seconds = value % 60
   return `${minutes}m ${seconds}s`
@@ -129,9 +161,7 @@ function syncTimeline(snapshot: BatchSnapshot) {
 
   for (const shop of Object.values(snapshot.shops)) {
     const timeline = shopTimeline.value[shop.shop_id] ?? (shopTimeline.value[shop.shop_id] = {})
-    if (!timeline.startedAt) {
-      timeline.startedAt = batchStartedAt
-    }
+    if (!timeline.startedAt) timeline.startedAt = batchStartedAt
     if (['completed', 'failed', 'stopped'].includes(shop.status) && !timeline.finishedAt) {
       timeline.finishedAt = batchUpdatedAt
     }
@@ -140,10 +170,7 @@ function syncTimeline(snapshot: BatchSnapshot) {
 
 function formatDuration(shopId: string) {
   const timeline = shopTimeline.value[shopId]
-  if (!timeline?.startedAt) {
-    return '--'
-  }
-
+  if (!timeline?.startedAt) return '--'
   const finishedAt = timeline.finishedAt ?? Date.now()
   return formatSeconds(Math.round(Math.max(0, finishedAt - timeline.startedAt) / 1000))
 }
@@ -157,57 +184,27 @@ function getBatchShopName(shop: BatchShopState) {
 }
 
 function getCurrentStepLabel(shop: BatchShopState) {
-  if (shop.status === 'waiting') {
-    return '等待开始'
-  }
-
+  if (shop.status === 'waiting') return '等待开始'
   if (shop.status === 'running') {
-    if (!shop.current_task) {
-      return '等待任务进入执行'
-    }
+    if (!shop.current_task) return '等待任务进入执行'
     return `${shop.current_task}（${shop.current_step}/${shop.total_steps}）`
   }
-
-  if (shop.status === 'completed') {
-    return '已完成'
-  }
-
-  if (shop.status === 'failed') {
-    return '执行失败'
-  }
-
-  if (shop.status === 'stopped') {
-    return '已停止'
-  }
-
+  if (shop.status === 'completed') return '已完成'
+  if (shop.status === 'failed') return '执行失败'
+  if (shop.status === 'stopped') return '已停止'
   return '--'
 }
 
 function getProgressPercent(shop: BatchShopState) {
-  if (shop.total_steps <= 0) {
-    return 0
-  }
-
-  if (['completed', 'failed', 'stopped'].includes(shop.status)) {
-    return 100
-  }
-
-  if (shop.status === 'waiting') {
-    return 0
-  }
-
+  if (shop.total_steps <= 0) return 0
+  if (['completed', 'failed', 'stopped'].includes(shop.status)) return 100
+  if (shop.status === 'waiting') return 0
   return Math.min(100, Math.round((shop.current_step / shop.total_steps) * 100))
 }
 
 function getProgressText(shop: BatchShopState) {
-  if (shop.total_steps <= 0) {
-    return '--'
-  }
-
-  if (['completed', 'failed', 'stopped'].includes(shop.status)) {
-    return `${shop.total_steps}/${shop.total_steps}`
-  }
-
+  if (shop.total_steps <= 0) return '--'
+  if (['completed', 'failed', 'stopped'].includes(shop.status)) return `${shop.total_steps}/${shop.total_steps}`
   return `${shop.current_step}/${shop.total_steps}`
 }
 
@@ -226,56 +223,37 @@ function getStepStatusLabel(status: string) {
 }
 
 function getStatusClass(status: string) {
-  if (status === 'waiting' || status === 'pending') return 'is-waiting'
-  if (status === 'running') return 'is-running'
-  if (status === 'completed') return 'is-completed'
-  if (status === 'failed') return 'is-failed'
-  if (status === 'stopped') return 'is-stopped'
-  return 'is-waiting'
+  if (status === 'waiting' || status === 'pending') return 'bg-gray-100 text-gray-600'
+  if (status === 'running') return 'bg-amber-100 text-amber-700'
+  if (status === 'completed') return 'bg-emerald-100 text-emerald-700'
+  if (status === 'failed') return 'bg-rose-100 text-rose-700'
+  if (status === 'stopped') return 'bg-gray-200 text-gray-700'
+  return 'bg-gray-100 text-gray-600'
+}
+
+function getProgressBarClass(status: string) {
+  if (status === 'running') return 'bg-amber-500'
+  if (status === 'completed') return 'bg-emerald-500'
+  if (status === 'failed') return 'bg-rose-500'
+  if (status === 'stopped') return 'bg-gray-400'
+  return 'bg-gray-400'
 }
 
 function getDetailSummary(shop: BatchShopState) {
-  if (shop.status === 'failed') {
-    return shop.last_error || '执行失败'
-  }
-
-  if (shop.status === 'stopped') {
-    return '人工停止'
-  }
-
-  if (shop.status === 'completed') {
-    return shop.last_result || '执行完成'
-  }
-
-  if (shop.current_task) {
-    return `当前任务：${shop.current_task}`
-  }
-
+  if (shop.status === 'failed') return shop.last_error || '执行失败'
+  if (shop.status === 'stopped') return '人工停止'
+  if (shop.status === 'completed') return shop.last_result || '执行完成'
+  if (shop.current_task) return `当前任务：${shop.current_task}`
   return '等待进入队列'
 }
 
 function getStepResultText(shop: BatchShopState, index: number) {
   const step = shop.steps[index]
-  if (!step) {
-    return '--'
-  }
-
-  if (step.status === 'failed') {
-    return step.error || '执行失败'
-  }
-
-  if (step.status === 'completed') {
-    return step.result || '执行完成'
-  }
-
-  if (step.status === 'running') {
-    return '执行中'
-  }
-
-  if (step.status === 'stopped') {
-    return '已停止'
-  }
-
+  if (!step) return '--'
+  if (step.status === 'failed') return step.error || '执行失败'
+  if (step.status === 'completed') return step.result || '执行完成'
+  if (step.status === 'running') return '执行中'
+  if (step.status === 'stopped') return '已停止'
   return '--'
 }
 
@@ -295,7 +273,6 @@ async function loadReferenceData() {
       listShops(),
       listAvailableTasks(),
     ])
-
     flows.value = flowResponse.list
     shops.value = shopResponse.list
     tasks.value = availableTasks
@@ -333,6 +310,28 @@ async function stopExecution() {
   }
 }
 
+function submitStart() {
+  if (selectedShopIds.value.length === 0) {
+    toast.warning('请至少选择一个店铺')
+    return
+  }
+  if (mode.value === 'flow' && !selectedFlowId.value) {
+    toast.warning('请选择流程模板')
+    return
+  }
+  if (mode.value === 'task' && !selectedTaskName.value) {
+    toast.warning('请选择单个任务')
+    return
+  }
+
+  void startExecution({
+    flow_id: mode.value === 'flow' ? selectedFlowId.value : undefined,
+    task_name: mode.value === 'task' ? selectedTaskName.value : undefined,
+    shop_ids: selectedShopIds.value,
+    concurrency: concurrency.value,
+  })
+}
+
 onMounted(() => {
   void loadReferenceData()
   openStatusStream()
@@ -344,415 +343,210 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="page">
-    <header v-if="props.showTitle" class="page-header">
-      <div>
-        <h1>批量执行</h1>
-      </div>
+  <div class="space-y-6">
+    <header v-if="props.showTitle" class="space-y-1">
+      <h1 class="text-lg font-semibold text-gray-900">批量执行</h1>
+      <p class="text-xs text-gray-500">配置流程或任务与目标店铺，并实时查看每个店铺的执行进度。</p>
     </header>
 
-    <div class="layout-grid">
-      <ExecuteConfigPanel
-        :flows="flows"
-        :tasks="tasks"
-        :shops="shops"
-        :is-loading="isLoading"
-        :has-active-batch="hasActiveBatch"
-        :is-starting="isStarting"
-        :is-stopping="isStopping"
-        @start="startExecution"
-        @stop="stopExecution"
-      />
-
-      <section class="panel status-panel">
-        <div class="panel-header">
-          <div>
-            <h2>执行状态</h2>
-            <p>基于 `/api/execute/status` 的 SSE 推送，按店铺实时更新执行进度。</p>
-          </div>
+    <div class="grid gap-6 xl:grid-cols-[minmax(320px,380px)_minmax(0,1fr)]">
+      <section class="rounded-md border border-gray-200 bg-white p-5 shadow-sm">
+        <div class="space-y-1">
+          <h2 class="text-lg font-semibold text-gray-900">执行配置</h2>
+          <p class="text-xs text-gray-500">流程和任务选项会自动读取后端当前可用的数据。</p>
         </div>
 
-        <div v-if="!batchSnapshot" class="empty-state">
+        <div v-if="isLoading" class="flex min-h-[220px] items-center justify-center text-sm text-gray-500">
+          正在加载执行配置...
+        </div>
+
+        <div v-else class="mt-5 space-y-5">
+          <div class="flex gap-1 rounded-md bg-gray-100 p-0.5">
+            <button
+              type="button"
+              :class="['flex-1 rounded-md px-3 py-2 text-sm transition', mode === 'flow' ? 'bg-white font-medium text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700']"
+              @click="mode = 'flow'"
+            >
+              流程模式
+            </button>
+            <button
+              type="button"
+              :class="['flex-1 rounded-md px-3 py-2 text-sm transition', mode === 'task' ? 'bg-white font-medium text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700']"
+              @click="mode = 'task'"
+            >
+              单任务模式
+            </button>
+          </div>
+
+          <div v-if="mode === 'flow'" class="space-y-2">
+            <label class="text-xs font-medium text-gray-600">流程模板</label>
+            <select v-model="selectedFlowId" :class="inputClass" :disabled="hasActiveBatch || isStarting">
+              <option disabled value="">请选择流程模板</option>
+              <option v-for="flow in flows" :key="flow.id" :value="flow.id">{{ flow.name }} · {{ flow.steps.length }} 步</option>
+            </select>
+          </div>
+
+          <div v-else class="space-y-2">
+            <label class="text-xs font-medium text-gray-600">单个任务</label>
+            <select v-model="selectedTaskName" :class="inputClass" :disabled="hasActiveBatch || isStarting">
+              <option disabled value="">请选择任务</option>
+              <option v-for="task in tasks" :key="task.name" :value="task.name">{{ task.name }} · {{ task.description }}</option>
+            </select>
+          </div>
+
+          <div class="space-y-2">
+            <label class="text-xs font-medium text-gray-600">并发数量</label>
+            <select v-model.number="concurrency" :class="inputClass" :disabled="hasActiveBatch || isStarting">
+              <option :value="1">1</option>
+              <option :value="2">2</option>
+              <option :value="3">3</option>
+              <option :value="5">5</option>
+              <option :value="10">10</option>
+            </select>
+          </div>
+
+          <section class="rounded-md border border-gray-200 bg-gray-50/70 p-4">
+            <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div class="space-y-1">
+                <h3 class="text-sm font-medium text-gray-900">目标店铺</h3>
+                <p class="text-xs text-gray-500">已选择 {{ selectedShopIds.length }} / {{ totalShops }}</p>
+              </div>
+              <button type="button" :class="secondaryButtonClass" :disabled="shops.length === 0" @click="toggleSelectAll">
+                {{ isAllSelected ? '取消全选' : '全选' }}
+              </button>
+            </div>
+
+            <div v-if="shops.length === 0" class="mt-4 text-center text-sm text-gray-500">暂无可执行店铺</div>
+            <div v-else class="mt-4 max-h-[320px] space-y-2 overflow-auto pr-1">
+              <label
+                v-for="shop in shops"
+                :key="shop.id"
+                class="flex items-start gap-3 rounded-md border border-gray-200 bg-white px-3 py-3 transition hover:bg-gray-50"
+              >
+                <input
+                  v-model="selectedShopIds"
+                  type="checkbox"
+                  :value="shop.id"
+                  :disabled="hasActiveBatch || isStarting"
+                  class="mt-0.5 h-4 w-4 rounded border-gray-300 text-gray-900 focus:ring-gray-400"
+                />
+                <div class="min-w-0">
+                  <p class="truncate text-sm font-medium text-gray-900">{{ shop.name }}</p>
+                  <p class="truncate font-mono text-xs text-gray-500">{{ shop.username || shop.id }}</p>
+                </div>
+              </label>
+            </div>
+          </section>
+
+          <div class="flex gap-2">
+            <button type="button" :class="primaryButtonClass" :disabled="isStarting || hasActiveBatch" @click="submitStart">
+              {{ isStarting ? '启动中...' : '开始执行' }}
+            </button>
+            <button type="button" :class="dangerButtonClass" :disabled="!hasActiveBatch || isStopping" @click="stopExecution">
+              {{ isStopping ? '停止中...' : '全部停止' }}
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <section class="rounded-md border border-gray-200 bg-white p-5 shadow-sm">
+        <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div class="space-y-1">
+            <h2 class="text-lg font-semibold text-gray-900">执行状态</h2>
+            <p class="text-xs text-gray-500">基于 `/api/execute/status` 的 SSE 推送，按店铺实时更新执行进度。</p>
+          </div>
+          <p v-if="batchSnapshot" class="rounded-full bg-gray-100 px-3 py-1 text-xs text-gray-600">{{ batchInlineStats }}</p>
+        </div>
+
+        <div v-if="!batchSnapshot" class="flex min-h-[280px] flex-col items-center justify-center gap-3 text-center text-sm text-gray-500">
           <p>尚未收到批次状态。</p>
           <span>启动批量执行后，这里会显示表格化进度和步骤详情。</span>
         </div>
 
         <template v-else>
-          <p class="inline-stats">{{ batchInlineStats }}</p>
-
-          <div class="table-shell">
-            <table class="status-table">
-              <thead>
-                <tr>
-                  <th>店铺名称</th>
-                  <th>当前步骤</th>
-                  <th>进度</th>
-                  <th style="width: 90px">状态</th>
-                  <th style="width: 96px">耗时</th>
-                  <th style="width: 108px">操作</th>
-                </tr>
-              </thead>
-              <tbody>
-                <template v-for="shop in batchShops" :key="shop.shop_id">
+          <div class="mt-5 overflow-hidden rounded-md border border-gray-200">
+            <div class="overflow-x-auto">
+              <table class="min-w-full">
+                <thead class="bg-gray-50/60 text-xs font-medium uppercase tracking-wider text-gray-500">
                   <tr>
-                    <td class="cell-shop" :title="getBatchShopName(shop)">
-                      {{ getBatchShopName(shop) }}
-                    </td>
-                    <td class="cell-step" :title="getCurrentStepLabel(shop)">
-                      {{ getCurrentStepLabel(shop) }}
-                    </td>
-                    <td class="cell-progress">
-                      <div class="progress-cell">
-                        <div class="progress-bar">
-                          <div
-                            class="progress-fill"
-                            :style="{ width: `${getProgressPercent(shop)}%` }"
-                          />
+                    <th class="px-4 py-3 text-left font-medium">店铺名称</th>
+                    <th class="px-4 py-3 text-left font-medium">当前步骤</th>
+                    <th class="px-4 py-3 text-left font-medium">进度</th>
+                    <th class="px-4 py-3 text-center font-medium">状态</th>
+                    <th class="px-4 py-3 text-center font-medium">耗时</th>
+                    <th class="px-4 py-3 text-right font-medium">操作</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <template v-for="shop in batchShops" :key="shop.shop_id">
+                    <tr class="border-b border-gray-100 hover:bg-gray-50/50">
+                      <td class="px-4 py-3 text-sm font-medium text-gray-900">{{ getBatchShopName(shop) }}</td>
+                      <td class="px-4 py-3 text-sm text-gray-900">{{ getCurrentStepLabel(shop) }}</td>
+                      <td class="px-4 py-3">
+                        <div class="flex items-center gap-3">
+                          <div class="h-2 min-w-[120px] flex-1 rounded-full bg-gray-100">
+                            <div :class="['h-2 rounded-full transition-[width]', getProgressBarClass(shop.status)]" :style="{ width: `${getProgressPercent(shop)}%` }" />
+                          </div>
+                          <span class="min-w-[40px] text-right font-mono text-xs text-gray-500">{{ getProgressText(shop) }}</span>
                         </div>
-                        <span class="progress-text">{{ getProgressText(shop) }}</span>
-                      </div>
-                    </td>
-                    <td class="cell-center">
-                      <span class="status-tag" :class="getStatusClass(shop.status)">
-                        {{ getStatusLabel(shop.status) }}
-                      </span>
-                    </td>
-                    <td class="cell-center">{{ formatDuration(shop.shop_id) }}</td>
-                    <td class="cell-center">
-                      <button class="ghost-button btn-sm" @click="toggleShopDetail(shop.shop_id)">
-                        {{ isShopDetailOpen(shop.shop_id) ? '收起详情' : '查看详情' }}
-                      </button>
-                    </td>
-                  </tr>
-                  <tr v-if="isShopDetailOpen(shop.shop_id)" class="detail-row">
-                    <td colspan="6" class="detail-cell">
-                      <div class="detail-header">
-                        <strong>{{ getBatchShopName(shop) }}</strong>
-                        <span>{{ getDetailSummary(shop) }}</span>
-                      </div>
-                      <table class="detail-table">
-                        <thead>
-                          <tr>
-                            <th style="width: 56px">#</th>
-                            <th>步骤</th>
-                            <th style="width: 90px">状态</th>
-                            <th>结果</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          <tr v-for="(step, index) in shop.steps" :key="`${shop.shop_id}-${step.task}-${index}`">
-                            <td class="cell-center">{{ index + 1 }}</td>
-                            <td>{{ step.task }}</td>
-                            <td class="cell-center">
-                              <span class="status-tag" :class="getStatusClass(step.status)">
-                                {{ getStepStatusLabel(step.status) }}
-                              </span>
-                            </td>
-                            <td class="detail-result" :title="getStepResultText(shop, index)">
-                              {{ getStepResultText(shop, index) }}
-                            </td>
-                          </tr>
-                          <tr v-if="shop.steps.length === 0">
-                            <td colspan="4" class="detail-empty">暂无步骤明细</td>
-                          </tr>
-                        </tbody>
-                      </table>
-                    </td>
-                  </tr>
-                </template>
-              </tbody>
-            </table>
+                      </td>
+                      <td class="px-4 py-3 text-center">
+                        <span :class="['inline-flex rounded-full px-2.5 py-1 text-xs font-medium', getStatusClass(shop.status)]">{{ getStatusLabel(shop.status) }}</span>
+                      </td>
+                      <td class="px-4 py-3 text-center font-mono text-xs text-gray-500">{{ formatDuration(shop.shop_id) }}</td>
+                      <td class="px-4 py-3 text-right">
+                        <button type="button" :class="secondaryButtonClass" @click="toggleShopDetail(shop.shop_id)">
+                          {{ isShopDetailOpen(shop.shop_id) ? '收起详情' : '查看详情' }}
+                        </button>
+                      </td>
+                    </tr>
+                    <tr v-if="isShopDetailOpen(shop.shop_id)" class="border-b border-gray-100 bg-gray-50/60">
+                      <td colspan="6" class="px-4 py-4">
+                        <div class="space-y-4">
+                          <div class="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                            <strong class="text-sm text-gray-900">{{ getBatchShopName(shop) }}</strong>
+                            <span class="text-xs text-gray-500">{{ getDetailSummary(shop) }}</span>
+                          </div>
+
+                          <div class="overflow-hidden rounded-md border border-gray-200 bg-white">
+                            <div class="overflow-x-auto">
+                              <table class="min-w-full">
+                                <thead class="bg-gray-50/60 text-xs font-medium uppercase tracking-wider text-gray-500">
+                                  <tr>
+                                    <th class="w-14 px-4 py-3 text-center font-medium">#</th>
+                                    <th class="px-4 py-3 text-left font-medium">步骤</th>
+                                    <th class="w-28 px-4 py-3 text-center font-medium">状态</th>
+                                    <th class="px-4 py-3 text-left font-medium">结果</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  <tr v-for="(step, index) in shop.steps" :key="`${shop.shop_id}-${step.task}-${index}`" class="border-b border-gray-100 hover:bg-gray-50/50">
+                                    <td class="px-4 py-3 text-center font-mono text-xs text-gray-500">{{ index + 1 }}</td>
+                                    <td class="px-4 py-3 text-sm text-gray-900">{{ step.task }}</td>
+                                    <td class="px-4 py-3 text-center">
+                                      <span :class="['inline-flex rounded-full px-2.5 py-1 text-xs font-medium', getStatusClass(step.status)]">{{ getStepStatusLabel(step.status) }}</span>
+                                    </td>
+                                    <td class="px-4 py-3 text-sm text-gray-500">{{ getStepResultText(shop, index) }}</td>
+                                  </tr>
+                                  <tr v-if="shop.steps.length === 0">
+                                    <td colspan="4" class="px-4 py-8 text-center text-sm text-gray-500">暂无步骤明细</td>
+                                  </tr>
+                                </tbody>
+                              </table>
+                            </div>
+                          </div>
+                        </div>
+                      </td>
+                    </tr>
+                  </template>
+                </tbody>
+              </table>
+            </div>
           </div>
 
-          <p class="update-tip">最近更新：{{ formatDateTime(batchSnapshot.updated_at) }}</p>
+          <p class="mt-3 text-right font-mono text-xs text-gray-500">最近更新：{{ formatDateTime(batchSnapshot.updated_at) }}</p>
         </template>
       </section>
     </div>
   </div>
 </template>
-
-<style scoped>
-.page {
-  display: flex;
-  flex-direction: column;
-  gap: var(--spacing-lg);
-  color: var(--color-text);
-}
-
-.page-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: var(--spacing-lg);
-}
-
-h1 {
-  margin: 0;
-  font-size: var(--font-size-h1);
-  line-height: 1.4;
-}
-
-.panel {
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-sm);
-  padding: var(--spacing-lg);
-}
-
-.panel-header {
-  margin-bottom: var(--spacing-md);
-}
-
-.panel-header h2 {
-  margin: 0;
-  font-size: var(--font-size-h2);
-}
-
-.panel-header p {
-  margin-top: 8px;
-  color: #64748b;
-  line-height: 1.5;
-}
-
-.layout-grid {
-  display: grid;
-  grid-template-columns: minmax(320px, 420px) minmax(0, 1fr);
-  gap: var(--spacing-md);
-}
-
-.inline-stats {
-  margin: 0 0 12px;
-  color: #64748b;
-  font-size: 14px;
-}
-
-.table-shell {
-  overflow-x: auto;
-}
-
-.status-table {
-  width: 100%;
-  border-collapse: collapse;
-  table-layout: fixed;
-  font-size: 14px;
-}
-
-.detail-table {
-  width: 100%;
-  border-collapse: collapse;
-  table-layout: fixed;
-  font-size: 14px;
-}
-
-.status-table th {
-  padding: 10px 12px;
-  border-bottom: 2px solid #e2e8f0;
-  color: #475569;
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  text-align: left;
-  text-transform: uppercase;
-  white-space: nowrap;
-}
-
-.detail-table th {
-  padding: 10px 12px;
-  border-bottom: 2px solid #e2e8f0;
-  color: #475569;
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  text-align: left;
-  text-transform: uppercase;
-  white-space: nowrap;
-}
-
-.status-table td {
-  height: 44px;
-  padding: 10px 12px;
-  border-bottom: 1px solid #f1f5f9;
-  color: #334155;
-  line-height: 1.4;
-  vertical-align: middle;
-}
-
-.detail-table td {
-  height: 44px;
-  padding: 10px 12px;
-  border-bottom: 1px solid #f1f5f9;
-  color: #334155;
-  line-height: 1.4;
-  vertical-align: middle;
-}
-
-.status-table tbody tr:hover {
-  background: #f8fafc;
-}
-
-.cell-center {
-  text-align: center;
-}
-
-.cell-shop,
-.cell-step,
-.detail-result {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.cell-step,
-.detail-result,
-.update-tip {
-  color: #64748b;
-}
-
-.progress-cell {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.progress-bar {
-  height: 10px;
-  flex: 1;
-  min-width: 120px;
-  border-radius: 999px;
-  background: #e2e8f0;
-  overflow: hidden;
-}
-
-.progress-fill {
-  height: 100%;
-  border-radius: inherit;
-  background: linear-gradient(90deg, #3b82f6 0%, #2563eb 100%);
-  transition: width 0.3s ease;
-}
-
-.progress-text {
-  min-width: 38px;
-  color: #64748b;
-  font-size: 12px;
-  font-weight: 600;
-  text-align: right;
-}
-
-.status-tag {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 64px;
-  padding: 4px 10px;
-  border-radius: 999px;
-  font-size: 12px;
-  font-weight: 700;
-  white-space: nowrap;
-}
-
-.status-tag.is-waiting {
-  color: #475569;
-  background: rgba(148, 163, 184, 0.2);
-}
-
-.status-tag.is-running {
-  color: #1d4ed8;
-  background: rgba(59, 130, 246, 0.16);
-}
-
-.status-tag.is-completed {
-  color: #047857;
-  background: rgba(16, 185, 129, 0.16);
-}
-
-.status-tag.is-failed {
-  color: #b91c1c;
-  background: rgba(248, 113, 113, 0.16);
-}
-
-.status-tag.is-stopped {
-  color: #b45309;
-  background: rgba(245, 158, 11, 0.18);
-}
-
-.ghost-button {
-  border: none;
-  border-radius: var(--radius-md);
-  background: #eff6ff;
-  color: #1d4ed8;
-  cursor: pointer;
-  font-size: 14px;
-  font-weight: 600;
-}
-
-.ghost-button:hover {
-  transform: translateY(-1px);
-}
-
-.btn-sm {
-  padding: 6px 12px;
-  font-size: 13px;
-}
-
-.detail-row:hover {
-  background: transparent;
-}
-
-.detail-cell {
-  padding: 0;
-  background: #f8fafc;
-}
-
-.detail-header {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 12px;
-  border-bottom: 1px solid #e2e8f0;
-  color: #64748b;
-  font-size: 13px;
-}
-
-.detail-header strong {
-  color: #1e293b;
-}
-
-.detail-table th,
-.detail-table td {
-  background: transparent;
-}
-
-.detail-empty {
-  color: #94a3b8;
-  text-align: center;
-}
-
-.update-tip {
-  margin: 12px 0 0;
-  font-size: 13px;
-}
-
-.empty-state {
-  min-height: 220px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
-  color: #64748b;
-  text-align: center;
-}
-
-@media (max-width: 1180px) {
-  .layout-grid {
-    grid-template-columns: 1fr;
-  }
-}
-
-@media (max-width: 900px) {
-  .detail-header {
-    flex-direction: column;
-  }
-}
-</style>

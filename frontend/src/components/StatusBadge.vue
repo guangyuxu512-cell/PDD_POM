@@ -1,79 +1,83 @@
 <script setup lang="ts">
+import { computed } from 'vue'
+
 interface Props {
   status?: string
   type?: 'shop' | 'task' | 'log'
 }
 
+interface StatusConfig {
+  text: string
+  dotClass: string
+  textClass: string
+  pulse?: boolean
+}
+
 const props = withDefaults(defineProps<Props>(), {
   status: 'offline',
-  type: 'task'
+  type: 'task',
 })
 
-const getStatusConfig = (): { text: string; color: string; bg: string; pulse?: boolean } => {
+const statusConfig = computed<StatusConfig>(() => {
   if (props.type === 'shop') {
-    const configs: Record<string, { text: string; color: string; bg: string }> = {
-      online: { text: '在线', color: '#4ade80', bg: 'rgba(74, 222, 128, 0.1)' },
-      offline: { text: '离线', color: '#ef4444', bg: 'rgba(239, 68, 68, 0.1)' },
-      expired: { text: '过期', color: '#f59e0b', bg: 'rgba(245, 158, 11, 0.1)' }
+    const configs: Record<string, StatusConfig> = {
+      online: { text: '在线', dotClass: 'bg-emerald-500', textClass: 'text-emerald-700' },
+      offline: { text: '离线', dotClass: 'bg-gray-300', textClass: 'text-gray-500' },
+      expired: { text: '过期', dotClass: 'bg-amber-400', textClass: 'text-amber-700' },
+      logging: { text: '登录中', dotClass: 'bg-amber-400', textClass: 'text-amber-700', pulse: true },
+      logging_in: { text: '登录中', dotClass: 'bg-amber-400', textClass: 'text-amber-700', pulse: true },
     }
-    return configs[props.status] || { text: props.status, color: '#a0a0a0', bg: 'rgba(160, 160, 160, 0.1)' }
+
+    return configs[props.status] || {
+      text: props.status,
+      dotClass: 'bg-gray-300',
+      textClass: 'text-gray-500',
+    }
   }
 
   if (props.type === 'task') {
-    const configs: Record<string, { text: string; color: string; bg: string; pulse?: boolean }> = {
-      pending: { text: '等待中', color: '#9ca3af', bg: 'rgba(156, 163, 175, 0.1)' },
-      running: { text: '运行中', color: '#3b82f6', bg: 'rgba(59, 130, 246, 0.1)', pulse: true },
-      success: { text: '成功', color: '#4ade80', bg: 'rgba(74, 222, 128, 0.1)' },
-      failed: { text: '失败', color: '#ef4444', bg: 'rgba(239, 68, 68, 0.1)' }
+    const configs: Record<string, StatusConfig> = {
+      pending: { text: '等待中', dotClass: 'bg-gray-300', textClass: 'text-gray-500' },
+      waiting: { text: '等待中', dotClass: 'bg-gray-300', textClass: 'text-gray-500' },
+      running: { text: '运行中', dotClass: 'bg-amber-400', textClass: 'text-amber-700', pulse: true },
+      success: { text: '成功', dotClass: 'bg-emerald-500', textClass: 'text-emerald-700' },
+      completed: { text: '已完成', dotClass: 'bg-emerald-500', textClass: 'text-emerald-700' },
+      failed: { text: '失败', dotClass: 'bg-rose-500', textClass: 'text-rose-700' },
+      stopped: { text: '已停止', dotClass: 'bg-gray-400', textClass: 'text-gray-600' },
+      skipped: { text: '跳过', dotClass: 'bg-gray-400', textClass: 'text-gray-600' },
+      cancelled: { text: '已取消', dotClass: 'bg-gray-400', textClass: 'text-gray-600' },
     }
-    return configs[props.status] || { text: props.status, color: '#a0a0a0', bg: 'rgba(160, 160, 160, 0.1)' }
+
+    return configs[props.status] || {
+      text: props.status,
+      dotClass: 'bg-gray-300',
+      textClass: 'text-gray-500',
+    }
   }
 
-  if (props.type === 'log') {
-    const configs: Record<string, { text: string; color: string; bg: string }> = {
-      INFO: { text: 'INFO', color: '#3b82f6', bg: 'rgba(59, 130, 246, 0.1)' },
-      WARN: { text: 'WARN', color: '#f59e0b', bg: 'rgba(245, 158, 11, 0.1)' },
-      ERROR: { text: 'ERROR', color: '#ef4444', bg: 'rgba(239, 68, 68, 0.1)' }
-    }
-    return configs[props.status] || { text: props.status, color: '#a0a0a0', bg: 'rgba(160, 160, 160, 0.1)' }
+  const configs: Record<string, StatusConfig> = {
+    INFO: { text: 'INFO', dotClass: 'bg-gray-400', textClass: 'text-gray-600' },
+    WARN: { text: 'WARN', dotClass: 'bg-amber-400', textClass: 'text-amber-700' },
+    ERROR: { text: 'ERROR', dotClass: 'bg-rose-500', textClass: 'text-rose-700' },
   }
 
-  return { text: props.status, color: '#a0a0a0', bg: 'rgba(160, 160, 160, 0.1)' }
-}
-
-const config = getStatusConfig()
+  return configs[props.status] || {
+    text: props.status,
+    dotClass: 'bg-gray-300',
+    textClass: 'text-gray-500',
+  }
+})
 </script>
 
 <template>
-  <span
-    class="status-badge"
-    :class="{ pulse: config.pulse }"
-    :style="{ color: config.color, background: config.bg }"
-  >
-    {{ config.text }}
+  <span :class="['inline-flex items-center gap-2 whitespace-nowrap text-xs font-medium', statusConfig.textClass]">
+    <span
+      :class="[
+        'h-1.5 w-1.5 rounded-full',
+        statusConfig.dotClass,
+        statusConfig.pulse ? 'animate-pulse' : '',
+      ]"
+    />
+    {{ statusConfig.text }}
   </span>
 </template>
-
-<style scoped>
-.status-badge {
-  display: inline-block;
-  padding: 4px 12px;
-  border-radius: var(--radius-md);
-  font-size: 12px;
-  font-weight: 500;
-  white-space: nowrap;
-}
-
-.pulse {
-  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-}
-
-@keyframes pulse {
-  0%, 100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.6;
-  }
-}
-</style>

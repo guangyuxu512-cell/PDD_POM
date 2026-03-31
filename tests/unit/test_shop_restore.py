@@ -1,5 +1,5 @@
 """
-店铺字段与页面布局恢复回归测试
+店铺字段与页面布局回归测试
 """
 from __future__ import annotations
 
@@ -42,10 +42,9 @@ def 客户端(tmp_path: Path):
 
 
 class 测试_店铺字段恢复:
-    """验证 `/api/shops` 仍返回改造前的核心字段。"""
+    """验证 `/api/shops` 仍返回核心字段且密码保持脱敏。"""
 
     def test_店铺CRUD_保留邮箱与浏览器相关字段(self, 客户端: TestClient):
-        """创建和更新店铺后，列表接口仍应返回原有字段。"""
         创建响应 = 客户端.post(
             "/api/shops",
             json={
@@ -137,30 +136,39 @@ class 测试_店铺字段恢复:
         assert 列表项["cookie_path"] is None
 
 
-class 测试_店铺页布局恢复:
-    """验证店铺页已恢复为旧版卡片布局。"""
+class 测试_店铺页面布局:
+    """验证店铺页已经切换为紧凑列表和灰白表单结构。"""
 
-    def test_店铺页_恢复旧版卡片和邮箱表单(self):
-        """店铺页应重新使用 ShopCard、小卡片网格和邮箱配置表单。"""
+    def test_店铺页_改为紧凑列表与Tailwind弹窗(self):
         店铺页 = 读取文件("frontend/src/views/ShopManage.vue")
         店铺卡片 = 读取文件("frontend/src/components/ShopCard.vue")
+        状态徽标 = 读取文件("frontend/src/components/StatusBadge.vue")
         店铺接口 = 读取文件("frontend/src/api/shops.ts")
 
         assert "ShopCard" in 店铺页
-        assert 'class="shops-grid"' in 店铺页
+        assert 'class="overflow-hidden rounded-md border border-gray-200 bg-white shadow-sm"' in 店铺页
+        assert 'class="flex gap-1 rounded-md bg-gray-100 p-0.5"' in 店铺页
+        assert "Listbox" in 店铺页
         assert "邮箱配置" in 店铺页
-        assert "smtp_host" in 店铺页
-        assert "smtp_user" in 店铺页
-        assert "smtp_pass" in 店铺页
         assert "测试连接" in 店铺页
         assert "openShopBrowser" in 店铺页
         assert "checkShopStatus" in 店铺页
+        assert "shops-grid" not in 店铺页
         assert "summary-grid" not in 店铺页
         assert "Resource Workspace" not in 店铺页
         assert "总数" not in 店铺页
+        assert "<style" not in 店铺页
 
-        assert "邮箱：" in 店铺卡片
-        assert "smtp_user" in 店铺卡片
+        assert "shop.smtp_user" in 店铺卡片
+        assert "shop.last_login ||" in 店铺卡片
+        assert "text-xs font-medium text-gray-500 transition hover:text-gray-700" in 店铺卡片
+        assert "<style" not in 店铺卡片
+
+        assert "bg-emerald-500" in 状态徽标
+        assert "bg-gray-300" in 状态徽标
+        assert "bg-amber-400" in 状态徽标
+        assert "animate-pulse" in 状态徽标
+        assert "<style" not in 状态徽标
 
         assert "openShopBrowser" in 店铺接口
         assert "checkShopStatus" in 店铺接口

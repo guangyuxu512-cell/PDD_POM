@@ -1,4 +1,4 @@
-﻿"""
+"""
 任务参数管理页静态回归测试
 """
 from pathlib import Path
@@ -59,9 +59,14 @@ class 测试_任务参数管理页:
             "type=\"date\"",
             "handleBatchAction",
             "handleToggleEnabled",
-            "task-params/TaskParamsManage.css",
+            "rounded-md border border-gray-200 bg-white p-4 shadow-sm",
+            "rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm text-gray-700 transition hover:bg-gray-50",
+            "rounded-md bg-gray-900 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-gray-800",
         ]:
             assert 关键字 in 页面文件
+
+        assert "task-params/TaskParamsManage.css" not in 页面文件
+        assert "<style" not in 页面文件
 
         for 关键字 in [
             "const currentTemplateColumns = computed",

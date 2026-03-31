@@ -3020,3 +3020,139 @@
 - [x] 全量回归通过：
   - `python -m pytest -c tests/pytest.ini tests/ -v`
   - `508 passed, 18 warnings`
+## Prompt 138：接入 Tailwind 样式基建并移除旧 CSS 变量系统 ✅
+- [x] 安装 `tailwindcss`、`@tailwindcss/vite`、`@headlessui/vue`
+- [x] 更新 `frontend/package.json`
+- [x] 更新 `frontend/package-lock.json`
+- [x] 更新 `frontend/vite.config.ts`
+- [x] 接入 `tailwindcss()` 插件并保留原有 `server.proxy`
+- [x] 替换 `frontend/src/style.css`
+- [x] 改为 `@import "tailwindcss";` + 全局 `body` 字体层
+- [x] 更新 `frontend/src/main.ts`
+- [x] 删除 `./styles/variables.css` 引入
+- [x] 删除 `frontend/src/styles/` 旧 CSS 变量目录
+- [x] 删除 `frontend/src/components/HelloWorld.vue`
+- [x] 新增静态回归测试 `tests/unit/test_frontend_tailwind_static.py`
+- [x] 定向验证通过：
+  - `python -m pytest -c tests/pytest.ini tests/unit/test_frontend_tailwind_static.py -v`
+  - `2 passed`
+- [x] 前端构建验证通过：
+  - `cd frontend && npm run build`
+- [ ] `cd frontend && npm run dev`
+  - 当前环境启动 Vite dev server 仍触发 `spawn EPERM`，未能完成默认开发服务验收
+- [x] 全量回归通过：
+  - `python -m pytest -c tests/pytest.ini tests/ -v`
+  - `510 passed, 18 warnings`
+## Prompt 139：用 Headless UI + Tailwind 重写 Modal / ConfirmDialog / Toast ✅
+- [x] 重写 `frontend/src/components/Modal.vue`
+- [x] 改为 `Dialog + TransitionRoot + TransitionChild + DialogPanel`
+- [x] 删除组件内 `<style>`，全部改为 Tailwind class
+- [x] 保留 `.modal-container`、`.modal-body`、`.modal-footer` 兼容 class，避免现有页面 `:deep(...)` 规则失效
+- [x] 重写 `frontend/src/components/ConfirmDialog.vue`
+- [x] 保持 `show/title/message/type` props 与 `confirm/cancel` 调用方式兼容
+- [x] 补充 `close` emit，并让遮罩/ESC 关闭时继续按 `cancel` 语义工作
+- [x] 移除旧蓝色按钮样式，危险操作改为 `rose`，其余确认按钮改为灰黑主按钮
+- [x] 重写 `frontend/src/components/Toast.vue`
+- [x] 改为右上角固定定位，使用 Headless UI Transition 和 Tailwind 类型色
+- [x] `success/error/warning/info` 分别映射 `emerald/rose/amber/gray`，不再出现蓝色
+- [x] 更新静态回归：
+  - `tests/unit/test_shop_platform_modal_static.py`
+  - `tests/unit/test_headless_ui_components_static.py`
+- [x] 定向验证通过：
+  - `python -m pytest -c tests/pytest.ini tests/unit/test_headless_ui_components_static.py tests/unit/test_shop_platform_modal_static.py tests/unit/test_batch_execute_schedule_static.py tests/unit/test_flow_manage_editor_static.py tests/unit/test_frontend_tailwind_static.py -v`
+  - `14 passed`
+- [x] 前端构建验证通过：
+  - `cd frontend && npm run build`
+- [ ] `cd frontend && npm run dev`
+  - 当前环境启动 Vite dev server 仍触发 `spawn EPERM`，未能完成运行态弹窗验收
+- [x] 全量回归通过：
+  - `python -m pytest -c tests/pytest.ini tests/ -v`
+  - `513 passed, 18 warnings`
+## Prompt 140：用 Tailwind 重写主布局，侧边栏切到 Linear 风格 ✅
+- [x] 重写 `frontend/src/App.vue`
+- [x] 接入 `useRoute` 与 `navItems` 数据源
+- [x] 侧边栏改为白底、灰色细边框、浅灰选中态
+- [x] 主内容区改为 `bg-gray-50`
+- [x] 保持左侧导航 + 右侧内容布局不变
+- [x] 保持 `Toast` 挂载位置不变
+- [x] 继续不在 `App.vue` 中挂载 `PlatformSelector`
+- [x] 完全删除 `App.vue` 中的 `<style>` 块
+- [x] 更新静态回归：
+  - `tests/unit/test_platform_frontend_static.py`
+  - `tests/unit/test_frontend_management_page.py`
+  - `tests/unit/test_after_sale_config_page.py`
+- [x] 定向验证通过：
+  - `python -m pytest -c tests/pytest.ini tests/unit/test_platform_frontend_static.py tests/unit/test_frontend_management_page.py tests/unit/test_after_sale_config_page.py -v`
+  - `9 passed`
+- [x] 前端构建验证通过：
+  - `cd frontend && npm run build`
+- [ ] `cd frontend && npm run dev`
+  - 当前环境启动 Vite dev server 仍触发 `spawn EPERM`，未能完成主布局运行态验收
+- [x] 全量回归通过：
+  - `python -m pytest -c tests/pytest.ini tests/ -v`
+  - `513 passed, 18 warnings`
+## Prompt 141：用 Tailwind + Headless UI 重写店铺管理页与 6 个中等复杂度页面 ✅
+- [x] 重写 `frontend/src/views/ShopManage.vue`
+- [x] 重写 `frontend/src/components/ShopCard.vue`
+- [x] 重写 `frontend/src/components/StatusBadge.vue`
+- [x] 删除 `frontend/src/components/PlatformSelector.vue`
+- [x] 重写 `frontend/src/views/Settings.vue`
+- [x] 重写 `frontend/src/views/TaskMonitor.vue`
+- [x] 重写 `frontend/src/views/LogViewer.vue`
+- [x] 重写 `frontend/src/views/TaskParamsManage.vue`
+- [x] 重写 `frontend/src/views/BatchExecute.vue`
+- [x] 重写 `frontend/src/views/BrowserManager.vue`
+- [x] 重写 `frontend/src/components/StatCard.vue`
+- [x] 重写 `frontend/src/components/LogTable.vue`
+- [x] 重写 `frontend/src/components/BrowserStatus.vue`
+- [x] 店铺管理页 header 改为标题 + 平台胶囊按钮组 + “新增店铺”单行布局
+- [x] 店铺列表改为紧凑行列表，`StatusBadge` 收口为极简 dot + text
+- [x] 店铺弹窗改为白底干净表单，所属平台切换改用 Headless UI `Listbox`
+- [x] 6 个中等复杂度页面统一为灰阶卡片 / 表格风格，去掉蓝色系
+- [x] 上述文件全部删除 `<style>` 块，仅保留 Tailwind class
+- [x] 更新静态回归：
+  - `tests/unit/test_platform_frontend_static.py`
+  - `tests/unit/test_shop_platform_modal_static.py`
+  - `tests/unit/test_shop_card_task_params_display.py`
+  - `tests/unit/test_shop_restore.py`
+  - `tests/unit/test_task_params_page.py`
+  - `tests/unit/test_batch_execute_schedule_static.py`
+  - `tests/unit/test_frontend_tailwind_static.py`
+- [x] 前端构建验证通过：
+  - `cd frontend && npm run build`
+- [x] 全量回归通过：
+  - `python -m pytest -c tests/pytest.ini tests/ -v`
+  - `514 passed, 18 warnings`
+## Prompt 142：用 Tailwind + Headless UI 重写 4 个复杂页面 ✅
+- [x] 重写 `frontend/src/views/FlowManage.vue`
+- [x] 重写 `frontend/src/views/AftersaleConfig.vue`
+- [x] 重写 `frontend/src/views/RuleManage.vue`
+- [x] 重写 `frontend/src/views/ScheduleManage.vue`
+- [x] 页面内所有原生 `<select>` 全部改为 Headless UI `Listbox`
+- [x] 定时触发模式切换改为 Headless UI `TabGroup`
+- [x] 复杂表单拆为多段 `section`，统一使用 `border-t border-gray-100 pt-4`
+- [x] 大表格统一包裹 `overflow-x-auto`
+- [x] 空状态统一为居中 `text-sm text-gray-400` + emoji
+- [x] 页面内旧 `<style>` 块全部删除
+- [x] 页面级弹窗统一切到 Headless UI `Modal`
+- [x] 保持现有 script 业务逻辑不变，仅调整模板和样式承载
+- [x] Flow / Schedule 编辑器保留新增聚焦、拖拽排序、失败策略与同步控制
+- [x] Rule 管理页筛选器、编辑器、测试匹配全部改用 `Listbox`
+- [x] Aftersale 配置页白名单表格与标签录入切到新的 Tailwind 结构
+- [x] 更新静态回归：
+  - `tests/unit/test_flow_manage_editor_static.py`
+  - `tests/unit/test_flow_manage_list_static.py`
+  - `tests/unit/test_after_sale_config_page.py`
+  - `tests/unit/test_rule_config_page.py`
+  - `tests/unit/test_batch_execute_schedule_static.py`
+  - `tests/unit/test_frontend_display_details.py`
+- [x] 定向验证通过：
+  - `python -m pytest -c tests/pytest.ini tests/unit/test_flow_manage_editor_static.py tests/unit/test_flow_manage_list_static.py tests/unit/test_after_sale_config_page.py tests/unit/test_rule_config_page.py tests/unit/test_batch_execute_schedule_static.py tests/unit/test_frontend_display_details.py -q`
+  - `17 passed`
+- [x] 前端构建验证通过：
+  - `cd frontend && npm run build`
+- [x] 全量回归通过：
+  - `python -m pytest -c tests/pytest.ini tests/ -v`
+  - `514 passed, 18 warnings`
+- [ ] `cd frontend && npm run dev`
+  - 当前环境此前已知存在 `spawn EPERM`，本轮未执行 dev server 验收

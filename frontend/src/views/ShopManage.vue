@@ -1,5 +1,11 @@
 <script setup lang="ts">
-import { onMounted, ref, watch } from 'vue'
+import {
+  Listbox,
+  ListboxButton,
+  ListboxOption,
+  ListboxOptions,
+} from '@headlessui/vue'
+import { computed, onMounted, ref, watch } from 'vue'
 
 import ConfirmDialog from '../components/ConfirmDialog.vue'
 import Modal from '../components/Modal.vue'
@@ -37,6 +43,8 @@ const editingShop = ref<Shop | null>(null)
 const deletingShopId = ref<string | null>(null)
 const platformStore = usePlatformStore()
 const formPlatform = ref(platformStore.currentPlatform)
+const inputClass =
+  'w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-gray-400 focus:outline-none focus:ring-1 focus:ring-gray-400'
 
 const formData = ref<ShopFormModel>({
   name: '',
@@ -49,6 +57,10 @@ const formData = ref<ShopFormModel>({
   smtp_pass: '',
   smtp_protocol: 'imap',
 })
+
+const selectedFormPlatform = computed(
+  () => platformStore.platforms.find((platform) => platform.id === formPlatform.value) || platformStore.platforms[0],
+)
 
 function createEmptyForm(): ShopFormModel {
   return {
@@ -237,29 +249,53 @@ watch(() => platformStore.currentPlatform, () => {
 </script>
 
 <template>
-  <div class="shop-manage">
-    <div class="header">
-      <h1>店铺管理</h1>
-      <div class="header-actions">
-        <div class="platform-tabs">
+  <div class="space-y-6">
+    <div class="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+      <div class="space-y-1">
+        <h1 class="text-2xl font-semibold text-gray-900">店铺管理</h1>
+        <p class="text-sm text-gray-500">按平台管理店铺账号、代理与邮箱连接配置。</p>
+      </div>
+
+      <div class="flex flex-col gap-3 sm:flex-row sm:items-center">
+        <div class="flex gap-1 rounded-md bg-gray-100 p-0.5">
           <button
             v-for="p in platformStore.platforms"
             :key="p.id"
-            class="platform-tab"
-            :class="{ active: platformStore.currentPlatform === p.id }"
+            type="button"
+            :class="[
+              'rounded-md px-3 py-2 text-sm transition',
+              platformStore.currentPlatform === p.id
+                ? 'bg-white text-gray-900 shadow-sm rounded-md font-medium'
+                : 'text-gray-500 hover:text-gray-700',
+            ]"
             @click="platformStore.setPlatform(p.id)"
           >
             {{ p.icon }} {{ p.name }}
           </button>
         </div>
-        <button class="btn btn-primary" @click="openAddModal">新增店铺</button>
+        <button
+          type="button"
+          class="rounded-md bg-gray-900 px-3 py-2 text-sm font-medium text-white transition hover:bg-gray-800"
+          @click="openAddModal"
+        >
+          新增店铺
+        </button>
       </div>
     </div>
 
-    <div v-if="shops.length === 0" class="empty-state">
-      <p>暂无数据</p>
+    <div v-if="shops.length === 0" class="rounded-md border border-gray-200 bg-white px-6 py-14 text-center shadow-sm">
+      <p class="text-sm text-gray-500">当前平台下暂无店铺数据。</p>
     </div>
-    <div v-else class="shops-grid">
+    <div v-else class="overflow-hidden rounded-md border border-gray-200 bg-white shadow-sm">
+      <div
+        class="hidden grid-cols-[minmax(0,2.2fr)_minmax(0,1.2fr)_minmax(0,1.4fr)_auto] gap-4 bg-gray-50/60 px-4 py-3 text-xs font-medium uppercase tracking-wider text-gray-500 lg:grid"
+      >
+        <span>店铺</span>
+        <span>邮箱</span>
+        <span>连接信息</span>
+        <span class="text-right">操作</span>
+      </div>
+
       <ShopCard
         v-for="shop in shops"
         :key="shop.id"
@@ -271,92 +307,164 @@ watch(() => platformStore.currentPlatform, () => {
       />
     </div>
 
-    <Modal :show="showModal" :title="editingShop ? '编辑店铺' : '添加店铺'" width="700px" @close="showModal = false">
-      <form class="shop-form" @submit.prevent="handleSave">
-        <div class="form-section">
-          <h4>基本信息</h4>
-          <div class="form-row">
-            <div class="form-group">
-              <label>所属平台</label>
-              <select v-model="formPlatform" :disabled="!!editingShop">
-                <option
-                  v-for="p in platformStore.platforms"
-                  :key="p.id"
-                  :value="p.id"
-                >
-                  {{ p.icon }} {{ p.name }}
-                </option>
-              </select>
+    <Modal :show="showModal" :title="editingShop ? '编辑店铺' : '新增店铺'" width="720px" @close="showModal = false">
+      <form class="space-y-6" @submit.prevent="handleSave">
+        <section class="space-y-4">
+          <div class="space-y-1">
+            <h2 class="text-sm font-medium text-gray-900">基本信息</h2>
+            <p class="text-xs text-gray-500">维护平台归属、账号和代理配置。</p>
+          </div>
+
+          <div class="grid gap-4 md:grid-cols-2">
+            <div class="space-y-2">
+              <label class="text-xs font-medium text-gray-600">所属平台</label>
+              <Listbox v-model="formPlatform" :disabled="!!editingShop">
+                <div class="relative">
+                  <ListboxButton
+                    :class="[
+                      inputClass,
+                      'flex items-center justify-between text-left',
+                      editingShop ? 'cursor-not-allowed bg-gray-50 text-gray-400' : '',
+                    ]"
+                  >
+                    <span class="truncate">
+                      {{ selectedFormPlatform?.icon }} {{ selectedFormPlatform?.name }}
+                    </span>
+                    <svg class="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </ListboxButton>
+
+                  <transition
+                    enter-active-class="transition duration-100 ease-out"
+                    enter-from-class="scale-95 opacity-0"
+                    enter-to-class="scale-100 opacity-100"
+                    leave-active-class="transition duration-75 ease-in"
+                    leave-from-class="scale-100 opacity-100"
+                    leave-to-class="scale-95 opacity-0"
+                  >
+                    <ListboxOptions
+                      class="absolute z-10 mt-2 max-h-60 w-full overflow-auto rounded-md border border-gray-200 bg-white py-1 shadow-lg focus:outline-none"
+                    >
+                      <ListboxOption
+                        v-for="p in platformStore.platforms"
+                        :key="p.id"
+                        v-slot="{ active, selected }"
+                        :value="p.id"
+                        as="template"
+                      >
+                        <li
+                          :class="[
+                            'cursor-default px-3 py-2 text-sm',
+                            active ? 'bg-gray-100 text-gray-900' : 'text-gray-700',
+                            selected ? 'font-medium' : '',
+                          ]"
+                        >
+                          {{ p.icon }} {{ p.name }}
+                        </li>
+                      </ListboxOption>
+                    </ListboxOptions>
+                  </transition>
+                </div>
+              </Listbox>
+            </div>
+
+            <div class="space-y-2">
+              <label class="text-xs font-medium text-gray-600">店铺名称</label>
+              <input v-model="formData.name" :class="inputClass" type="text" required />
             </div>
           </div>
-          <div class="form-row">
-            <div class="form-group">
-              <label>店铺名称</label>
-              <input v-model="formData.name" type="text" required />
+
+          <div class="grid gap-4 md:grid-cols-2">
+            <div class="space-y-2">
+              <label class="text-xs font-medium text-gray-600">账号</label>
+              <input v-model="formData.username" :class="inputClass" type="text" />
             </div>
-            <div class="form-group">
-              <label>账号</label>
-              <input v-model="formData.username" type="text" />
-            </div>
-          </div>
-          <div class="form-row">
-            <div class="form-group">
-              <label>密码</label>
+
+            <div class="space-y-2">
+              <label class="text-xs font-medium text-gray-600">密码</label>
               <input
                 v-model="formData.password"
+                :class="inputClass"
                 type="password"
                 :placeholder="editingShop ? '••••••••（留空则不修改）' : '••••••••'"
               />
             </div>
-            <div class="form-group">
-              <label>代理</label>
-              <input v-model="formData.proxy" type="text" placeholder="127.0.0.1:7890" />
-            </div>
           </div>
-        </div>
 
-        <div class="form-section">
-          <h4>邮箱配置</h4>
-          <div class="form-row">
-            <div class="form-group">
-              <label>协议</label>
-              <select v-model="formData.smtp_protocol">
+          <div class="space-y-2">
+            <label class="text-xs font-medium text-gray-600">代理</label>
+            <input v-model="formData.proxy" :class="inputClass" type="text" placeholder="127.0.0.1:7890" />
+          </div>
+        </section>
+
+        <section class="space-y-4 border-t border-gray-100 pt-6">
+          <div class="space-y-1">
+            <h2 class="text-sm font-medium text-gray-900">邮箱配置</h2>
+            <p class="text-xs text-gray-500">保存收件协议、服务器和授权信息。</p>
+          </div>
+
+          <div class="grid gap-4 md:grid-cols-3">
+            <div class="space-y-2">
+              <label class="text-xs font-medium text-gray-600">协议</label>
+              <select v-model="formData.smtp_protocol" :class="inputClass">
                 <option value="imap">IMAP</option>
                 <option value="smtp">SMTP</option>
               </select>
             </div>
-            <div class="form-group">
-              <label>服务器</label>
-              <input v-model="formData.smtp_host" type="text" placeholder="imap.qq.com" />
+
+            <div class="space-y-2 md:col-span-2">
+              <label class="text-xs font-medium text-gray-600">服务器</label>
+              <input v-model="formData.smtp_host" :class="inputClass" type="text" placeholder="imap.qq.com" />
             </div>
-            <div class="form-group">
-              <label>端口</label>
-              <input v-model.number="formData.smtp_port" type="number" />
+
+            <div class="space-y-2">
+              <label class="text-xs font-medium text-gray-600">端口</label>
+              <input v-model.number="formData.smtp_port" :class="inputClass" type="number" />
             </div>
-          </div>
-          <div class="form-row">
-            <div class="form-group">
-              <label>邮箱账号</label>
-              <input v-model="formData.smtp_user" type="email" />
+
+            <div class="space-y-2">
+              <label class="text-xs font-medium text-gray-600">邮箱账号</label>
+              <input v-model="formData.smtp_user" :class="inputClass" type="email" />
             </div>
-            <div class="form-group">
-              <label>授权码</label>
+
+            <div class="space-y-2">
+              <label class="text-xs font-medium text-gray-600">授权码</label>
               <input
                 v-model="formData.smtp_pass"
+                :class="inputClass"
                 type="password"
                 :placeholder="editingShop ? '••••••••（留空则不修改）' : '••••••••'"
               />
             </div>
           </div>
-          <div class="test-connection-wrapper">
-            <button type="button" class="btn btn-secondary" @click="testEmail">测试连接</button>
+
+          <div>
+            <button
+              type="button"
+              class="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm text-gray-700 transition hover:bg-gray-50"
+              @click="testEmail"
+            >
+              测试连接
+            </button>
           </div>
-        </div>
+        </section>
       </form>
 
       <template #footer>
-        <button class="btn btn-secondary" @click="showModal = false">取消</button>
-        <button class="btn btn-primary" :disabled="isSaving" @click="handleSave">
+        <button
+          type="button"
+          class="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm text-gray-700 transition hover:bg-gray-50"
+          @click="showModal = false"
+        >
+          取消
+        </button>
+        <button
+          type="button"
+          class="rounded-md bg-gray-900 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:bg-gray-400"
+          :disabled="isSaving"
+          @click="handleSave"
+        >
           {{ isSaving ? '保存中...' : '保存' }}
         </button>
       </template>
@@ -364,7 +472,7 @@ watch(() => platformStore.currentPlatform, () => {
 
     <ConfirmDialog
       :show="showDeleteConfirm"
-      title="确认删除"
+      title="删除店铺"
       message="确定要删除这个店铺吗？此操作不可恢复。"
       type="danger"
       @confirm="handleDelete"
@@ -372,206 +480,3 @@ watch(() => platformStore.currentPlatform, () => {
     />
   </div>
 </template>
-
-<style scoped>
-.shop-manage {
-  color: #1a1a2e;
-}
-
-.header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 24px;
-}
-
-.header-actions {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-}
-
-h1 {
-  font-size: 28px;
-  margin: 0;
-  color: #1a1a2e;
-}
-
-.platform-tabs {
-  display: flex;
-  gap: 4px;
-  background: #2a2a3a;
-  border-radius: 8px;
-  padding: 3px;
-}
-
-.platform-tab {
-  padding: 6px 16px;
-  border: none;
-  border-radius: 6px;
-  background: transparent;
-  color: #999;
-  font-size: 14px;
-  cursor: pointer;
-  transition: all 0.2s;
-  white-space: nowrap;
-}
-
-.platform-tab:hover {
-  color: #ddd;
-  background: #333345;
-}
-
-.platform-tab.active {
-  background: #4f46e5;
-  color: #fff;
-  font-weight: 500;
-}
-
-.btn {
-  padding: 10px 20px;
-  border: none;
-  border-radius: 6px;
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.btn:disabled {
-  cursor: not-allowed;
-  opacity: 0.7;
-}
-
-.btn-primary {
-  background: #4f46e5;
-  color: white;
-}
-
-.btn-primary:hover {
-  background: #4338ca;
-}
-
-.btn-secondary {
-  background: #2a2a3a;
-  color: #e0e0e0;
-}
-
-.btn-secondary:hover {
-  background: #3a3a4a;
-}
-
-.empty-state {
-  text-align: center;
-  padding: 48px;
-  color: #a0a0a0;
-  background: #1e1e2e;
-  border-radius: 12px;
-  border: 1px solid #2a2a3a;
-}
-
-.shops-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 20px;
-}
-
-@media (min-width: 1600px) {
-  .shops-grid {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-  }
-}
-
-@media (max-width: 1400px) {
-  .shops-grid {
-    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-  }
-}
-
-@media (max-width: 768px) {
-  .shops-grid {
-    grid-template-columns: 1fr;
-  }
-}
-
-.shop-form {
-  display: flex;
-  flex-direction: column;
-  gap: 24px;
-}
-
-.form-section h4 {
-  margin: 0 0 16px 0;
-  font-size: 16px;
-  color: #d0d0d0;
-}
-
-.form-row {
-  display: flex;
-  gap: 16px;
-}
-
-.form-group {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.form-group label {
-  font-size: 14px;
-  color: #a0a0a0;
-}
-
-.form-group input,
-.form-group select {
-  padding: 10px;
-  background: #2a2a3a;
-  border: 1px solid #3a3a4a;
-  border-radius: 4px;
-  color: #e0e0e0;
-  font-size: 14px;
-}
-
-.form-group input:focus,
-.form-group select:focus {
-  outline: none;
-  border-color: #6366f1;
-}
-
-.form-group input::placeholder {
-  color: #8f90a6;
-}
-
-.form-group select:disabled {
-  background: #242433;
-  border-color: #343445;
-  color: #8f90a6;
-  cursor: not-allowed;
-}
-
-.test-connection-wrapper {
-  margin-top: 8px;
-}
-
-@media (max-width: 768px) {
-  .header {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 12px;
-  }
-
-  .header-actions {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .platform-tabs {
-    overflow-x: auto;
-  }
-
-  .form-row {
-    flex-direction: column;
-  }
-}
-</style>

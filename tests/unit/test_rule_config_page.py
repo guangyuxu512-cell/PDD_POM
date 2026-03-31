@@ -12,22 +12,20 @@ def 读取文件(相对路径: str) -> str:
 
 
 class 测试_规则配置页:
-    """校验规则配置页关键骨架与 API 调用。"""
+    """校验规则配置页骨架、筛选器和 API 调用。"""
 
-    def test_规则配置页_包含核心交互结构(self):
+    def test_规则配置页包含_headless_ui筛选器与_modal(self):
         页面文件 = 读取文件("frontend/src/views/RuleManage.vue")
 
         for 关键字 in [
             "规则配置",
-            "新建规则",
+            "+ 新建规则",
             "测试匹配",
             "筛选:",
             "全部平台",
             "全部业务",
             "全部店铺",
-            "暂无规则，点击上方\"新建规则\"添加",
-            "modal-overlay",
-            "modal-content",
+            "🧾 暂无规则，点击上方&quot;新建规则&quot;添加",
             "编辑规则",
             "规则名称",
             "业务类型",
@@ -48,15 +46,33 @@ class 测试_规则配置页:
             "匹配测试",
             "命中规则",
             "动作:",
-            "input",
-            "datalist",
-            "rule-field-options",
+            'list="rule-field-options"',
+            '<datalist id="rule-field-options">',
             "showTitle",
-            "confirm(`确定删除规则 ${rule.name}？`)",
+            "<Modal :show=\"showEditor\"",
+            "<Modal :show=\"showTestMatch\"",
+            '<Listbox v-model="filter.platform">',
+            '<Listbox v-model="filter.business">',
+            '<Listbox v-model="filter.shop_id">',
+            '<Listbox v-model="form.platform">',
+            '<Listbox v-model="form.business">',
+            '<Listbox v-model="form.shop_id">',
+            '<Listbox v-model="form.conditions.operator">',
+            '<Listbox v-model="condition.op">',
+            '<Listbox v-model="action.action">',
+            "overflow-x-auto",
         ]:
             assert 关键字 in 页面文件
 
-    def test_规则配置页_调用规则与店铺接口(self):
+        for 已移除关键字 in [
+            "modal-overlay",
+            "modal-content",
+            "<style",
+            "<select",
+        ]:
+            assert 已移除关键字 not in 页面文件
+
+    def test_规则配置页调用规则与店铺接口(self):
         页面文件 = 读取文件("frontend/src/views/RuleManage.vue")
 
         for 关键字 in [
@@ -71,10 +87,11 @@ class 测试_规则配置页:
             "toast.success",
             "toast.error",
             "window.confirm",
+            "if (!window.confirm(`确定删除规则 ${rule.name}？`)) {",
         ]:
             assert 关键字 in 页面文件
 
-    def test_规则配置页_不再出现在数据管理页(self):
+    def test_规则配置页不再出现在数据管理页(self):
         数据页文件 = 读取文件("frontend/src/views/DataManage.vue")
 
         assert "RuleManage" not in 数据页文件

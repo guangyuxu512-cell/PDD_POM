@@ -1,5 +1,5 @@
 """
-平台切换器前端静态回归测试
+平台切换前端静态回归测试
 """
 from pathlib import Path
 
@@ -11,15 +11,14 @@ def 读取文件(相对路径: str) -> str:
     return (仓库根目录 / 相对路径).read_text(encoding="utf-8")
 
 
-class 测试_平台切换器前端接入:
-    """校验平台选择器相关前端接线。"""
+class 测试_平台切换前端接口:
+    """校验平台切换入口已经收敛到店铺页页头。"""
 
     def test_平台store与接口_支持持久化和平台列表加载(self):
-        """platform store 应负责本地持久化和平台列表加载。"""
         平台接口 = 读取文件("frontend/src/api/platforms.ts")
         平台类型 = 读取文件("frontend/src/api/types.ts")
         平台状态 = 读取文件("frontend/src/stores/platform.ts")
-        平台选择器 = 读取文件("frontend/src/components/PlatformSelector.vue")
+        平台选择器路径 = 仓库根目录 / "frontend/src/components/PlatformSelector.vue"
 
         assert "export function listPlatforms()" in 平台接口
         assert "/api/platforms" in 平台接口
@@ -29,11 +28,9 @@ class 测试_平台切换器前端接入:
         assert "window.localStorage.setItem('selectedPlatform', id)" in 平台状态
         assert "loadPlatforms" in 平台状态
         assert "PlatformSelector" not in 平台状态
-        assert "store.currentPlatform" in 平台选择器
-        assert "store.platforms" in 平台选择器
+        assert not 平台选择器路径.exists()
 
-    def test_App与店铺页_接入当前平台过滤和默认绑定(self):
-        """平台切换入口应移入店铺页 header，App 侧边栏不再挂载该组件。"""
+    def test_App与店铺页_平台切换移入页头(self):
         应用入口 = 读取文件("frontend/src/App.vue")
         店铺接口 = 读取文件("frontend/src/api/shops.ts")
         店铺类型 = 读取文件("frontend/src/api/types.ts")
@@ -49,20 +46,27 @@ class 测试_平台切换器前端接入:
         assert "listShops(platformStore.currentPlatform)" in 店铺页面
         assert "payload.platform = formPlatform.value" in 店铺页面
         assert "watch(() => platformStore.currentPlatform" in 店铺页面
-        assert 'class="header-actions"' in 店铺页面
-        assert 'class="platform-tabs"' in 店铺页面
-        assert 'class="platform-tab"' in 店铺页面
+        assert 'class="flex gap-1 rounded-md bg-gray-100 p-0.5"' in 店铺页面
+        assert "bg-white text-gray-900 shadow-sm rounded-md font-medium" in 店铺页面
+        assert "text-gray-500 hover:text-gray-700" in 店铺页面
         assert "platformStore.setPlatform(p.id)" in 店铺页面
+        assert "<style" not in 店铺页面
 
-    def test_平台选择器与侧边栏_改为灰色主题(self):
-        """备用选择器与侧边栏都应移除蓝色调。"""
+    def test_App主布局_保持灰白导航壳(self):
         应用入口 = 读取文件("frontend/src/App.vue")
-        平台选择器 = 读取文件("frontend/src/components/PlatformSelector.vue")
+        店铺卡片 = 读取文件("frontend/src/components/ShopCard.vue")
+        状态徽标 = 读取文件("frontend/src/components/StatusBadge.vue")
 
-        assert "background: #1e1e2e;" in 应用入口
-        assert "border-right: 1px solid #2e2e3e;" in 应用入口
-        assert "background: #2a2a3a;" in 应用入口
-        assert "background: #312e81;" in 应用入口
-        assert "background: #2a2a3a;" in 平台选择器
-        assert "border: 1px solid #3a3a4a;" in 平台选择器
-        assert "border-color: #4f46e5;" in 平台选择器
+        assert "useRoute" in 应用入口
+        assert "const navItems = [" in 应用入口
+        assert 'class="flex h-screen bg-gray-50"' in 应用入口
+        assert 'class="flex w-52 flex-shrink-0 flex-col border-r border-gray-200 bg-white"' in 应用入口
+        assert "route.path.startsWith(item.path)" in 应用入口
+        assert "'bg-gray-100 font-medium text-gray-900'" in 应用入口
+        assert "'text-gray-500 hover:bg-gray-50 hover:text-gray-700'" in 应用入口
+        assert 'class="flex-1 overflow-auto bg-gray-50"' in 应用入口
+        assert "<style" not in 应用入口
+        assert "background: #1e1e2e;" not in 应用入口
+        assert "#4f46e5" not in 应用入口
+        assert "<style" not in 店铺卡片
+        assert "<style" not in 状态徽标

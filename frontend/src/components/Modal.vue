@@ -1,135 +1,90 @@
 <script setup lang="ts">
+import {
+  Dialog,
+  DialogPanel,
+  DialogTitle,
+  TransitionChild,
+  TransitionRoot,
+} from '@headlessui/vue'
+
 interface Props {
   show: boolean
-  title: string
+  title?: string
   width?: string
 }
 
-withDefaults(defineProps<Props>(), {
-  width: '600px'
+const props = withDefaults(defineProps<Props>(), {
+  title: '',
+  width: '500px'
 })
 
 const emit = defineEmits<{
   close: []
 }>()
-
-const handleClose = () => {
-  emit('close')
-}
 </script>
 
 <template>
-  <Transition name="modal">
-    <div v-if="show" class="modal-overlay">
-      <div class="modal-container" :style="{ width }" @click.stop>
-        <div class="modal-header">
-          <h3>{{ title }}</h3>
-          <button class="close-btn" @click="handleClose">✕</button>
-        </div>
-        <div class="modal-body">
-          <slot />
-        </div>
-        <div class="modal-footer">
-          <slot name="footer" />
+  <TransitionRoot :show="props.show" as="template">
+    <Dialog class="relative z-50" @close="emit('close')">
+      <TransitionChild
+        as="template"
+        enter="ease-out duration-200"
+        enter-from="opacity-0"
+        enter-to="opacity-100"
+        leave="ease-in duration-150"
+        leave-from="opacity-100"
+        leave-to="opacity-0"
+      >
+        <div class="fixed inset-0 bg-black/30 backdrop-blur-sm" />
+      </TransitionChild>
+
+      <div class="fixed inset-0 overflow-y-auto">
+        <div class="flex min-h-full items-center justify-center p-4">
+          <TransitionChild
+            as="template"
+            enter="ease-out duration-200"
+            enter-from="scale-95 opacity-0"
+            enter-to="scale-100 opacity-100"
+            leave="ease-in duration-150"
+            leave-from="scale-100 opacity-100"
+            leave-to="scale-95 opacity-0"
+          >
+            <DialogPanel
+              class="modal-container flex max-h-[90vh] w-full flex-col overflow-hidden rounded-md border border-gray-200 bg-white shadow-lg"
+              :style="{ maxWidth: props.width || '500px' }"
+            >
+              <div
+                v-if="props.title"
+                class="modal-header flex items-center justify-between border-b border-gray-100 px-5 py-4"
+              >
+                <DialogTitle class="text-lg font-semibold text-gray-900">
+                  {{ props.title }}
+                </DialogTitle>
+                <button
+                  type="button"
+                  class="rounded-md p-1 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
+                  @click="emit('close')"
+                >
+                  <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+
+              <div class="modal-body flex-1 overflow-y-auto px-5 py-4 text-sm text-gray-600">
+                <slot />
+              </div>
+
+              <div
+                v-if="$slots.footer"
+                class="modal-footer flex items-center justify-end gap-2 border-t border-gray-100 px-5 py-3"
+              >
+                <slot name="footer" />
+              </div>
+            </DialogPanel>
+          </TransitionChild>
         </div>
       </div>
-    </div>
-  </Transition>
+    </Dialog>
+  </TransitionRoot>
 </template>
-
-<style scoped>
-.modal-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.7);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
-}
-
-.modal-container {
-  background: #1e1e2e;
-  border: 1px solid #2e2e3e;
-  border-radius: 8px;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-  max-height: 90vh;
-  display: flex;
-  flex-direction: column;
-}
-
-.modal-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 20px 24px;
-  border-bottom: 1px solid #2e2e3e;
-  background: #1e1e2e;
-}
-
-.modal-header h3 {
-  margin: 0;
-  font-size: var(--font-size-h3);
-  color: #e5e7eb;
-}
-
-.close-btn {
-  background: none;
-  border: none;
-  color: #a1a1aa;
-  font-size: 24px;
-  cursor: pointer;
-  padding: 0;
-  width: 32px;
-  height: 32px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 4px;
-  transition: all 0.2s;
-}
-
-.close-btn:hover {
-  background: #2a2a3a;
-  color: #f4f4f5;
-}
-
-.modal-body {
-  padding: var(--spacing-lg);
-  overflow-y: auto;
-  flex: 1;
-  background: #1e1e2e;
-}
-
-.modal-footer {
-  padding: 16px 24px;
-  border-top: 1px solid #2e2e3e;
-  display: flex;
-  justify-content: flex-end;
-  gap: 12px;
-  background: #1e1e2e;
-}
-
-.modal-enter-active,
-.modal-leave-active {
-  transition: opacity 0.3s ease;
-}
-
-.modal-enter-from,
-.modal-leave-to {
-  opacity: 0;
-}
-
-.modal-enter-active .modal-container,
-.modal-leave-active .modal-container {
-  transition: transform 0.3s ease;
-}
-
-.modal-enter-from .modal-container,
-.modal-leave-to .modal-container {
-  transform: scale(0.9);
-}
-</style>

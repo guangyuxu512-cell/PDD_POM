@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, computed } from 'vue'
-import { get, del } from '../api'
-import { toast } from '../utils/toast'
-import LogTable from '../components/LogTable.vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
+
+import { del, get } from '../api'
 import ConfirmDialog from '../components/ConfirmDialog.vue'
+import LogTable from '../components/LogTable.vue'
+import { toast } from '../utils/toast'
 
 interface Log {
   id: string
@@ -15,28 +16,34 @@ interface Log {
   shop_name?: string
 }
 
+const props = withDefaults(defineProps<{ showTitle?: boolean }>(), {
+  showTitle: true,
+})
+
 const allLogs = ref<Log[]>([])
 const filters = ref({
   shop: '',
   level: '',
   source: '',
-  keyword: ''
+  keyword: '',
 })
 const currentPage = ref(1)
 const pageSize = ref(20)
 const realtimeMode = ref(false)
 const loading = ref(false)
 const showClearConfirm = ref(false)
+const inputClass =
+  'rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-gray-400 focus:outline-none focus:ring-1 focus:ring-gray-400'
+const secondaryButtonClass =
+  'rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm text-gray-700 transition hover:bg-gray-50'
+const dangerButtonClass =
+  'rounded-md bg-rose-600 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-rose-700'
+
 let realtimeInterval: number | null = null
 
-const props = withDefaults(defineProps<{ showTitle?: boolean }>(), {
-  showTitle: true,
-})
-
-// 获取所有店铺列表（用于筛选）
 const shopList = computed(() => {
   const shops = new Set<string>()
-  allLogs.value.forEach(log => {
+  allLogs.value.forEach((log) => {
     if (log.shop_name) {
       shops.add(log.shop_name)
     }
@@ -48,18 +55,16 @@ const filteredLogs = computed(() => {
   let result = allLogs.value
 
   if (filters.value.shop) {
-    result = result.filter(log => log.shop_name === filters.value.shop)
+    result = result.filter((log) => log.shop_name === filters.value.shop)
   }
   if (filters.value.level) {
-    result = result.filter(log => log.level === filters.value.level)
+    result = result.filter((log) => log.level === filters.value.level)
   }
   if (filters.value.source) {
-    result = result.filter(log => log.source === filters.value.source)
+    result = result.filter((log) => log.source === filters.value.source)
   }
   if (filters.value.keyword) {
-    result = result.filter(log =>
-      log.message.toLowerCase().includes(filters.value.keyword.toLowerCase())
-    )
+    result = result.filter((log) => log.message.toLowerCase().includes(filters.value.keyword.toLowerCase()))
   }
 
   return result
@@ -71,14 +76,12 @@ const paginatedLogs = computed(() => {
   return filteredLogs.value.slice(start, end)
 })
 
-const totalPages = computed(() => {
-  return Math.ceil(filteredLogs.value.length / pageSize.value)
-})
+const totalPages = computed(() => Math.max(1, Math.ceil(filteredLogs.value.length / pageSize.value)))
 
 const loadLogs = async () => {
   loading.value = true
   try {
-    const result = await get<{list: Log[], total: number}>('/api/logs/')
+    const result = await get<{ list: Log[]; total: number }>('/api/logs/')
     allLogs.value = result.list
   } finally {
     loading.value = false
@@ -95,17 +98,15 @@ const handleClearLogs = async () => {
     showClearConfirm.value = false
     toast.success('日志已清空')
     await loadLogs()
-  } catch (e: any) {
-    toast.error('清空失败: ' + (e.message || e))
+  } catch (error: any) {
+    toast.error('清空失败: ' + (error.message || error))
   }
 }
 
 const handleExport = () => {
   const csv = [
     ['时间', '店铺', '级别', '来源', '内容'].join(','),
-    ...filteredLogs.value.map(log =>
-      [log.timestamp, log.shop_name || '', log.level, log.source, log.message].join(',')
-    )
+    ...filteredLogs.value.map((log) => [log.timestamp, log.shop_name || '', log.level, log.source, log.message].join(',')),
   ].join('\n')
 
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
@@ -122,11 +123,9 @@ const toggleRealtimeMode = () => {
     realtimeInterval = window.setInterval(() => {
       loadLogs()
     }, 3000)
-  } else {
-    if (realtimeInterval) {
-      clearInterval(realtimeInterval)
-      realtimeInterval = null
-    }
+  } else if (realtimeInterval) {
+    clearInterval(realtimeInterval)
+    realtimeInterval = null
   }
 }
 
@@ -140,34 +139,38 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="log-viewer">
-    <div class="header">
-      <h1 v-if="props.showTitle">日志查看</h1>
-      <div class="header-actions">
-        <button class="btn btn-secondary" @click="handleExport">📥 导出CSV</button>
-        <button class="btn btn-danger" @click="showClearConfirm = true">🗑️ 清空日志</button>
+  <div class="space-y-6">
+    <div class="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+      <div v-if="props.showTitle" class="space-y-1">
+        <h1 class="text-lg font-semibold text-gray-900">日志查看</h1>
+        <p class="text-xs text-gray-500">支持按店铺、级别、来源和关键词筛选，并可切换实时刷新。</p>
+      </div>
+
+      <div class="flex flex-wrap gap-2">
+        <button type="button" :class="secondaryButtonClass" @click="handleExport">导出 CSV</button>
+        <button type="button" :class="dangerButtonClass" @click="showClearConfirm = true">清空日志</button>
         <button
-          class="btn"
-          :class="realtimeMode ? 'btn-danger' : 'btn-secondary'"
+          type="button"
+          :class="realtimeMode ? dangerButtonClass : secondaryButtonClass"
           @click="toggleRealtimeMode"
         >
-          🔴 实时模式 {{ realtimeMode ? 'ON' : 'OFF' }}
+          实时模式 {{ realtimeMode ? 'ON' : 'OFF' }}
         </button>
       </div>
     </div>
 
-    <div class="filters">
-      <select v-model="filters.shop" class="filter-select">
+    <div class="grid gap-3 rounded-md border border-gray-200 bg-white p-4 shadow-sm lg:grid-cols-[repeat(3,minmax(0,1fr))_minmax(0,1.4fr)_auto]">
+      <select v-model="filters.shop" :class="inputClass">
         <option value="">全部店铺</option>
         <option v-for="shop in shopList" :key="shop" :value="shop">{{ shop }}</option>
       </select>
-      <select v-model="filters.level" class="filter-select">
+      <select v-model="filters.level" :class="inputClass">
         <option value="">全部级别</option>
         <option value="INFO">INFO</option>
         <option value="WARN">WARN</option>
         <option value="ERROR">ERROR</option>
       </select>
-      <select v-model="filters.source" class="filter-select">
+      <select v-model="filters.source" :class="inputClass">
         <option value="">全部来源</option>
         <option value="task">任务</option>
         <option value="browser">浏览器</option>
@@ -176,39 +179,29 @@ onUnmounted(() => {
       </select>
       <input
         v-model="filters.keyword"
+        :class="inputClass"
         type="text"
         placeholder="关键词搜索..."
-        class="filter-input"
         @keyup.enter="handleSearch"
       />
-      <button class="btn btn-primary" @click="handleSearch">搜索</button>
+      <button type="button" class="rounded-md bg-gray-900 px-3 py-2 text-sm font-medium text-white transition hover:bg-gray-800" @click="handleSearch">
+        搜索
+      </button>
     </div>
 
     <LogTable :logs="paginatedLogs" :loading="loading" show-shop />
 
-    <div class="pagination">
-      <button
-        class="btn-page"
-        :disabled="currentPage === 1"
-        @click="currentPage--"
-      >
-        上一页
-      </button>
-      <span class="page-info">
-        第 {{ currentPage }} / {{ totalPages }} 页，共 {{ filteredLogs.length }} 条
-      </span>
-      <button
-        class="btn-page"
-        :disabled="currentPage === totalPages"
-        @click="currentPage++"
-      >
-        下一页
-      </button>
+    <div class="flex flex-col gap-3 rounded-md border border-gray-200 bg-white px-4 py-3 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+      <span class="text-xs text-gray-500">第 {{ currentPage }} / {{ totalPages }} 页，共 {{ filteredLogs.length }} 条</span>
+      <div class="flex gap-2">
+        <button type="button" :class="secondaryButtonClass" :disabled="currentPage === 1" @click="currentPage--">上一页</button>
+        <button type="button" :class="secondaryButtonClass" :disabled="currentPage >= totalPages" @click="currentPage++">下一页</button>
+      </div>
     </div>
 
     <ConfirmDialog
       :show="showClearConfirm"
-      title="确认清空"
+      title="清空日志"
       message="确定要清空所有日志吗？此操作不可恢复。"
       type="danger"
       @confirm="handleClearLogs"
@@ -216,134 +209,3 @@ onUnmounted(() => {
     />
   </div>
 </template>
-
-<style scoped>
-.log-viewer {
-  color: #1a1a2e;
-}
-
-.header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: var(--spacing-lg);
-  flex-wrap: wrap;
-  gap: 16px;
-}
-
-h1 {
-  font-size: var(--font-size-h1);
-  margin: 0;
-  color: #1a1a2e;
-}
-
-.header-actions {
-  display: flex;
-  gap: 12px;
-  flex-wrap: wrap;
-}
-
-.btn {
-  padding: 10px 20px;
-  border: none;
-  border-radius: 6px;
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s;
-  white-space: nowrap;
-}
-
-.btn-primary {
-  background: #3b82f6;
-  color: white;
-}
-
-.btn-primary:hover {
-  background: #2563eb;
-}
-
-.btn-secondary {
-  background: #f3f4f6;
-  color: #1a1a2e;
-}
-
-.btn-secondary:hover {
-  background: #e5e7eb;
-}
-
-.btn-danger {
-  background: #ef4444;
-  color: white;
-}
-
-.btn-danger:hover {
-  background: #dc2626;
-}
-
-.filters {
-  display: flex;
-  gap: 12px;
-  margin-bottom: 20px;
-  flex-wrap: wrap;
-}
-
-.filter-select,
-.filter-input {
-  padding: 10px;
-  background: white;
-  border: 1px solid #e5e7eb;
-  border-radius: 6px;
-  color: #1a1a2e;
-  font-size: 14px;
-}
-
-.filter-select {
-  min-width: 150px;
-}
-
-.filter-input {
-  flex: 1;
-  min-width: 200px;
-}
-
-.filter-select:focus,
-.filter-input:focus {
-  outline: none;
-  border-color: #3b82f6;
-}
-
-.pagination {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  gap: 16px;
-  margin-top: 20px;
-  flex-wrap: wrap;
-}
-
-.btn-page {
-  padding: 8px 16px;
-  background: #f3f4f6;
-  border: none;
-  border-radius: 6px;
-  color: #1a1a2e;
-  font-size: 14px;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.btn-page:hover:not(:disabled) {
-  background: #e5e7eb;
-}
-
-.btn-page:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.page-info {
-  color: #6b7280;
-  font-size: 14px;
-}
-</style>

@@ -30,118 +30,47 @@ const getRuntime = (createdAt: string) => {
 </script>
 
 <template>
-  <div class="instance-card">
-    <div class="instance-header">
-      <div class="instance-title">
-        <span class="status-dot" :class="instance.status"></span>
-        <span class="shop-name">{{ instance.shop_name || instance.shop_id }}</span>
+  <div class="rounded-md border border-gray-200 bg-white p-4 shadow-sm">
+    <div class="flex items-start justify-between gap-3">
+      <div class="space-y-1">
+        <div class="flex items-center gap-2">
+          <span
+            :class="[
+              'h-2 w-2 rounded-full',
+              instance.status === 'running' ? 'bg-emerald-500' : 'bg-gray-300',
+            ]"
+          />
+          <p class="text-sm font-medium text-gray-900">
+            {{ instance.shop_name || instance.shop_id }}
+          </p>
+        </div>
+        <p class="text-xs text-gray-500">
+          {{ instance.status === 'running' ? '运行中' : '空闲' }}
+        </p>
       </div>
-      <span class="instance-status">{{ instance.status === 'running' ? '运行中' : '空闲' }}</span>
+
+      <button
+        type="button"
+        class="rounded-md bg-rose-600 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-rose-700"
+        @click="emit('close', instance.shop_id)"
+      >
+        关闭
+      </button>
     </div>
-    <div class="instance-info">
-      <div class="info-item">
-        <span class="label">运行时长：</span>
-        <span>{{ getRuntime(instance.created_at) }}</span>
+
+    <dl class="mt-4 grid gap-3 sm:grid-cols-3">
+      <div>
+        <dt class="text-xs text-gray-500">运行时长</dt>
+        <dd class="mt-1 font-mono text-sm text-gray-900">{{ getRuntime(instance.created_at) }}</dd>
       </div>
-      <div class="info-item">
-        <span class="label">内存：</span>
-        <span>{{ instance.memory_usage || '-' }}</span>
+      <div>
+        <dt class="text-xs text-gray-500">内存</dt>
+        <dd class="mt-1 font-mono text-sm text-gray-900">{{ instance.memory_usage || '-' }}</dd>
       </div>
-      <div class="info-item">
-        <span class="label">CPU：</span>
-        <span>{{ instance.cpu_usage || '-' }}</span>
+      <div>
+        <dt class="text-xs text-gray-500">CPU</dt>
+        <dd class="mt-1 font-mono text-sm text-gray-900">{{ instance.cpu_usage || '-' }}</dd>
       </div>
-    </div>
-    <div class="instance-actions">
-      <button class="btn-close" @click="emit('close', instance.shop_id)">关闭</button>
-    </div>
+    </dl>
   </div>
 </template>
-
-<style scoped>
-.instance-card {
-  background: #16213e;
-  border-radius: var(--radius-md);
-  padding: 20px;
-  border: 1px solid #0f3460;
-  transition: all 0.2s;
-}
-
-.instance-card:hover {
-  border-color: #3b82f6;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-}
-
-.instance-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 16px;
-  padding-bottom: 12px;
-  border-bottom: 1px solid #0f3460;
-}
-
-.instance-title {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.status-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: #4ade80;
-}
-
-.status-dot.idle {
-  background: #9ca3af;
-}
-
-.shop-name {
-  font-size: 16px;
-  font-weight: 600;
-}
-
-.instance-status {
-  font-size: 12px;
-  color: #a0a0a0;
-}
-
-.instance-info {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.info-item {
-  display: flex;
-  font-size: 14px;
-}
-
-.label {
-  color: #a0a0a0;
-  min-width: 80px;
-}
-
-.instance-actions {
-  margin-top: 12px;
-  padding-top: 12px;
-  border-top: 1px solid #0f3460;
-}
-
-.btn-close {
-  padding: 6px 16px;
-  background: #7f1d1d;
-  border: none;
-  border-radius: 4px;
-  color: #e0e0e0;
-  font-size: 12px;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.btn-close:hover {
-  background: #991b1b;
-}
-</style>

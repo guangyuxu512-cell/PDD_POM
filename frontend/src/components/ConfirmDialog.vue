@@ -1,4 +1,13 @@
 <script setup lang="ts">
+import {
+  Dialog,
+  DialogPanel,
+  DialogTitle,
+  TransitionChild,
+  TransitionRoot,
+} from '@headlessui/vue'
+import { computed } from 'vue'
+
 interface Props {
   show: boolean
   title: string
@@ -8,151 +17,112 @@ interface Props {
   type?: 'danger' | 'warning' | 'info'
 }
 
-withDefaults(defineProps<Props>(), {
+const props = withDefaults(defineProps<Props>(), {
   confirmText: '确认',
   cancelText: '取消',
   type: 'warning'
 })
 
 const emit = defineEmits<{
+  close: []
   confirm: []
   cancel: []
 }>()
+
+const iconToneClasses = computed(() => {
+  if (props.type === 'danger') {
+    return 'border-rose-200 bg-rose-50 text-rose-600'
+  }
+
+  if (props.type === 'warning') {
+    return 'border-amber-200 bg-amber-50 text-amber-600'
+  }
+
+  return 'border-gray-200 bg-gray-50 text-gray-600'
+})
+
+const confirmButtonClasses = computed(() => {
+  const baseClasses =
+    'rounded-md px-4 py-2 text-sm font-medium transition-colors focus:outline-none'
+
+  if (props.type === 'danger') {
+    return `${baseClasses} bg-rose-600 text-white hover:bg-rose-700`
+  }
+
+  return `${baseClasses} bg-gray-900 text-white hover:bg-gray-800`
+})
+
+function handleClose() {
+  emit('close')
+  emit('cancel')
+}
 </script>
 
 <template>
-  <Transition name="modal">
-    <div v-if="show" class="modal-overlay" @click="emit('cancel')">
-      <div class="confirm-container" @click.stop>
-        <div class="confirm-icon" :class="type">
-          <span v-if="type === 'danger'">⚠️</span>
-          <span v-else-if="type === 'warning'">⚠️</span>
-          <span v-else>ℹ️</span>
-        </div>
-        <h3>{{ title }}</h3>
-        <p>{{ message }}</p>
-        <div class="confirm-actions">
-          <button class="btn btn-secondary" @click="emit('cancel')">
-            {{ cancelText }}
-          </button>
-          <button class="btn" :class="`btn-${type}`" @click="emit('confirm')">
-            {{ confirmText }}
-          </button>
+  <TransitionRoot :show="props.show" as="template">
+    <Dialog class="relative z-50" @close="handleClose">
+      <TransitionChild
+        as="template"
+        enter="ease-out duration-200"
+        enter-from="opacity-0"
+        enter-to="opacity-100"
+        leave="ease-in duration-150"
+        leave-from="opacity-100"
+        leave-to="opacity-0"
+      >
+        <div class="fixed inset-0 bg-black/30 backdrop-blur-sm" />
+      </TransitionChild>
+
+      <div class="fixed inset-0 overflow-y-auto">
+        <div class="flex min-h-full items-center justify-center p-4">
+          <TransitionChild
+            as="template"
+            enter="ease-out duration-200"
+            enter-from="scale-95 opacity-0"
+            enter-to="scale-100 opacity-100"
+            leave="ease-in duration-150"
+            leave-from="scale-100 opacity-100"
+            leave-to="scale-95 opacity-0"
+          >
+            <DialogPanel
+              class="confirm-container w-full max-w-md rounded-md border border-gray-200 bg-white shadow-lg"
+            >
+              <div class="flex flex-col gap-4 px-5 py-5">
+                <div
+                  :class="[
+                    'mx-auto flex h-12 w-12 items-center justify-center rounded-full border text-lg font-semibold',
+                    iconToneClasses,
+                  ]"
+                >
+                  <span>{{ props.type === 'info' ? 'i' : '!' }}</span>
+                </div>
+
+                <div class="space-y-2 text-center">
+                  <DialogTitle class="text-lg font-semibold text-gray-900">
+                    {{ props.title }}
+                  </DialogTitle>
+                  <p class="text-sm leading-6 text-gray-600">
+                    {{ props.message }}
+                  </p>
+                </div>
+              </div>
+
+              <div class="flex items-center justify-center gap-2 border-t border-gray-100 px-5 py-3">
+                <button
+                  type="button"
+                  class="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
+                  @click="handleClose"
+                >
+                  {{ props.cancelText }}
+                </button>
+                <button type="button" :class="confirmButtonClasses" @click="emit('confirm')">
+                  {{ props.confirmText }}
+                </button>
+              </div>
+            </DialogPanel>
+          </TransitionChild>
         </div>
       </div>
-    </div>
-  </Transition>
+    </Dialog>
+  </TransitionRoot>
 </template>
-
-<style scoped>
-.modal-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.7);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
-}
-
-.confirm-container {
-  background: #16213e;
-  border-radius: 8px;
-  padding: 32px;
-  width: 400px;
-  text-align: center;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
-}
-
-.confirm-icon {
-  font-size: 48px;
-  margin-bottom: 16px;
-}
-
-.confirm-container h3 {
-  margin: 0 0 12px 0;
-  font-size: 20px;
-  color: #e0e0e0;
-}
-
-.confirm-container p {
-  margin: 0 0 24px 0;
-  color: #a0a0a0;
-  line-height: 1.5;
-}
-
-.confirm-actions {
-  display: flex;
-  gap: 12px;
-  justify-content: center;
-}
-
-.btn {
-  padding: 10px 24px;
-  border: none;
-  border-radius: 6px;
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.btn-secondary {
-  background: #0f3460;
-  color: #e0e0e0;
-}
-
-.btn-secondary:hover {
-  background: #1a4d7a;
-}
-
-.btn-danger {
-  background: #ef4444;
-  color: white;
-}
-
-.btn-danger:hover {
-  background: #dc2626;
-}
-
-.btn-warning {
-  background: #f59e0b;
-  color: white;
-}
-
-.btn-warning:hover {
-  background: #d97706;
-}
-
-.btn-info {
-  background: #3b82f6;
-  color: white;
-}
-
-.btn-info:hover {
-  background: #2563eb;
-}
-
-.modal-enter-active,
-.modal-leave-active {
-  transition: opacity 0.3s ease;
-}
-
-.modal-enter-from,
-.modal-leave-to {
-  opacity: 0;
-}
-
-.modal-enter-active .confirm-container,
-.modal-leave-active .confirm-container {
-  transition: transform 0.3s ease;
-}
-
-.modal-enter-from .confirm-container,
-.modal-leave-to .confirm-container {
-  transform: scale(0.9);
-}
-</style>

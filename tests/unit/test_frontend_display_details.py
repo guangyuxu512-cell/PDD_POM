@@ -12,17 +12,16 @@ def 读取文件(相对路径: str) -> str:
 
 
 class 测试_前端显示细节:
-    """校验流程页和店铺页的显示细节。"""
+    """校验流程页和店铺页的关键显示细节。"""
 
-    def test_流程页_失败策略显示中文_任务下拉不拼描述(self):
-        """失败策略应中文显示，任务下拉只显示任务名。"""
+    def test_流程页失败策略显示中文且任务下拉仅显示任务名(self):
         流程页 = 读取文件("frontend/src/views/FlowManage.vue")
 
         for 原值, 中文标签 in {
             "skip_shop": "跳过该店铺",
             "continue": "继续执行",
             "log_and_skip": "记录并跳过",
-            "retry:N": "重试N次",
+            "retry:N": "重试 N 次",
             "abort": "终止全部",
         }.items():
             assert f"value: '{原值}'" in 流程页
@@ -30,13 +29,14 @@ class 测试_前端显示细节:
 
         assert "{{ task.name }} · {{ task.description }}" not in 流程页
         assert "{{ task.name }}" in 流程页
-        assert 'class="field-hint"' in 流程页
+        assert 'class="field-hint text-xs text-gray-500"' in 流程页
         assert "getTaskDescription(step.task)" in 流程页
         assert "step.barrier" in 流程页
         assert "step.merge" in 流程页
+        assert '<Listbox v-model="step.task">' in 流程页
+        assert "<select" not in 流程页
 
-    def test_店铺页_编辑密码字段不回显(self):
-        """编辑店铺时密码输入框应为 password 且提示留空不修改。"""
+    def test_店铺页编辑密码字段不回显(self):
         店铺页 = 读取文件("frontend/src/views/ShopManage.vue")
 
         assert 'v-model="formData.password"' in 店铺页

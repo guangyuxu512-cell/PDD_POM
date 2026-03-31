@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
-import { get, put, post } from '../api'
+import { onMounted, ref } from 'vue'
+
+import { get, post, put } from '../api'
 import { toast } from '../utils/toast'
 
 interface SystemConfig {
@@ -18,6 +19,10 @@ interface SystemConfig {
   max_browser_instances: number
 }
 
+interface RedisTestResult {
+  latency_ms: number
+}
+
 const config = ref<SystemConfig>({
   redis_url: '',
   agent_machine_id: '',
@@ -30,15 +35,17 @@ const config = ref<SystemConfig>({
   captcha_api_key: '',
   default_proxy: '',
   chrome_path: '',
-  max_browser_instances: 5
+  max_browser_instances: 5,
 })
-
 const testingRedis = ref(false)
 const testingFeishu = ref(false)
-
-interface RedisTestResult {
-  latency_ms: number
-}
+const inputClass =
+  'w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-gray-400 focus:outline-none focus:ring-1 focus:ring-gray-400'
+const sectionClass = 'rounded-md border border-gray-200 bg-white p-5 shadow-sm'
+const secondaryButtonClass =
+  'rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60'
+const primaryButtonClass =
+  'rounded-md bg-gray-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-gray-800'
 
 const loadConfig = async () => {
   const data = await get<any>('/api/system/config')
@@ -54,7 +61,7 @@ const loadConfig = async () => {
     captcha_api_key: data.captcha_api_key || '',
     default_proxy: data.default_proxy || '',
     chrome_path: data.chrome_path || '',
-    max_browser_instances: data.max_browser_instances || 5
+    max_browser_instances: data.max_browser_instances || 5,
   }
 }
 
@@ -67,7 +74,7 @@ const testRedis = async () => {
   testingRedis.value = true
   try {
     const result = await post<RedisTestResult>('/api/system/test-redis', {
-      redis_url: config.value.redis_url
+      redis_url: config.value.redis_url,
     })
     toast.success(`Redis 连接成功，延迟 ${result.latency_ms} ms`)
   } catch (error: any) {
@@ -80,7 +87,7 @@ const testRedis = async () => {
 const testCaptcha = async () => {
   await post('/api/system/test-captcha', {
     provider: config.value.captcha_provider,
-    api_key: config.value.captcha_api_key
+    api_key: config.value.captcha_api_key,
   })
   alert('验证码服务测试成功')
 }
@@ -89,7 +96,7 @@ const testFeishuWebhook = async () => {
   testingFeishu.value = true
   try {
     await post('/api/feishu/test-webhook', {
-      webhook_url: config.value.feishu_webhook_url
+      webhook_url: config.value.feishu_webhook_url,
     })
     toast.success('飞书 Webhook 测试成功')
   } catch (error: any) {
@@ -102,265 +109,161 @@ const testFeishuWebhook = async () => {
 const healthCheck = async () => {
   const health = await get<any>('/api/system/health')
   const status = health.status === 'healthy' ? '健康' : '异常'
-  alert(`系统状态：${status}\n运行时长：${Math.floor(health.uptime / 3600)}小时\nCPU：${health.cpu_usage}\n内存：${health.memory_usage}`)
+  alert(
+    `系统状态：${status}\n运行时长：${Math.floor(health.uptime / 3600)} 小时\nCPU：${health.cpu_usage}\n内存：${health.memory_usage}`,
+  )
 }
 
 onMounted(loadConfig)
 </script>
 
 <template>
-  <div class="settings">
-    <h1>系统设置</h1>
+  <div class="mx-auto max-w-5xl space-y-6">
+    <div class="space-y-1">
+      <h1 class="text-lg font-semibold text-gray-900">系统设置</h1>
+      <p class="text-xs text-gray-500">集中维护 Redis、机器码、验证码服务、飞书通知与浏览器基础配置。</p>
+    </div>
 
-    <div class="settings-container">
-      <form class="settings-form" @submit.prevent="handleSave">
-        <div class="form-section">
-          <h3>基础配置</h3>
-          <div class="form-group">
-            <label>Redis 地址</label>
-            <input v-model="config.redis_url" type="text" placeholder="redis://192.168.1.100:6379" required />
-            <button type="button" class="btn-test" :disabled="testingRedis" @click="testRedis">
+    <form class="space-y-6" @submit.prevent="handleSave">
+      <section :class="sectionClass">
+        <div class="space-y-1">
+          <h2 class="text-lg font-semibold text-gray-900">基础配置</h2>
+          <p class="text-xs text-gray-500">这些配置会影响 Worker 通信、浏览器初始化和默认网络环境。</p>
+        </div>
+
+        <div class="mt-5 grid gap-4 md:grid-cols-2">
+          <div class="space-y-2 md:col-span-2">
+            <label class="text-xs font-medium text-gray-600">Redis 地址</label>
+            <input v-model="config.redis_url" :class="inputClass" type="text" placeholder="redis://192.168.1.100:6379" required />
+            <button type="button" :class="secondaryButtonClass" :disabled="testingRedis" @click="testRedis">
               {{ testingRedis ? '测试中...' : '测试连接' }}
             </button>
           </div>
 
-          <div class="form-group">
-            <label>机器码</label>
-            <input v-model="config.agent_machine_id" type="text" placeholder="例如: office-pc-001" />
-            <span class="hint">用于标识当前机器的 Celery Worker 队列名称，修改后需重启 Worker 生效</span>
+          <div class="space-y-2">
+            <label class="text-xs font-medium text-gray-600">机器码</label>
+            <input v-model="config.agent_machine_id" :class="inputClass" type="text" placeholder="例如: office-pc-001" />
+            <p class="text-xs leading-5 text-gray-500">用于标识当前机器的 Celery Worker 队列名称，修改后需重启 Worker 生效</p>
           </div>
 
-          <div class="form-group">
-            <label>最大浏览器实例数</label>
-            <input v-model.number="config.max_browser_instances" type="number" min="1" max="10" required />
+          <div class="space-y-2">
+            <label class="text-xs font-medium text-gray-600">最大浏览器实例数</label>
+            <input v-model.number="config.max_browser_instances" :class="inputClass" type="number" min="1" max="10" required />
           </div>
 
-          <div class="form-group">
-            <label>Chrome 路径</label>
-            <input v-model="config.chrome_path" type="text" placeholder="留空使用系统默认" />
+          <div class="space-y-2">
+            <label class="text-xs font-medium text-gray-600">Chrome 路径</label>
+            <input v-model="config.chrome_path" :class="inputClass" type="text" placeholder="留空使用系统默认" />
           </div>
 
-          <div class="form-group">
-            <label>默认代理</label>
-            <input v-model="config.default_proxy" type="text" placeholder="127.0.0.1:7890" />
+          <div class="space-y-2">
+            <label class="text-xs font-medium text-gray-600">默认代理</label>
+            <input v-model="config.default_proxy" :class="inputClass" type="text" placeholder="127.0.0.1:7890" />
           </div>
         </div>
+      </section>
 
-        <div class="form-section">
-          <h3>验证码服务</h3>
-          <div class="form-group">
-            <label>服务商</label>
-            <select v-model="config.captcha_provider" required>
+      <section :class="sectionClass">
+        <div class="space-y-1">
+          <h2 class="text-lg font-semibold text-gray-900">验证码服务</h2>
+          <p class="text-xs text-gray-500">配置当前使用的验证码平台并验证 API Key 是否可用。</p>
+        </div>
+
+        <div class="mt-5 grid gap-4 md:grid-cols-2">
+          <div class="space-y-2">
+            <label class="text-xs font-medium text-gray-600">服务商</label>
+            <select v-model="config.captcha_provider" :class="inputClass" required>
               <option value="yescaptcha">YesCaptcha</option>
               <option value="2captcha">2Captcha</option>
               <option value="anticaptcha">AntiCaptcha</option>
             </select>
           </div>
 
-          <div class="form-group">
-            <label>API 密钥</label>
-            <input v-model="config.captcha_api_key" type="password" placeholder="验证码服务 API Key" />
-            <button type="button" class="btn-test" @click="testCaptcha">测试验证码</button>
+          <div class="space-y-2">
+            <label class="text-xs font-medium text-gray-600">API 密钥</label>
+            <input v-model="config.captcha_api_key" :class="inputClass" type="password" placeholder="验证码服务 API Key" />
+            <button type="button" :class="secondaryButtonClass" @click="testCaptcha">测试验证码</button>
           </div>
         </div>
+      </section>
 
-        <div class="form-section">
-          <h3>飞书配置</h3>
-          <div class="form-group">
-            <label>Webhook 地址</label>
+      <section :class="sectionClass">
+        <div class="space-y-1">
+          <h2 class="text-lg font-semibold text-gray-900">飞书配置</h2>
+          <p class="text-xs text-gray-500">用于通知推送和多维表格回填，按需填写即可。</p>
+        </div>
+
+        <div class="mt-5 grid gap-4 md:grid-cols-2">
+          <div class="space-y-2 md:col-span-2">
+            <label class="text-xs font-medium text-gray-600">Webhook 地址</label>
             <input
               v-model="config.feishu_webhook_url"
+              :class="inputClass"
               type="text"
               placeholder="https://open.feishu.cn/open-apis/bot/v2/hook/xxx"
             />
-            <button type="button" class="btn-test" :disabled="testingFeishu" @click="testFeishuWebhook">
+            <button type="button" :class="secondaryButtonClass" :disabled="testingFeishu" @click="testFeishuWebhook">
               {{ testingFeishu ? '测试中...' : '测试 Webhook' }}
             </button>
-            <span class="hint">飞书群机器人的 Webhook 地址，用于发送通知</span>
+            <p class="text-xs leading-5 text-gray-500">飞书群机器人的 Webhook 地址，用于发送通知</p>
           </div>
 
-          <div class="form-group">
-            <label>App ID</label>
+          <div class="space-y-2">
+            <label class="text-xs font-medium text-gray-600">App ID</label>
             <input
               v-model="config.feishu_app_id"
+              :class="inputClass"
               type="text"
-              placeholder="cli_xxxxxxxxx（多维表格回写用，不需要可留空）"
+              placeholder="cli_xxxxxxxxx（多维表格回调用，不需要可留空）"
             />
           </div>
 
-          <div class="form-group">
-            <label>App Secret</label>
+          <div class="space-y-2">
+            <label class="text-xs font-medium text-gray-600">App Secret</label>
             <input
               v-model="config.feishu_app_secret"
+              :class="inputClass"
               type="password"
               placeholder="飞书应用密钥（不需要可留空）"
             />
           </div>
 
-          <div class="form-group">
-            <label>多维表格 App Token</label>
+          <div class="space-y-2">
+            <label class="text-xs font-medium text-gray-600">多维表格 App Token</label>
             <input
               v-model="config.feishu_bitable_app_token"
+              :class="inputClass"
               type="text"
               placeholder="bascnxxxxxxxxx（不需要可留空）"
             />
           </div>
 
-          <div class="form-group">
-            <label>多维表格 Table ID</label>
+          <div class="space-y-2">
+            <label class="text-xs font-medium text-gray-600">多维表格 Table ID</label>
             <input
               v-model="config.feishu_bitable_table_id"
+              :class="inputClass"
               type="text"
               placeholder="tblxxxxxxxxx（不需要可留空）"
             />
           </div>
         </div>
+      </section>
 
-        <div class="form-section">
-          <h3>系统监控</h3>
-          <button type="button" class="btn btn-secondary" @click="healthCheck">健康检查</button>
+      <section :class="sectionClass">
+        <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div class="space-y-1">
+            <h2 class="text-lg font-semibold text-gray-900">系统监控</h2>
+            <p class="text-xs text-gray-500">快速查看当前服务健康状态和系统资源信息。</p>
+          </div>
+          <button type="button" :class="secondaryButtonClass" @click="healthCheck">健康检查</button>
         </div>
+      </section>
 
-        <div class="form-actions">
-          <button type="submit" class="btn btn-primary btn-large">保存配置</button>
-        </div>
-      </form>
-    </div>
+      <div class="flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <p class="text-xs text-gray-500">保存后，涉及连接参数和机器标识的改动需要重启相关服务才会生效。</p>
+        <button type="submit" :class="primaryButtonClass">保存配置</button>
+      </div>
+    </form>
   </div>
 </template>
-
-<style scoped>
-.settings {
-  color: #1a1a2e;
-}
-
-h1 {
-  font-size: 28px;
-  margin-bottom: 24px;
-  color: #1a1a2e;
-}
-
-h3 {
-  font-size: 18px;
-  margin-bottom: 16px;
-  color: #1a1a2e;
-}
-
-.settings-container {
-  max-width: 800px;
-}
-
-.settings-form {
-  display: flex;
-  flex-direction: column;
-  gap: 32px;
-}
-
-.form-section {
-  background: white;
-  border-radius: 12px;
-  padding: 24px;
-  border: 1px solid #e5e7eb;
-}
-
-.form-group {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  margin-bottom: 20px;
-  position: relative;
-}
-
-.form-group:last-child {
-  margin-bottom: 0;
-}
-
-.form-group label {
-  font-size: 14px;
-  color: #6b7280;
-  font-weight: 500;
-}
-
-.hint {
-  font-size: 12px;
-  color: #6b7280;
-  line-height: 1.5;
-}
-
-.form-group input,
-.form-group select {
-  padding: 12px;
-  background: white;
-  border: 1px solid #e5e7eb;
-  border-radius: 6px;
-  color: #1a1a2e;
-  font-size: 14px;
-}
-
-.form-group input:focus,
-.form-group select:focus {
-  outline: none;
-  border-color: #3b82f6;
-}
-
-.btn-test {
-  margin-top: 8px;
-  padding: 8px 16px;
-  background: #f3f4f6;
-  border: none;
-  border-radius: 6px;
-  color: #1a1a2e;
-  font-size: 13px;
-  cursor: pointer;
-  transition: all 0.2s;
-  align-self: flex-start;
-}
-
-.btn-test:hover {
-  background: #e5e7eb;
-}
-
-.btn-test:disabled {
-  cursor: not-allowed;
-  opacity: 0.7;
-}
-
-.btn {
-  padding: 10px 20px;
-  border: none;
-  border-radius: 6px;
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.btn-primary {
-  background: #3b82f6;
-  color: white;
-}
-
-.btn-primary:hover {
-  background: #2563eb;
-}
-
-.btn-secondary {
-  background: #f3f4f6;
-  color: #1a1a2e;
-}
-
-.btn-secondary:hover {
-  background: #e5e7eb;
-}
-
-.btn-large {
-  padding: 14px 32px;
-  font-size: 16px;
-}
-
-.form-actions {
-  display: flex;
-  justify-content: center;
-  padding-top: 8px;
-}
-</style>

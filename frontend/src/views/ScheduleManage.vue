@@ -1,4 +1,15 @@
 <script setup lang="ts">
+import {
+  Listbox,
+  ListboxButton,
+  ListboxOption,
+  ListboxOptions,
+  Tab,
+  TabGroup,
+  TabList,
+  TabPanel,
+  TabPanels,
+} from '@headlessui/vue'
 import { computed, onMounted, ref } from 'vue'
 
 import ConfirmDialog from '../components/ConfirmDialog.vue'
@@ -282,83 +293,114 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="page">
-    <header class="page-header">
-      <div v-if="props.showTitle">
-        <p class="eyebrow">Schedule Control</p>
-        <h1>定时任务</h1>
-        <p class="page-description">
+  <div class="space-y-6">
+    <header class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+      <div v-if="props.showTitle" class="space-y-2">
+        <p class="text-xs font-semibold uppercase tracking-[0.2em] text-amber-600">Schedule Control</p>
+        <h1 class="text-lg font-semibold text-gray-900">定时任务</h1>
+        <p class="max-w-3xl text-sm text-gray-500">
           通过固定间隔或 Cron 表达式调度流程模板，暂停与恢复都直接映射后端 schedules API。
         </p>
       </div>
-      <button class="primary-button" @click="openCreateModal">新建定时任务</button>
+      <button
+        class="inline-flex items-center justify-center rounded-md bg-gray-900 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-gray-800"
+        @click="openCreateModal"
+      >
+        新建定时任务
+      </button>
     </header>
 
-    <p class="inline-stats">
-      共 <strong>{{ totalSchedules }}</strong> 条计划 ·
-      <strong>{{ enabledSchedules }}</strong> 条启用 ·
-      <strong>{{ pausedSchedules }}</strong> 条暂停
-    </p>
+    <section class="rounded-md border border-gray-200 bg-white px-4 py-3 shadow-sm">
+      <p class="inline-stats text-sm text-gray-500">
+        共 <strong class="font-semibold text-gray-900">{{ totalSchedules }}</strong> 条计划 ·
+        <strong class="font-semibold text-gray-900">{{ enabledSchedules }}</strong> 条启用 ·
+        <strong class="font-semibold text-gray-900">{{ pausedSchedules }}</strong> 条暂停
+      </p>
+    </section>
 
-    <section class="panel">
-      <div class="panel-header">
-        <div>
-          <h2>任务列表</h2>
-          <p>定时任务统一使用表格展示，启停开关、编辑和删除均在同一行完成。</p>
+    <section class="rounded-md border border-gray-200 bg-white shadow-sm">
+      <div class="flex flex-col gap-2 border-b border-gray-100 px-5 py-4 sm:flex-row sm:items-start sm:justify-between">
+        <div class="space-y-1">
+          <h2 class="text-sm font-medium text-gray-900">任务列表</h2>
+          <p class="text-xs text-gray-500">定时任务统一使用表格展示，启停、编辑和删除都在同一行完成。</p>
         </div>
       </div>
 
-      <div v-if="isLoading" class="empty-state">正在加载定时任务...</div>
-      <div v-else-if="schedules.length === 0" class="empty-state">
-        <p>当前还没有定时任务。</p>
-        <button class="secondary-button" @click="openCreateModal">创建第一条计划</button>
+      <div v-if="isLoading" class="px-6 py-12 text-center text-sm text-gray-400">⏳ 正在加载定时任务...</div>
+      <div v-else-if="schedules.length === 0" class="space-y-4 px-6 py-12 text-center">
+        <p class="text-sm text-gray-400">🗓️ 当前还没有定时任务。</p>
+        <button
+          class="inline-flex items-center justify-center rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 transition hover:bg-gray-50"
+          @click="openCreateModal"
+        >
+          创建第一条计划
+        </button>
       </div>
-      <div v-else class="table-shell">
-        <table class="schedule-table">
-          <thead>
+      <div v-else class="overflow-x-auto">
+        <table class="schedule-table min-w-[1040px] w-full table-fixed divide-y divide-gray-200">
+          <thead class="bg-gray-50/60 text-xs font-medium uppercase tracking-wider text-gray-500">
             <tr>
-              <th style="width: 84px">开关</th>
-              <th style="width: 180px">任务名称</th>
-              <th style="width: 180px">执行流程</th>
-              <th style="width: 160px">执行周期</th>
-              <th style="width: 170px">上次执行</th>
-              <th style="width: 170px">下次执行</th>
-              <th style="width: 96px">目标店铺数</th>
-              <th style="width: 140px">操作</th>
+              <th class="w-20 px-4 py-3 text-center">开关</th>
+              <th class="w-44 px-4 py-3 text-left">任务名称</th>
+              <th class="w-44 px-4 py-3 text-left">执行流程</th>
+              <th class="w-40 px-4 py-3 text-left">执行周期</th>
+              <th class="w-44 px-4 py-3 text-left">上次执行</th>
+              <th class="w-44 px-4 py-3 text-left">下次执行</th>
+              <th class="w-28 px-4 py-3 text-center">目标店铺数</th>
+              <th class="w-36 px-4 py-3 text-center">操作</th>
             </tr>
           </thead>
-          <tbody>
-            <tr v-for="schedule in schedules" :key="schedule.id">
-              <td class="cell-center">
-                <label class="switch">
+          <tbody class="divide-y divide-gray-100 text-sm text-gray-900">
+            <tr
+              v-for="schedule in schedules"
+              :key="schedule.id"
+              class="border-b border-gray-100 transition hover:bg-gray-50/50"
+            >
+              <td class="px-4 py-3 text-center">
+                <label class="switch inline-flex cursor-pointer items-center">
                   <input
                     type="checkbox"
+                    class="peer sr-only"
                     :checked="schedule.enabled"
                     :disabled="actioningId === schedule.id"
                     @change="toggleSchedule(schedule)"
                   />
-                  <span class="switch-slider" />
+                  <span class="switch-slider relative h-6 w-11 rounded-full bg-gray-200 transition after:absolute after:left-0.5 after:top-0.5 after:h-5 after:w-5 after:rounded-full after:bg-white after:shadow-sm after:transition-all peer-checked:bg-gray-900 peer-checked:after:translate-x-5 peer-disabled:opacity-50" />
                 </label>
               </td>
-              <td class="cell-name">
-                <a class="name-link" href="#" @click.prevent="openEditModal(schedule)">
+              <td class="px-4 py-3">
+                <a
+                  class="name-link font-medium text-gray-900 underline-offset-4 transition hover:text-gray-700 hover:underline"
+                  href="#"
+                  @click.prevent="openEditModal(schedule)"
+                >
                   {{ schedule.name }}
                 </a>
               </td>
-              <td class="cell-ellipsis" :title="getFlowName(schedule.flow_id)">
+              <td class="truncate px-4 py-3 text-xs text-gray-500" :title="getFlowName(schedule.flow_id)">
                 {{ getFlowName(schedule.flow_id) }}
               </td>
-              <td>{{ getTriggerLabel(schedule) }}</td>
-              <td>{{ formatDateTime(schedule.last_run_at) }}</td>
-              <td>{{ formatDateTime(schedule.next_run_at) }}</td>
-              <td class="cell-center" :title="getShopSummary(schedule)">
-                <span class="count-badge">{{ schedule.shop_ids.length }}</span>
+              <td class="px-4 py-3 text-xs text-gray-500">{{ getTriggerLabel(schedule) }}</td>
+              <td class="px-4 py-3 text-right font-mono text-xs text-gray-500">{{ formatDateTime(schedule.last_run_at) }}</td>
+              <td class="px-4 py-3 text-right font-mono text-xs text-gray-500">{{ formatDateTime(schedule.next_run_at) }}</td>
+              <td class="px-4 py-3 text-center" :title="getShopSummary(schedule)">
+                <span class="count-badge inline-flex items-center justify-center rounded-full bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-700">
+                  {{ schedule.shop_ids.length }}
+                </span>
               </td>
-              <td class="cell-center cell-actions">
-                <button class="ghost-button btn-sm" :disabled="actioningId === schedule.id" @click="openEditModal(schedule)">
+              <td class="cell-actions whitespace-nowrap px-4 py-3 text-center">
+                <button
+                  class="text-xs font-medium text-gray-500 transition hover:text-gray-700 disabled:cursor-not-allowed disabled:opacity-50"
+                  :disabled="actioningId === schedule.id"
+                  @click="openEditModal(schedule)"
+                >
                   编辑
                 </button>
-                <button class="danger-button btn-sm" :disabled="actioningId === schedule.id" @click="askDelete(schedule)">
+                <button
+                  class="ml-3 text-xs font-medium text-rose-600 transition hover:text-rose-700 disabled:cursor-not-allowed disabled:opacity-50"
+                  :disabled="actioningId === schedule.id"
+                  @click="askDelete(schedule)"
+                >
                   删除
                 </button>
               </td>
@@ -374,104 +416,256 @@ onMounted(() => {
       width="min(80vw, 900px)"
       @close="showEditor = false"
     >
-      <form class="editor-form" @submit.prevent="submitSchedule">
-        <div class="field-grid">
-          <label class="field">
-            <span>任务名称</span>
-            <input v-model="form.name" type="text" placeholder="例如：每日巡检" />
-          </label>
-          <label class="field">
-            <span>流程模板</span>
-            <select v-model="form.flowId">
-              <option disabled value="">请选择流程</option>
-              <option v-for="flow in flows" :key="flow.id" :value="flow.id">
-                {{ flow.name }}
-              </option>
-            </select>
-          </label>
-        </div>
+      <form class="space-y-4" @submit.prevent="submitSchedule">
+        <section class="space-y-4">
+          <div class="grid gap-4 md:grid-cols-2">
+            <label class="space-y-2">
+              <span class="text-xs font-medium text-gray-600">任务名称</span>
+              <input
+                v-model="form.name"
+                type="text"
+                placeholder="例如：每日巡检"
+                class="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-gray-400 focus:outline-none focus:ring-1 focus:ring-gray-400"
+              />
+            </label>
 
-        <div class="field-grid">
-          <label class="field">
-            <span>并发数</span>
-            <select v-model.number="form.concurrency">
-              <option :value="1">1</option>
-              <option :value="2">2</option>
-              <option :value="3">3</option>
-              <option :value="5">5</option>
-              <option :value="10">10</option>
-            </select>
-          </label>
-          <label class="field">
-            <span>上轮未完成策略</span>
-            <select v-model="form.overlapPolicy">
-              <option value="wait">等完成</option>
-              <option value="skip">跳过本轮</option>
-              <option value="parallel">允许并行</option>
-            </select>
-          </label>
-        </div>
-
-        <section class="selector-panel">
-          <div class="selector-panel-header">
-            <div>
-              <h3>选择店铺</h3>
-              <p>可多选，执行时将复用这些目标。</p>
+            <div class="space-y-2">
+              <span class="text-xs font-medium text-gray-600">流程模板</span>
+              <Listbox v-model="form.flowId">
+                <div class="relative">
+                  <ListboxButton class="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-left text-sm text-gray-900 focus:border-gray-400 focus:outline-none focus:ring-1 focus:ring-gray-400">
+                    {{ form.flowId ? getFlowName(form.flowId) : '请选择流程' }}
+                  </ListboxButton>
+                  <transition
+                    enter-active-class="transition duration-100 ease-out"
+                    enter-from-class="scale-95 opacity-0"
+                    enter-to-class="scale-100 opacity-100"
+                    leave-active-class="transition duration-75 ease-in"
+                    leave-from-class="scale-100 opacity-100"
+                    leave-to-class="scale-95 opacity-0"
+                  >
+                    <ListboxOptions class="absolute z-20 mt-2 max-h-64 w-full overflow-auto rounded-md border border-gray-200 bg-white py-1 shadow-lg">
+                      <ListboxOption disabled value="" v-slot="{ active }">
+                        <li :class="['cursor-not-allowed px-3 py-2 text-sm text-gray-300', active ? 'bg-gray-50' : '']">
+                          请选择流程
+                        </li>
+                      </ListboxOption>
+                      <ListboxOption
+                        v-for="flow in flows"
+                        :key="flow.id"
+                        :value="flow.id"
+                        v-slot="{ active, selected }"
+                      >
+                        <li
+                          :class="[
+                            'cursor-pointer px-3 py-2 text-sm text-gray-700',
+                            active ? 'bg-gray-100 text-gray-900' : '',
+                            selected ? 'font-medium text-gray-900' : '',
+                          ]"
+                        >
+                          {{ flow.name }}
+                        </li>
+                      </ListboxOption>
+                    </ListboxOptions>
+                  </transition>
+                </div>
+              </Listbox>
             </div>
           </div>
-          <div class="shop-grid">
-            <label v-for="shop in shops" :key="shop.id" class="shop-option">
-              <input v-model="form.shopIds" type="checkbox" :value="shop.id" />
-              <div>
-                <strong>{{ shop.name }}</strong>
-                <span>{{ shop.username || shop.id }}</span>
-              </div>
+
+          <div class="grid gap-4 md:grid-cols-2">
+            <div class="space-y-2">
+              <span class="text-xs font-medium text-gray-600">并发数</span>
+              <Listbox v-model="form.concurrency">
+                <div class="relative">
+                  <ListboxButton class="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-left text-sm text-gray-900 focus:border-gray-400 focus:outline-none focus:ring-1 focus:ring-gray-400">
+                    {{ form.concurrency }}
+                  </ListboxButton>
+                  <transition
+                    enter-active-class="transition duration-100 ease-out"
+                    enter-from-class="scale-95 opacity-0"
+                    enter-to-class="scale-100 opacity-100"
+                    leave-active-class="transition duration-75 ease-in"
+                    leave-from-class="scale-100 opacity-100"
+                    leave-to-class="scale-95 opacity-0"
+                  >
+                    <ListboxOptions class="absolute z-20 mt-2 w-full overflow-auto rounded-md border border-gray-200 bg-white py-1 shadow-lg">
+                      <ListboxOption v-for="count in [1, 2, 3, 5, 10]" :key="count" :value="count" v-slot="{ active, selected }">
+                        <li
+                          :class="[
+                            'cursor-pointer px-3 py-2 text-sm text-gray-700',
+                            active ? 'bg-gray-100 text-gray-900' : '',
+                            selected ? 'font-medium text-gray-900' : '',
+                          ]"
+                        >
+                          {{ count }}
+                        </li>
+                      </ListboxOption>
+                    </ListboxOptions>
+                  </transition>
+                </div>
+              </Listbox>
+            </div>
+
+            <div class="space-y-2">
+              <span class="text-xs font-medium text-gray-600">上轮未完成策略</span>
+              <Listbox v-model="form.overlapPolicy">
+                <div class="relative">
+                  <ListboxButton class="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-left text-sm text-gray-900 focus:border-gray-400 focus:outline-none focus:ring-1 focus:ring-gray-400">
+                    {{
+                      form.overlapPolicy === 'wait'
+                        ? '等完成'
+                        : form.overlapPolicy === 'skip'
+                          ? '跳过本轮'
+                          : '允许并行'
+                    }}
+                  </ListboxButton>
+                  <transition
+                    enter-active-class="transition duration-100 ease-out"
+                    enter-from-class="scale-95 opacity-0"
+                    enter-to-class="scale-100 opacity-100"
+                    leave-active-class="transition duration-75 ease-in"
+                    leave-from-class="scale-100 opacity-100"
+                    leave-to-class="scale-95 opacity-0"
+                  >
+                    <ListboxOptions class="absolute z-20 mt-2 w-full overflow-auto rounded-md border border-gray-200 bg-white py-1 shadow-lg">
+                      <ListboxOption value="wait" v-slot="{ active, selected }">
+                        <li
+                          :class="[
+                            'cursor-pointer px-3 py-2 text-sm text-gray-700',
+                            active ? 'bg-gray-100 text-gray-900' : '',
+                            selected ? 'font-medium text-gray-900' : '',
+                          ]"
+                        >
+                          等完成
+                        </li>
+                      </ListboxOption>
+                      <ListboxOption value="skip" v-slot="{ active, selected }">
+                        <li
+                          :class="[
+                            'cursor-pointer px-3 py-2 text-sm text-gray-700',
+                            active ? 'bg-gray-100 text-gray-900' : '',
+                            selected ? 'font-medium text-gray-900' : '',
+                          ]"
+                        >
+                          跳过本轮
+                        </li>
+                      </ListboxOption>
+                      <ListboxOption value="parallel" v-slot="{ active, selected }">
+                        <li
+                          :class="[
+                            'cursor-pointer px-3 py-2 text-sm text-gray-700',
+                            active ? 'bg-gray-100 text-gray-900' : '',
+                            selected ? 'font-medium text-gray-900' : '',
+                          ]"
+                        >
+                          允许并行
+                        </li>
+                      </ListboxOption>
+                    </ListboxOptions>
+                  </transition>
+                </div>
+              </Listbox>
+            </div>
+          </div>
+        </section>
+
+        <section class="border-t border-gray-100 pt-4">
+          <div class="mb-4 space-y-1">
+            <h3 class="text-sm font-medium text-gray-900">选择店铺</h3>
+            <p class="text-xs text-gray-500">可多选，执行时将复用这些目标。</p>
+          </div>
+          <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+            <label
+              v-for="shop in shops"
+              :key="shop.id"
+              class="rounded-md border border-gray-200 bg-gray-50 px-3 py-3 transition hover:border-gray-300 hover:bg-white"
+            >
+              <span class="flex items-start gap-3">
+                <input
+                  v-model="form.shopIds"
+                  type="checkbox"
+                  :value="shop.id"
+                  class="mt-0.5 h-4 w-4 rounded border-gray-300 text-gray-900 focus:ring-gray-400"
+                />
+                <span class="min-w-0 space-y-1">
+                  <strong class="block truncate text-sm font-medium text-gray-900">{{ shop.name }}</strong>
+                  <span class="block truncate text-xs text-gray-500">{{ shop.username || shop.id }}</span>
+                </span>
+              </span>
             </label>
           </div>
         </section>
 
-        <section class="selector-panel">
-          <div class="selector-panel-header">
-            <div>
-              <h3>触发方式</h3>
-              <p>固定间隔按分钟填写，Cron 使用标准 5 段表达式。</p>
-            </div>
+        <section class="border-t border-gray-100 pt-4">
+          <div class="mb-4 space-y-1">
+            <h3 class="text-sm font-medium text-gray-900">触发方式</h3>
+            <p class="text-xs text-gray-500">固定间隔按分钟填写，Cron 使用标准 5 段表达式。</p>
           </div>
 
-          <div class="mode-switch">
-            <button
-              class="mode-button"
-              :class="{ active: form.triggerMode === 'interval' }"
-              type="button"
-              @click="form.triggerMode = 'interval'"
-            >
-              固定间隔
-            </button>
-            <button
-              class="mode-button"
-              :class="{ active: form.triggerMode === 'cron' }"
-              type="button"
-              @click="form.triggerMode = 'cron'"
-            >
-              Cron 表达式
-            </button>
-          </div>
+          <TabGroup
+            :selectedIndex="form.triggerMode === 'interval' ? 0 : 1"
+            @change="(index) => (form.triggerMode = index === 0 ? 'interval' : 'cron')"
+          >
+            <TabList class="grid grid-cols-2 gap-2 rounded-md bg-gray-100 p-1">
+              <Tab v-slot="{ selected }" as="template">
+                <button
+                  class="rounded-md px-3 py-2 text-sm font-medium transition"
+                  :class="selected ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'"
+                >
+                  固定间隔
+                </button>
+              </Tab>
+              <Tab v-slot="{ selected }" as="template">
+                <button
+                  class="rounded-md px-3 py-2 text-sm font-medium transition"
+                  :class="selected ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'"
+                >
+                  Cron 表达式
+                </button>
+              </Tab>
+            </TabList>
 
-          <label v-if="form.triggerMode === 'interval'" class="field">
-            <span>固定间隔（分钟）</span>
-            <input v-model.number="form.intervalMinutes" type="number" min="1" />
-          </label>
-
-          <label v-else class="field">
-            <span>Cron 表达式</span>
-            <input v-model="form.cronExpr" type="text" placeholder="例如：*/30 * * * *" />
-          </label>
+            <TabPanels class="mt-4">
+              <TabPanel class="rounded-md border border-gray-200 bg-gray-50 p-4">
+                <label class="space-y-2">
+                  <span class="text-xs font-medium text-gray-600">固定间隔（分钟）</span>
+                  <input
+                    v-model.number="form.intervalMinutes"
+                    type="number"
+                    min="1"
+                    class="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-gray-400 focus:outline-none focus:ring-1 focus:ring-gray-400"
+                  />
+                </label>
+              </TabPanel>
+              <TabPanel class="rounded-md border border-gray-200 bg-gray-50 p-4">
+                <label class="space-y-2">
+                  <span class="text-xs font-medium text-gray-600">Cron 表达式</span>
+                  <input
+                    v-model="form.cronExpr"
+                    type="text"
+                    placeholder="例如：*/30 * * * *"
+                    class="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-gray-400 focus:outline-none focus:ring-1 focus:ring-gray-400"
+                  />
+                </label>
+              </TabPanel>
+            </TabPanels>
+          </TabGroup>
         </section>
       </form>
 
       <template #footer>
-        <button class="secondary-button" @click="showEditor = false">取消</button>
-        <button class="primary-button" :disabled="isSaving" @click="submitSchedule">
+        <button
+          class="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 transition hover:bg-gray-50"
+          @click="showEditor = false"
+        >
+          取消
+        </button>
+        <button
+          class="rounded-md bg-gray-900 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-60"
+          :disabled="isSaving"
+          @click="submitSchedule"
+        >
           {{ isSaving ? '保存中...' : '保存任务' }}
         </button>
       </template>
@@ -487,391 +681,3 @@ onMounted(() => {
     />
   </div>
 </template>
-
-<style scoped>
-.page {
-  display: flex;
-  flex-direction: column;
-  gap: var(--spacing-lg);
-  color: #1a1a2e;
-}
-
-.page-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: var(--spacing-lg);
-}
-
-.eyebrow {
-  margin-bottom: 10px;
-  color: #b45309;
-  font-size: 12px;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  font-weight: 700;
-}
-
-h1 {
-  margin: 0;
-  font-size: var(--font-size-h1);
-  line-height: 1.4;
-}
-
-.page-description {
-  margin-top: 10px;
-  color: #64748b;
-  max-width: 760px;
-  line-height: 1.6;
-}
-
-.inline-stats {
-  margin: 0;
-  color: #64748b;
-  font-size: 14px;
-}
-
-.inline-stats strong {
-  color: #1e293b;
-  font-weight: 700;
-}
-
-.panel,
-.selector-panel {
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-sm);
-}
-
-.panel {
-  padding: var(--spacing-lg);
-}
-
-.panel-header {
-  margin-bottom: var(--spacing-md);
-}
-
-.panel-header h2,
-.selector-panel-header h3 {
-  margin: 0;
-  font-size: var(--font-size-h2);
-}
-
-.panel-header p,
-.selector-panel-header p {
-  margin-top: 8px;
-  color: #64748b;
-  line-height: 1.5;
-}
-
-.table-shell {
-  overflow-x: auto;
-}
-
-.schedule-table {
-  width: 100%;
-  border-collapse: collapse;
-  table-layout: fixed;
-  font-size: 14px;
-}
-
-.schedule-table th {
-  padding: 10px 12px;
-  border-bottom: 2px solid #e2e8f0;
-  color: #475569;
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  text-align: left;
-  text-transform: uppercase;
-  white-space: nowrap;
-}
-
-.schedule-table td {
-  height: 44px;
-  padding: 10px 12px;
-  border-bottom: 1px solid #f1f5f9;
-  color: #334155;
-  line-height: 1.4;
-  vertical-align: middle;
-}
-
-.schedule-table tbody tr:hover {
-  background: #f8fafc;
-}
-
-.cell-center {
-  text-align: center;
-}
-
-.cell-name,
-.cell-ellipsis {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.name-link {
-  color: #1d4ed8;
-  cursor: pointer;
-  font-weight: 600;
-  text-decoration: none;
-}
-
-.name-link:hover {
-  text-decoration: underline;
-}
-
-.count-badge {
-  display: inline-block;
-  padding: 2px 10px;
-  border-radius: 999px;
-  background: rgba(59, 130, 246, 0.12);
-  color: #1d4ed8;
-  font-size: 12px;
-  font-weight: 700;
-}
-
-.cell-actions {
-  display: flex;
-  gap: 8px;
-  justify-content: center;
-  white-space: nowrap;
-}
-
-.switch {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-}
-
-.switch input {
-  position: absolute;
-  opacity: 0;
-  pointer-events: none;
-}
-
-.switch-slider {
-  position: relative;
-  width: 42px;
-  height: 24px;
-  border-radius: 999px;
-  background: #cbd5e1;
-  transition: background 0.2s ease;
-}
-
-.switch-slider::after {
-  content: '';
-  position: absolute;
-  top: 3px;
-  left: 3px;
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  background: #ffffff;
-  transition: transform 0.2s ease;
-}
-
-.switch input:checked + .switch-slider {
-  background: var(--color-success);
-}
-
-.switch input:checked + .switch-slider::after {
-  transform: translateX(18px);
-}
-
-.switch input:disabled + .switch-slider {
-  opacity: 0.5;
-}
-
-.btn-sm {
-  padding: 6px 12px;
-  font-size: 13px;
-}
-
-.editor-form {
-  display: flex;
-  flex-direction: column;
-  gap: var(--spacing-md);
-}
-
-.field-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 16px;
-}
-
-.field {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.field span {
-  color: #475569;
-  font-size: 14px;
-  font-weight: 600;
-}
-
-.field input,
-.field select {
-  width: 100%;
-  padding: 12px 14px;
-  border: 1px solid #cbd5e1;
-  border-radius: var(--radius-md);
-  background: #ffffff;
-  color: #0f172a;
-  font-size: 14px;
-}
-
-.field input:focus,
-.field select:focus {
-  outline: none;
-  border-color: #b45309;
-  box-shadow: 0 0 0 4px rgba(180, 83, 9, 0.12);
-}
-
-.selector-panel {
-  padding: 20px;
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.shop-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
-}
-
-.shop-option {
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
-  padding: 12px;
-  border-radius: var(--radius-md);
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
-}
-
-.shop-option input {
-  margin-top: 2px;
-}
-
-.shop-option strong {
-  display: block;
-}
-
-.shop-option span {
-  display: block;
-  margin-top: 4px;
-  color: #64748b;
-  font-size: 13px;
-}
-
-.mode-switch {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
-}
-
-.mode-button {
-  border: 1px solid #cbd5e1;
-  border-radius: var(--radius-md);
-  padding: 12px 14px;
-  background: #f8fafc;
-  color: #334155;
-  font-weight: 700;
-  cursor: pointer;
-}
-
-.mode-button.active {
-  border-color: transparent;
-  background: var(--color-primary);
-  color: #ffffff;
-  box-shadow: none;
-}
-
-.empty-state {
-  min-height: 220px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
-  color: #64748b;
-  text-align: center;
-}
-
-.primary-button,
-.secondary-button,
-.ghost-button,
-.danger-button {
-  border: none;
-  border-radius: var(--radius-md);
-  padding: 11px 16px;
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
-}
-
-.primary-button {
-  background: var(--color-primary);
-  color: #ffffff;
-  box-shadow: none;
-}
-
-.secondary-button {
-  background: #e2e8f0;
-  color: #0f172a;
-}
-
-.ghost-button {
-  background: #eff6ff;
-  color: #1d4ed8;
-}
-
-.danger-button {
-  background: #fee2e2;
-  color: #b91c1c;
-}
-
-.primary-button:hover,
-.secondary-button:hover,
-.ghost-button:hover,
-.danger-button:hover {
-  transform: translateY(-1px);
-}
-
-.primary-button:disabled,
-.secondary-button:disabled,
-.ghost-button:disabled,
-.danger-button:disabled {
-  cursor: not-allowed;
-  opacity: 0.65;
-  transform: none;
-}
-
-:deep(.modal-container) {
-  max-height: 80vh;
-}
-
-:deep(.modal-body) {
-  padding: 20px 24px;
-}
-
-@media (max-width: 900px) {
-  .field-grid,
-  .shop-grid,
-  .mode-switch {
-    grid-template-columns: 1fr;
-  }
-
-  .page-header {
-    flex-direction: column;
-  }
-}
-</style>

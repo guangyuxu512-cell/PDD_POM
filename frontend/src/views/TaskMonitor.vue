@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue'
-import { get, post, del } from '../api'
+import { onMounted, onUnmounted, ref } from 'vue'
+
+import { del, get, post } from '../api'
 import Modal from '../components/Modal.vue'
 import StatusBadge from '../components/StatusBadge.vue'
 import { toast } from '../utils/toast'
@@ -21,23 +22,29 @@ interface Shop {
   name: string
 }
 
+const props = withDefaults(defineProps<{ showTitle?: boolean }>(), {
+  showTitle: true,
+})
+
 const tasks = ref<Task[]>([])
 const shops = ref<Shop[]>([])
 const showTriggerModal = ref(false)
 const triggerForm = ref({
   shop_id: '',
-  task_name: '登录'
+  task_name: '登录',
 })
-
-const props = withDefaults(defineProps<{ showTitle?: boolean }>(), {
-  showTitle: true,
-})
+const inputClass =
+  'w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-gray-400 focus:outline-none focus:ring-1 focus:ring-gray-400'
+const secondaryButtonClass =
+  'rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm text-gray-700 transition hover:bg-gray-50'
+const primaryButtonClass =
+  'rounded-md bg-gray-900 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-gray-800'
 
 let refreshTimer: number | null = null
 
 const loadTasks = async () => {
   try {
-    const result = await get<{list: Task[], total: number}>('/api/tasks/')
+    const result = await get<{ list: Task[]; total: number }>('/api/tasks/')
     tasks.value = result.list
   } catch (error: any) {
     console.error('加载任务列表失败:', error)
@@ -46,7 +53,7 @@ const loadTasks = async () => {
 
 const loadShops = async () => {
   try {
-    const result = await get<{list: Shop[], total: number}>('/api/shops/')
+    const result = await get<{ list: Shop[]; total: number }>('/api/shops/')
     shops.value = result.list
   } catch (error: any) {
     console.error('加载店铺列表失败:', error)
@@ -56,7 +63,7 @@ const loadShops = async () => {
 const openTriggerModal = () => {
   triggerForm.value = {
     shop_id: shops.value[0]?.id || '',
-    task_name: '登录'
+    task_name: '登录',
   }
   showTriggerModal.value = true
 }
@@ -88,7 +95,6 @@ const handleClearHistory = async () => {
   }
 
   try {
-    // 调用批量删除 API
     const result = await del('/api/tasks/history/clear')
     toast.success(result.msg || '历史记录已清空')
     await loadTasks()
@@ -97,12 +103,10 @@ const handleClearHistory = async () => {
   }
 }
 
-const canCancel = (status: string) => {
-  return status === 'pending' || status === 'running'
-}
+const canCancel = (status: string) => status === 'pending' || status === 'running'
 
 const getShopName = (shopId: string) => {
-  const shop = shops.value.find(s => s.id === shopId)
+  const shop = shops.value.find((item) => item.id === shopId)
   return shop?.name || shopId
 }
 
@@ -114,19 +118,17 @@ const getResultDisplay = (task: Task) => {
 }
 
 const getResultClass = (task: Task) => {
-  if (task.status === 'failed') return 'result-error'
-  if (task.status === 'completed') return 'result-success'
-  return ''
+  if (task.status === 'failed') return 'text-rose-700'
+  if (task.status === 'completed') return 'text-emerald-700'
+  return 'text-gray-500'
 }
 
-// 启动自动刷新（每 5 秒）
 const startAutoRefresh = () => {
   refreshTimer = window.setInterval(() => {
     loadTasks()
   }, 5000)
 }
 
-// 停止自动刷新
 const stopAutoRefresh = () => {
   if (refreshTimer) {
     clearInterval(refreshTimer)
@@ -146,247 +148,88 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="task-monitor">
-    <div class="header">
-      <h1 v-if="props.showTitle">任务监控</h1>
-      <div class="header-actions">
-        <button class="btn btn-secondary" @click="handleClearHistory">清空历史</button>
-        <button class="btn btn-primary" @click="openTriggerModal">手动触发</button>
+  <div class="space-y-6">
+    <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <div v-if="props.showTitle" class="space-y-1">
+        <h1 class="text-lg font-semibold text-gray-900">任务监控</h1>
+        <p class="text-xs text-gray-500">自动轮询任务状态，支持手动触发和取消进行中的任务。</p>
+      </div>
+
+      <div class="flex flex-wrap gap-2">
+        <button type="button" :class="secondaryButtonClass" @click="handleClearHistory">清空历史</button>
+        <button type="button" :class="primaryButtonClass" @click="openTriggerModal">手动触发</button>
       </div>
     </div>
 
-    <div class="table-container">
-      <table class="task-table">
-        <thead>
-          <tr>
-            <th>任务ID</th>
-            <th>店铺</th>
-            <th>任务类型</th>
-            <th>状态</th>
-            <th>开始时间</th>
-            <th>结果</th>
-            <th>操作</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-if="tasks.length === 0">
-            <td colspan="7" class="empty-state">暂无任务记录</td>
-          </tr>
-          <tr v-for="task in tasks" :key="task.task_id">
-            <td class="task-id">{{ task.task_id.substring(0, 8) }}...</td>
-            <td>{{ getShopName(task.shop_id) }}</td>
-            <td>{{ task.task_name }}</td>
-            <td>
-              <StatusBadge :status="task.status" type="task" />
-            </td>
-            <td>{{ task.started_at }}</td>
-            <td :class="getResultClass(task)">{{ getResultDisplay(task) }}</td>
-            <td>
-              <button
-                v-if="canCancel(task.status)"
-                class="btn-action"
-                @click="handleCancel(task.task_id)"
-              >
-                取消
-              </button>
-              <span v-else class="disabled">-</span>
-            </td>
-          </tr>
-        </tbody>
-      </table>
+    <div class="overflow-hidden rounded-md border border-gray-200 bg-white shadow-sm">
+      <div class="overflow-x-auto">
+        <table class="min-w-full">
+          <thead class="bg-gray-50/60 text-xs font-medium uppercase tracking-wider text-gray-500">
+            <tr>
+              <th class="px-4 py-3 text-left font-medium">任务 ID</th>
+              <th class="px-4 py-3 text-left font-medium">店铺</th>
+              <th class="px-4 py-3 text-left font-medium">任务类型</th>
+              <th class="px-4 py-3 text-left font-medium">状态</th>
+              <th class="px-4 py-3 text-left font-medium">开始时间</th>
+              <th class="px-4 py-3 text-left font-medium">结果</th>
+              <th class="px-4 py-3 text-right font-medium">操作</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-if="tasks.length === 0">
+              <td colspan="7" class="px-4 py-12 text-center text-sm text-gray-500">暂无任务记录</td>
+            </tr>
+            <tr v-for="task in tasks" :key="task.task_id" class="border-b border-gray-100 hover:bg-gray-50/50">
+              <td class="px-4 py-3 font-mono text-xs text-gray-500">{{ task.task_id.substring(0, 8) }}...</td>
+              <td class="px-4 py-3 text-sm text-gray-900">{{ getShopName(task.shop_id) }}</td>
+              <td class="px-4 py-3 text-sm text-gray-900">{{ task.task_name }}</td>
+              <td class="px-4 py-3 text-sm text-gray-900">
+                <StatusBadge :status="task.status" type="task" />
+              </td>
+              <td class="px-4 py-3 font-mono text-xs text-gray-500">{{ task.started_at }}</td>
+              <td :class="['px-4 py-3 text-sm font-medium', getResultClass(task)]">
+                {{ getResultDisplay(task) }}
+              </td>
+              <td class="px-4 py-3 text-right">
+                <button
+                  v-if="canCancel(task.status)"
+                  type="button"
+                  class="rounded-md bg-rose-600 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-rose-700"
+                  @click="handleCancel(task.task_id)"
+                >
+                  取消
+                </button>
+                <span v-else class="text-xs text-gray-400">-</span>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
     </div>
 
-    <Modal :show="showTriggerModal" title="手动触发任务" width="500px" @close="showTriggerModal = false">
-      <form class="trigger-form" @submit.prevent="handleTrigger">
-        <div class="form-group">
-          <label>选择店铺</label>
-          <select v-model="triggerForm.shop_id" required>
+    <Modal :show="showTriggerModal" title="手动触发任务" width="520px" @close="showTriggerModal = false">
+      <form class="space-y-4" @submit.prevent="handleTrigger">
+        <div class="space-y-2">
+          <label class="text-xs font-medium text-gray-600">选择店铺</label>
+          <select v-model="triggerForm.shop_id" :class="inputClass" required>
             <option v-for="shop in shops" :key="shop.id" :value="shop.id">
               {{ shop.name }}
             </option>
           </select>
         </div>
-        <div class="form-group">
-          <label>任务类型</label>
-          <select v-model="triggerForm.task_name" required>
+
+        <div class="space-y-2">
+          <label class="text-xs font-medium text-gray-600">任务类型</label>
+          <select v-model="triggerForm.task_name" :class="inputClass" required>
             <option value="登录">登录</option>
           </select>
         </div>
       </form>
 
       <template #footer>
-        <button class="btn btn-secondary" @click="showTriggerModal = false">取消</button>
-        <button class="btn btn-primary" @click="handleTrigger">触发</button>
+        <button type="button" :class="secondaryButtonClass" @click="showTriggerModal = false">取消</button>
+        <button type="button" :class="primaryButtonClass" @click="handleTrigger">触发</button>
       </template>
     </Modal>
   </div>
 </template>
-
-<style scoped>
-.task-monitor {
-  color: #1a1a2e;
-}
-
-.header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: var(--spacing-lg);
-}
-
-.header-actions {
-  display: flex;
-  gap: 12px;
-}
-
-h1 {
-  font-size: var(--font-size-h1);
-  margin: 0;
-  color: #1a1a2e;
-}
-
-.btn {
-  padding: 10px 20px;
-  border: none;
-  border-radius: 6px;
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.btn-primary {
-  background: #3b82f6;
-  color: white;
-}
-
-.btn-primary:hover {
-  background: #2563eb;
-}
-
-.btn-secondary {
-  background: #6b7280;
-  color: white;
-}
-
-.btn-secondary:hover {
-  background: #4b5563;
-}
-
-.table-container {
-  background: #ffffff;
-  border-radius: var(--radius-md);
-  overflow: hidden;
-  border: 1px solid #e5e7eb;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-}
-
-.task-table {
-  width: 100%;
-  border-collapse: collapse;
-}
-
-.task-table thead {
-  background: #f3f4f6;
-}
-
-.task-table th {
-  padding: 16px;
-  text-align: left;
-  font-weight: 600;
-  font-size: 14px;
-  color: #374151;
-}
-
-.task-table tbody tr {
-  border-bottom: 1px solid #e5e7eb;
-  transition: background 0.2s;
-}
-
-.task-table tbody tr:nth-child(even) {
-  background: #f9fafb;
-}
-
-.task-table tbody tr:hover {
-  background: #f3f4f6;
-}
-
-.task-table td {
-  padding: 16px;
-  font-size: 14px;
-  color: #1f2937;
-}
-
-.task-id {
-  font-family: 'Courier New', monospace;
-  color: #6b7280;
-}
-
-.empty-state {
-  text-align: center;
-  color: #9ca3af;
-  padding: 40px !important;
-}
-
-.result-success {
-  color: #059669;
-  font-weight: 500;
-}
-
-.result-error {
-  color: #dc2626;
-  font-weight: 500;
-}
-
-.btn-action {
-  padding: 6px 16px;
-  background: #3b82f6;
-  border: none;
-  border-radius: 4px;
-  color: white;
-  font-size: 12px;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.btn-action:hover {
-  background: #2563eb;
-}
-
-.disabled {
-  color: #9ca3af;
-}
-
-.trigger-form {
-  display: flex;
-  flex-direction: column;
-  gap: var(--spacing-md);
-}
-
-.form-group {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.form-group label {
-  font-size: 14px;
-  color: #6b7280;
-  font-weight: 500;
-}
-
-.form-group select {
-  padding: 10px;
-  background: #ffffff;
-  border: 1px solid #d1d5db;
-  border-radius: 6px;
-  color: #1f2937;
-  font-size: 14px;
-}
-
-.form-group select:focus {
-  outline: none;
-  border-color: #3b82f6;
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
-}
-</style>
