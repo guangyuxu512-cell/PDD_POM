@@ -827,3 +827,54 @@
 - `.pipeline/task.md` 为既有本地改动，本轮未修改。
 
 ---
+
+## 任务摘要
+
+新增抖音和淘宝平台注册，给店铺弹窗补所属平台选择，并把弹窗和店铺表单改成灰色暗色主题与新的密码占位文案。
+
+## 改动文件列表
+
+- `platforms/__init__.py`
+- `platforms/douyin/__init__.py`
+- `platforms/douyin/platform.py`
+- `platforms/taobao/__init__.py`
+- `platforms/taobao/platform.py`
+- `frontend/src/views/ShopManage.vue`
+- `frontend/src/components/Modal.vue`
+- `tests/unit/test_platform_backend.py`
+- `tests/unit/test_platform_frontend_static.py`
+- `tests/unit/test_shop_platform_modal_static.py`
+- `PLAN.md`
+- `改造进度.md`
+- `.pipeline/progress.md`
+
+## 改动说明
+
+- `platforms/__init__.py`：新增 `platforms.douyin` 和 `platforms.taobao` 的导入，让平台注册表在启动时一次性加载三个平台。
+- `platforms/douyin/__init__.py`、`platforms/douyin/platform.py`：新增抖音平台包和 `DouyinPlatform`，注册 `douyin`、图标 `🎵`、登录地址 `https://fxg.jinritemai.com/login/common`，当前任务列表先为空。
+- `platforms/taobao/__init__.py`、`platforms/taobao/platform.py`：新增淘宝平台包和 `TaoBaoPlatform`，注册 `taobao`、图标 `🟧`、登录地址 `https://myseller.taobao.com/`，当前任务列表先为空。
+- `frontend/src/views/ShopManage.vue`：新增 `formPlatform` 作为弹窗内所属平台值；新增店铺时默认跟随全局平台，编辑时显示已有平台并禁用下拉；新建店铺提交改为使用 `formPlatform.value`；基本信息区顶部新增所属平台选择；两个密码输入框占位符改为 `•••••••• / ••••••••（留空则不修改）`；表单输入背景、边框和次按钮从蓝色调改为灰色暗色系，聚焦色改为紫色。
+- `frontend/src/components/Modal.vue`：弹窗容器、header、body、footer 从白底改为深灰色主题，边框改为灰色，关闭按钮 hover 改为灰色高亮，统一去掉明显蓝色调。
+- `tests/unit/test_platform_backend.py`：更新平台接口与平台注册表回归，断言平台列表现在包含拼多多、抖音、淘宝。
+- `tests/unit/test_platform_frontend_static.py`：更新静态断言，店铺页新建店铺绑定平台改为 `formPlatform.value`。
+- `tests/unit/test_shop_platform_modal_static.py`：新增静态回归，覆盖店铺弹窗所属平台下拉、新密码占位文案和 Modal 灰色主题样式。
+- `PLAN.md`、`改造进度.md`、`.pipeline/progress.md`：同步记录本轮 Builder 执行结果与验证情况。
+
+## 影响范围
+
+- 平台注册表与 `GET /api/platforms` 返回结果
+- 前端全局平台切换器的可选平台数量
+- 店铺管理页新增/编辑弹窗的平台选择、密码占位和表单视觉样式
+- 平台相关后端回归与店铺弹窗静态回归覆盖范围
+
+## 注意事项
+
+- 已执行 `python -m pytest -c tests/pytest.ini tests/unit/test_platform_backend.py tests/unit/test_platform_frontend_static.py tests/unit/test_shop_platform_modal_static.py tests/unit/test_shop_restore.py tests/unit/test_frontend_display_details.py -v`，结果为 `11 passed`。
+- 已执行 `npx --prefix frontend vue-tsc -b frontend/tsconfig.json`，通过。
+- 已执行 `python -m pytest -c tests/pytest.ini tests/ -v`，结果为 `507 passed, 18 warnings`。
+- `GET /api/platforms` 现在返回 3 个平台：`拼多多 / 抖音 / 淘宝`。
+- 本轮未执行 `npm --prefix frontend run build`；当前环境此前已知存在 `esbuild` 子进程 `spawn EPERM` 限制。
+- 18 条 warning 中，16 条仍来自既有第三方依赖 `celery` 与 `openpyxl` 的 `datetime.utcnow()` 弃用提示，另外 2 条为既有 `PytestUnraisableExceptionWarning`，不是本轮改动引入的问题。
+- `.pipeline/task.md` 为既有本地改动，本轮未修改。
+
+---

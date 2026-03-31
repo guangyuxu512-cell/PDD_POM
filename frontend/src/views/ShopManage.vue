@@ -36,6 +36,7 @@ const isSaving = ref(false)
 const editingShop = ref<Shop | null>(null)
 const deletingShopId = ref<string | null>(null)
 const platformStore = usePlatformStore()
+const formPlatform = ref(platformStore.currentPlatform)
 
 const formData = ref<ShopFormModel>({
   name: '',
@@ -76,11 +77,13 @@ async function loadShops() {
 function openAddModal() {
   editingShop.value = null
   formData.value = createEmptyForm()
+  formPlatform.value = platformStore.currentPlatform
   showModal.value = true
 }
 
 function openEditModal(shop: Shop) {
   editingShop.value = shop
+  formPlatform.value = shop.platform || 'pdd'
   formData.value = {
     name: shop.name ?? '',
     username: shop.username ?? '',
@@ -150,7 +153,7 @@ async function handleSave() {
       await updateShop(editingShop.value.id, payload)
       toast.success('店铺已更新')
     } else {
-      payload.platform = platformStore.currentPlatform
+      payload.platform = formPlatform.value
       await createShop(payload)
       toast.success('店铺已创建')
     }
@@ -261,6 +264,20 @@ watch(() => platformStore.currentPlatform, () => {
           <h4>基本信息</h4>
           <div class="form-row">
             <div class="form-group">
+              <label>所属平台</label>
+              <select v-model="formPlatform" :disabled="!!editingShop">
+                <option
+                  v-for="p in platformStore.platforms"
+                  :key="p.id"
+                  :value="p.id"
+                >
+                  {{ p.icon }} {{ p.name }}
+                </option>
+              </select>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
               <label>店铺名称</label>
               <input v-model="formData.name" type="text" required />
             </div>
@@ -275,7 +292,7 @@ watch(() => platformStore.currentPlatform, () => {
               <input
                 v-model="formData.password"
                 type="password"
-                :placeholder="editingShop ? '留空则不修改' : ''"
+                :placeholder="editingShop ? '••••••••（留空则不修改）' : '••••••••'"
               />
             </div>
             <div class="form-group">
@@ -314,7 +331,7 @@ watch(() => platformStore.currentPlatform, () => {
               <input
                 v-model="formData.smtp_pass"
                 type="password"
-                :placeholder="editingShop ? '留空则不修改' : ''"
+                :placeholder="editingShop ? '••••••••（留空则不修改）' : '••••••••'"
               />
             </div>
           </div>
@@ -436,7 +453,7 @@ h1 {
 .form-section h4 {
   margin: 0 0 16px 0;
   font-size: 16px;
-  color: #e0e0e0;
+  color: #d0d0d0;
 }
 
 .form-row {
@@ -459,8 +476,8 @@ h1 {
 .form-group input,
 .form-group select {
   padding: 10px;
-  background: #0f3460;
-  border: 1px solid #1a4d7a;
+  background: #2a2a3a;
+  border: 1px solid #3a3a4a;
   border-radius: 4px;
   color: #e0e0e0;
   font-size: 14px;
@@ -469,7 +486,27 @@ h1 {
 .form-group input:focus,
 .form-group select:focus {
   outline: none;
-  border-color: #3b82f6;
+  border-color: #6366f1;
+}
+
+.form-group input::placeholder {
+  color: #8f90a6;
+}
+
+.form-group select:disabled {
+  background: #242433;
+  border-color: #343445;
+  color: #8f90a6;
+  cursor: not-allowed;
+}
+
+.btn-secondary {
+  background: #2a2a3a;
+  color: #e0e0e0;
+}
+
+.btn-secondary:hover {
+  background: #3a3a4a;
 }
 
 .test-connection-wrapper {

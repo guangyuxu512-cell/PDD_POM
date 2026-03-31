@@ -1,118 +1,127 @@
-Codex 任务 1（续）：数据库 migration — 添加 platform 字段
-同样给 flow_model.py（如果有）和 task_logs 相关的 model 添加 platform 字段，逻辑与 shop_model 相同。
-验收方式：
-启动应用，SQLite 数据库自动执行 migration
-执行 SELECT platform FROM shops LIMIT 1; 返回 pdd
-现有数据不受影响，所有店铺的 platform 都是 pdd
-Codex 任务 2：后端 API 支持 platform 参数
-任务目标： 后端 API 增加 platform 过滤和创建店铺时绑定平台。
+Codex 任务 1：注册抖音和淘宝平台
+任务目标： 新增抖音和淘宝两个平台注册，让前端下拉框能切换三个平台。
+需要新增的文件：
+platforms/douyin/__init__.py
+platforms/douyin/platform.py
+platforms/taobao/__init__.py
+platforms/taobao/platform.py
 需要修改的文件：
-backend/api/shop_api.py
-backend/services/shop_service.py
-backend/api/flow_api.py（如有）
-backend/services/flow_service.py（如有）
-具体实现要点：
-创建店铺时支持 platform 参数：
-# shop_api.py — 创建店铺接口
-# 请求体新增 platform 字段，默认 "pdd"
-class 创建店铺请求(BaseModel):
-    name: str
-    platform: str = "pdd"     # ← 新增
-    username: str | None = None
-    password: str | None = None
-    ...
-
-# shop_service.py — 创建店铺时写入 platform
-async def 创建(self, data: dict) -> dict:
-    ...
-    # INSERT 语句中加入 platform 列
+platforms/__init__.py
+具体实现：
+platforms/douyin/__init__.py：
+"""抖音平台包。"""
+import platforms.douyin.platform  # noqa: F401
 ​
-列表接口支持 platform 查询参数过滤：
-# shop_api.py — 店铺列表接口
-@router.get("/shops")
-async def 获取店铺列表(platform: str | None = None):
-    return await 店铺服务实例.获取列表(platform=platform)
+platforms/douyin/platform.py：
+"""抖音平台定义。"""
+from __future__ import annotations
+from platforms.base.base_platform import BasePlatform, register_platform
 
-# shop_service.py
-async def 获取列表(self, platform: str | None = None):
-    where = ""
-    params = []
-    if platform:
-        where = "WHERE platform = ?"
-        params.append(platform)
-    ...
+@register_platform("douyin")
+class DouyinPlatform(BasePlatform):
+    """抖音电商平台。"""
+
+    @property
+    def platform_id(self) -> str:
+        return "douyin"
+
+    @property
+    def display_name(self) -> str:
+        return "抖音"
+
+    @property
+    def icon(self) -> str:
+        return "🎵"
+
+    @property
+    def login_url(self) -> str:
+        return "https://fxg.jinritemai.com/login/common"
+
+    def get_available_tasks(self) -> list[str]:
+        return []  # 暂无任务，后续扩展
 ​
-流程列表同理： GET /flows?platform=pdd
-新增平台列表接口（简单版）：
-# 新文件 backend/api/platform_api.py
-from fastapi import APIRouter
-
-router = APIRouter(prefix="/api", tags=["平台"])
-
-# 暂时硬编码，后续迁移到 platforms/ 注册制
-SUPPORTED_PLATFORMS = [
-    {"id": "pdd", "name": "拼多多", "icon": "🟠"},
-    # {"id": "douyin", "name": "抖音", "icon": "🎵"},  # 以后开启
-]
-
-@router.get("/platforms")
-async def 获取平台列表():
-    return {"list": SUPPORTED_PLATFORMS}
+platforms/taobao/__init__.py：
+"""淘宝平台包。"""
+import platforms.taobao.platform  # noqa: F401
 ​
-在 main.py 中注册这个 router。
+platforms/taobao/platform.py：
+"""淘宝平台定义。"""
+from __future__ import annotations
+from platforms.base.base_platform import BasePlatform, register_platform
+
+@register_platform("taobao")
+class TaoBaoPlatform(BasePlatform):
+    """淘宝电商平台。"""
+
+    @property
+    def platform_id(self) -> str:
+        return "taobao"
+
+    @property
+    def display_name(self) -> str:
+        return "淘宝"
+
+    @property
+    def icon(self) -> str:
+        return "🟧"
+
+    @property
+    def login_url(self) -> str:
+        return "https://myseller.taobao.com/"
+
+    def get_available_tasks(self) -> list[str]:
+        return []  # 暂无任务，后续扩展
+​
+修改 platforms/__init__.py：
+import platforms.pdd     # noqa: F401
+import platforms.douyin   # noqa: F401
+import platforms.taobao   # noqa: F401
+​
 验收方式：
-POST /api/shops body 里传 {"name": "测试", "platform": "pdd"} → 创建成功，数据库 platform = pdd
-GET /api/shops?platform=pdd → 只返回 pdd 的店铺
-GET /api/platforms → 返回平台列表
-不传 platform 参数时，行为与之前完全一致（默认 pdd）
-Codex 任务 3：前端全局平台切换器 + 店铺表单绑定平台
-任务目标： 添加全局平台选择器，店铺管理页面按平台过滤，新建店铺时绑定平台。
-需要修改/新增的文件：
-frontend/src/stores/platform.ts（新增）
-frontend/src/components/PlatformSelector.vue（新增）
-frontend/src/api/platforms.ts（新增）
-frontend/src/api/types.ts（修改）
-frontend/src/views/ShopManage.vue（修改）
-frontend/src/App.vue 或侧边栏布局组件（修改）
-具体实现要点：
-新建 Pinia store 管理当前选中平台：
-// frontend/src/stores/platform.ts
-import { defineStore } from 'pinia'
-import { ref } from 'vue'
-
-export interface Platform {
-  id: string
-  name: string
-  icon: string
-}
-
-export const usePlatformStore = defineStore('platform', () => {
-  const platforms = ref<Platform[]>([])
-  const currentPlatform = ref<string>(
-    localStorage.getItem('selectedPlatform') || 'pdd'
-  )
-
-  async function loadPlatforms() {
-    const res = await fetch('/api/platforms')
-    const data = await res.json()
-    platforms.value = data.list
-  }
-
-  function setPlatform(id: string) {
-    currentPlatform.value = id
-    localStorage.setItem('selectedPlatform', id)
-  }
-
-  return { platforms, currentPlatform, loadPlatforms, setPlatform }
-})
+启动后端，GET /api/platforms 返回 3 个平台：拼多多、抖音、淘宝
+前端顶部平台切换下拉框出现 3 个选项
+切换平台后店铺列表自动按平台过滤
+Codex 任务 2：新增店铺弹窗加平台选择 + 修复弹窗底色
+任务目标：
+新增店铺弹窗的"基本信息"区域顶部增加"所属平台"下拉选择框
+修改弹窗整体底色，从深蓝色改为深灰/暗色（不要蓝色调）
+需要修改的文件：
+frontend/src/views/ShopManage.vue
+frontend/src/components/Modal.vue（弹窗底色）
+具体实现：
+2a. ShopManage.vue — 加平台选择
+在 <script setup> 中新增：
+const formPlatform = ref(platformStore.currentPlatform)
 ​
-新建平台选择器组件：
-<!-- frontend/src/components/PlatformSelector.vue -->
-<template>
-  <div class="platform-selector">
-    <select :value="store.currentPlatform" @change="onChange">
+修改 openAddModal()：
+function openAddModal() {
+  editingShop.value = null
+  formData.value = createEmptyForm()
+  formPlatform.value = platformStore.currentPlatform  // ← 新增
+  showModal.value = true
+}
+​
+修改 openEditModal()：
+function openEditModal(shop: Shop) {
+  editingShop.value = shop
+  formPlatform.value = shop.platform || 'pdd'  // ← 新增
+  formData.value = { ... }  // 原有逻辑不变
+  showModal.value = true
+}
+​
+修改 handleSave() 中新建分支：
+// 把原来的：
+payload.platform = platformStore.currentPlatform
+// 改为：
+payload.platform = formPlatform.value
+​
+在 template 的"基本信息" <h4> 后面、店铺名称行前面，加一行：
+<div class="form-row">
+  <div class="form-group">
+    <label>所属平台</label>
+    <select v-model="formPlatform" :disabled="!!editingShop">
       <option
-        v-for="p in store.platforms"
+        v-for="p in platformStore.platforms"
         :key="p.id"
         :value="p.id"
       >
@@ -120,200 +129,95 @@ export const usePlatformStore = defineStore('platform', () => {
       </option>
     </select>
   </div>
-</template>
+</div>
 ​
-样式匹配你现在的深色主题（background: #0f3460, color: #e0e0e0）。
-放到侧边栏或顶栏： 在 App.vue 或你的 layout 组件的 header 区域插入 <PlatformSelector />。
-修改 ShopManage.vue：
-import { usePlatformStore } from '../stores/platform'
-import { watch } from 'vue'
+编辑模式下 disabled，不允许更改已有店铺的平台。
+2b. Modal.vue — 修复弹窗底色
+找到弹窗 .modal-content（或类似的弹窗容器样式），将蓝色系背景色改为深灰色系：
+/* 原来（蓝色系）：*/
+background: #16213e;   /* 或 #0a1929 之类的蓝色 */
+border: 1px solid #0f3460;
 
-const platformStore = usePlatformStore()
-
-async function loadShops() {
-  const result = await listShops(platformStore.currentPlatform)
-  shops.value = result.list
-}
-
-// 平台切换时自动刷新
-watch(() => platformStore.currentPlatform, () => {
-  void loadShops()
-})
+/* 改为（深灰色系）：*/
+background: #1e1e2e;
+border: 1px solid #2e2e3e;
 ​
-修改 api/shops.ts：
-export async function listShops(platform?: string) {
-  const params = platform ? `?platform=${platform}` : ''
-  const res = await fetch(`/api/shops${params}`)
-  ...
+同时修改弹窗内所有蓝色调的输入框背景和边框：
+/* ShopManage.vue scoped styles 里的 form 输入框 */
+/* 原来：*/
+.form-group input,
+.form-group select {
+  background: #0f3460;
+  border: 1px solid #1a4d7a;
 }
-​
-新建店铺表单： 不需要让用户手动选平台，自动使用当前选中的平台：
-// ShopManage.vue — handleSave() 中
-const payload = buildPayload()
-if (!editingShop.value) {
-  payload.platform = platformStore.currentPlatform  // ← 自动绑定
-}
-​
-修改 api/types.ts：
-export interface Shop {
-  id: string
-  name: string
-  platform: string    // ← 新增
-  username?: string
-  ...
+.form-group input:focus,
+.form-group select:focus {
+  border-color: #3b82f6;
 }
 
-export interface ShopPayload {
-  name: string
-  platform?: string   // ← 新增
-  ...
+/* 改为：*/
+.form-group input,
+.form-group select {
+  background: #2a2a3a;
+  border: 1px solid #3a3a4a;
+}
+.form-group input:focus,
+.form-group select:focus {
+  border-color: #6366f1;  /* 紫色聚焦，区别于蓝色 */
 }
 ​
+section 标题颜色也一起改：
+.form-section h4 {
+  color: #d0d0d0;  /* 原来 #e0e0e0 也行，主要是不要蓝色调 */
+}
+​
+也检查 Modal.vue 里的遮罩层、header、footer 背景色，所有 #16213e / #0f3460 / #1a4d7a 类的蓝色调统一替换为灰色调：
+#16213e → #1e1e2e
+#0f3460 → #2a2a3a
+#1a4d7a → #3a3a4a
 验收方式：
-页面顶部/侧边栏出现平台下拉框，默认选中"🟠 拼多多"
-切换平台时，店铺列表自动刷新
-新建店铺时，不需要手动选平台，自动使用当前选中平台
-刷新页面后，选中的平台保持不变（localStorage 持久化）
-现有数据全部正常显示
-Codex 任务 4：平台基类接口（为多平台做准备）
-任务目标： 创建 platforms/ 目录和基类定义，PDD 平台注册。这一步不迁移现有代码，只建立接口框架。
-需要新增的文件：
-platforms/__init__.py
-platforms/base/__init__.py
-platforms/base/base_platform.py
-platforms/pdd/__init__.py
-platforms/pdd/platform.py
-具体实现要点：
-platforms/base/base_platform.py：
-from abc import ABC, abstractmethod
-from typing import Dict, List
+新增店铺弹窗第一行显示"所属平台"下拉框，默认跟随全局切换器
+编辑店铺时，平台下拉框禁用（灰色不可点）
+弹窗整体底色为深灰，没有明显的蓝色调
+输入框背景为深灰，不是深蓝
+Codex 任务 3：所有密码输入框加 * 占位符
+任务目标： 弹窗里所有密码类型的输入框（密码、授权码），在新增模式下显示 ******** 占位提示，编辑模式下显示"留空则不修改"。
+需要修改的文件：
+frontend/src/views/ShopManage.vue
+具体实现：
+找到以下两个密码输入框，修改 placeholder：
+店铺密码输入框：
+<!-- 原来：-->
+<input
+  v-model="formData.password"
+  type="password"
+  :placeholder="editingShop ? '留空则不修改' : ''"
+/>
 
-# 平台注册表（全局）
-_平台注册表: Dict[str, "BasePlatform"] = {}
-
-
-def register_platform(platform_id: str):
-    """装饰器：注册一个平台到全局注册表"""
-    def decorator(cls):
-        _平台注册表[platform_id] = cls()
-        return cls
-    return decorator
-
-
-def get_platform(platform_id: str) -> "BasePlatform":
-    """根据 ID 获取平台实例"""
-    if platform_id not in _平台注册表:
-        raise ValueError(f"未注册的平台: {platform_id}")
-    return _平台注册表[platform_id]
-
-
-def list_platforms() -> List[Dict[str, str]]:
-    """列出所有已注册平台"""
-    return [
-        {
-            "id": pid,
-            "name": p.display_name,
-            "icon": p.icon,
-        }
-        for pid, p in _平台注册表.items()
-    ]
-
-
-class BasePlatform(ABC):
-    """平台基类 — 每个新平台必须实现这些方法"""
-    
-    @property
-    @abstractmethod
-    def platform_id(self) -> str:
-        """平台唯一标识，如 'pdd', 'douyin'"""
-        ...
-    
-    @property
-    @abstractmethod
-    def display_name(self) -> str:
-        """平台显示名称，如 '拼多多'"""
-        ...
-    
-    @property
-    def icon(self) -> str:
-        """平台图标 emoji"""
-        return "🏪"
-    
-    @property
-    @abstractmethod
-    def login_url(self) -> str:
-        """平台登录页 URL"""
-        ...
-    
-    @abstractmethod
-    def get_available_tasks(self) -> List[str]:
-        """返回该平台支持的任务名称列表"""
-        ...
+<!-- 改为：-->
+<input
+  v-model="formData.password"
+  type="password"
+  :placeholder="editingShop ? '••••••••（留空则不修改）' : '••••••••'"
+/>
 ​
-platforms/pdd/platform.py：
-from platforms.base.base_platform import BasePlatform, register_platform
+邮箱授权码输入框：
+<!-- 原来：-->
+<input
+  v-model="formData.smtp_pass"
+  type="password"
+  :placeholder="editingShop ? '留空则不修改' : ''"
+/>
 
-
-@register_platform("pdd")
-class PddPlatform(BasePlatform):
-    
-    @property
-    def platform_id(self) -> str:
-        return "pdd"
-    
-    @property
-    def display_name(self) -> str:
-        return "拼多多"
-    
-    @property
-    def icon(self) -> str:
-        return "🟠"
-    
-    @property
-    def login_url(self) -> str:
-        return "https://mms.pinduoduo.com/login"
-    
-    def get_available_tasks(self) -> list[str]:
-        # 暂时硬编码，后续从 tasks/ 注册表按 platform 过滤
-        return [
-            "登录",
-            "售后处理",
-            "发布相似商品",
-            "发布换图商品",
-            "限时限量",
-            "设置推广",
-        ]
+<!-- 改为：-->
+<input
+  v-model="formData.smtp_pass"
+  type="password"
+  :placeholder="editingShop ? '••••••••（留空则不修改）' : '••••••••'"
+/>
 ​
-platforms/__init__.py：
-# 导入所有平台，触发 @register_platform 注册
-import platforms.pdd  # noqa: F401
-​
-改造 platform_api.py（任务 2 中创建的）使用注册表：
-from platforms.base.base_platform import list_platforms
-
-@router.get("/platforms")
-async def 获取平台列表():
-    return {"list": list_platforms()}
-​
+注意： 使用 ••••••••（Unicode 项目符号 \u2022），不要用普通的 *，这样视觉上更像真实密码遮罩。
 验收方式：
-from platforms.base.base_platform import get_platform, list_platforms
-get_platform("pdd").display_name → "拼多多"
-get_platform("pdd").login_url → "https://mms.pinduoduo.com/login"
-list_platforms() → [{"id": "pdd", "name": "拼多多", "icon": "🟠"}]
-get_platform("douyin") → ValueError: 未注册的平台: douyin
-现有功能不受任何影响
-检查清单
-项目
-说明
-✅ 数据兼容
-DEFAULT 'pdd' 保证现有数据无损
-✅ API 兼容
-不传 platform 参数时行为不变
-✅ 前端兼容
-localStorage 默认 pdd，首次加载无影响
-✅ Migration 安全
-ALTER TABLE 用 try/except 包装，重复执行不报错
-✅ 无现有代码迁移
-这 4 个任务都是增量添加，不移动/重命名现有文件
-⚠️ 后续做
-把 pages/、pdd_selectors/、tasks/ 按平台迁移（等第二个平台再做）
+新增店铺模式：密码和授权码输入框显示 •••••••• 灰色占位符
+编辑店铺模式：密码和授权码输入框显示 ••••••••（留空则不修改）
+输入内容后占位符消失，输入的文字显示为密码圆点

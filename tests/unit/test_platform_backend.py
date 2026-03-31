@@ -179,6 +179,8 @@ class 测试_平台接口:
             "data": {
                 "list": [
                     {"id": "pdd", "name": "拼多多", "icon": "🟠"},
+                    {"id": "douyin", "name": "抖音", "icon": "🎵"},
+                    {"id": "taobao", "name": "淘宝", "icon": "🟧"},
                 ]
             },
         }
@@ -189,11 +191,13 @@ class 测试_平台注册表:
 
     def test_获取平台与列出平台(self):
         """已注册平台应可读取，未注册平台应抛出异常。"""
-        平台 = get_platform("pdd")
+        拼多多平台 = get_platform("pdd")
+        抖音平台 = get_platform("douyin")
+        淘宝平台 = get_platform("taobao")
 
-        assert 平台.display_name == "拼多多"
-        assert 平台.login_url == "https://mms.pinduoduo.com/login"
-        assert 平台.get_available_tasks() == [
+        assert 拼多多平台.display_name == "拼多多"
+        assert 拼多多平台.login_url == "https://mms.pinduoduo.com/login"
+        assert 拼多多平台.get_available_tasks() == [
             "登录",
             "售后处理",
             "发布相似商品",
@@ -201,9 +205,17 @@ class 测试_平台注册表:
             "限时限量",
             "设置推广",
         ]
+        assert 抖音平台.display_name == "抖音"
+        assert 抖音平台.login_url == "https://fxg.jinritemai.com/login/common"
+        assert 抖音平台.get_available_tasks() == []
+        assert 淘宝平台.display_name == "淘宝"
+        assert 淘宝平台.login_url == "https://myseller.taobao.com/"
+        assert 淘宝平台.get_available_tasks() == []
         assert list_platforms() == [
             {"id": "pdd", "name": "拼多多", "icon": "🟠"},
+            {"id": "douyin", "name": "抖音", "icon": "🎵"},
+            {"id": "taobao", "name": "淘宝", "icon": "🟧"},
         ]
 
-        with pytest.raises(ValueError, match="未注册的平台: douyin"):
-            get_platform("douyin")
+        with pytest.raises(ValueError, match="未注册的平台: jd"):
+            get_platform("jd")

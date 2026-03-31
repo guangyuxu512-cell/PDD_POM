@@ -2966,3 +2966,36 @@
 - [x] 全量回归通过：
   - `python -m pytest -c tests/pytest.ini tests/ -v`
   - `505 passed, 18 warnings`
+## Prompt 136：新增抖音/淘宝平台与店铺弹窗平台选择/灰色主题 ✅
+- [x] 更新 `platforms/__init__.py`
+- [x] 注册 `douyin` 与 `taobao` 平台包
+- [x] 新增 `platforms/douyin/__init__.py`
+- [x] 新增 `platforms/douyin/platform.py`
+- [x] 新增 `platforms/taobao/__init__.py`
+- [x] 新增 `platforms/taobao/platform.py`
+- [x] `GET /api/platforms` 现在返回 3 个平台：
+  - `pdd`
+  - `douyin`
+  - `taobao`
+- [x] 更新 `frontend/src/views/ShopManage.vue`
+- [x] 新增店铺弹窗增加“所属平台”下拉
+- [x] 新增模式默认跟随全局平台
+- [x] 编辑模式平台下拉禁用
+- [x] 新建店铺改为提交 `formPlatform.value`
+- [x] 店铺密码和邮箱授权码占位符改为 `•••••••• / ••••••••（留空则不修改）`
+- [x] 表单输入区改为灰色暗色系背景，聚焦色改为紫色
+- [x] 更新 `frontend/src/components/Modal.vue`
+- [x] 弹窗容器 / header / body / footer 改为深灰色系
+- [x] 关闭按钮 hover 改为灰色高亮
+- [x] 更新测试：
+  - `tests/unit/test_platform_backend.py`
+  - `tests/unit/test_platform_frontend_static.py`
+  - `tests/unit/test_shop_platform_modal_static.py`
+- [x] 定向验证通过：
+  - `python -m pytest -c tests/pytest.ini tests/unit/test_platform_backend.py tests/unit/test_platform_frontend_static.py tests/unit/test_shop_platform_modal_static.py tests/unit/test_shop_restore.py tests/unit/test_frontend_display_details.py -v`
+  - `11 passed`
+- [x] 前端类型校验通过：
+  - `npx --prefix frontend vue-tsc -b frontend/tsconfig.json`
+- [x] 全量回归通过：
+  - `python -m pytest -c tests/pytest.ini tests/ -v`
+  - `507 passed, 18 warnings`

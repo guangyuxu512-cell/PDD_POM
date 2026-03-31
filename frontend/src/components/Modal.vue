@@ -52,7 +52,8 @@ const handleClose = () => {
 }
 
 .modal-container {
-  background: #ffffff;
+  background: #1e1e2e;
+  border: 1px solid #2e2e3e;
   border-radius: 8px;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
   max-height: 90vh;
@@ -65,19 +66,20 @@ const handleClose = () => {
   justify-content: space-between;
   align-items: center;
   padding: 20px 24px;
-  border-bottom: 1px solid #e5e7eb;
+  border-bottom: 1px solid #2e2e3e;
+  background: #1e1e2e;
 }
 
 .modal-header h3 {
   margin: 0;
   font-size: var(--font-size-h3);
-  color: #1a1a2e;
+  color: #e5e7eb;
 }
 
 .close-btn {
   background: none;
   border: none;
-  color: #6b7280;
+  color: #a1a1aa;
   font-size: 24px;
   cursor: pointer;
   padding: 0;
@@ -91,24 +93,24 @@ const handleClose = () => {
 }
 
 .close-btn:hover {
-  background: #f3f4f6;
-  color: #1a1a2e;
+  background: #2a2a3a;
+  color: #f4f4f5;
 }
 
 .modal-body {
   padding: var(--spacing-lg);
   overflow-y: auto;
   flex: 1;
-  background: #ffffff;
+  background: #1e1e2e;
 }
 
 .modal-footer {
   padding: 16px 24px;
-  border-top: 1px solid #e5e7eb;
+  border-top: 1px solid #2e2e3e;
   display: flex;
   justify-content: flex-end;
   gap: 12px;
-  background: #ffffff;
+  background: #1e1e2e;
 }
 
 .modal-enter-active,

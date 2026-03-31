@@ -46,5 +46,5 @@ class 测试_平台切换器前端接入:
         assert "platform?: string" in 店铺类型
         assert "usePlatformStore" in 店铺页面
         assert "listShops(platformStore.currentPlatform)" in 店铺页面
-        assert "payload.platform = platformStore.currentPlatform" in 店铺页面
+        assert "payload.platform = formPlatform.value" in 店铺页面
         assert "watch(() => platformStore.currentPlatform" in 店铺页面
