@@ -228,7 +228,7 @@ async function testEmail() {
 }
 
 onMounted(() => {
-  void loadShops()
+  void platformStore.loadPlatforms().then(loadShops)
 })
 
 watch(() => platformStore.currentPlatform, () => {
@@ -240,7 +240,20 @@ watch(() => platformStore.currentPlatform, () => {
   <div class="shop-manage">
     <div class="header">
       <h1>店铺管理</h1>
-      <button class="btn btn-primary" @click="openAddModal">新增店铺</button>
+      <div class="header-actions">
+        <div class="platform-tabs">
+          <button
+            v-for="p in platformStore.platforms"
+            :key="p.id"
+            class="platform-tab"
+            :class="{ active: platformStore.currentPlatform === p.id }"
+            @click="platformStore.setPlatform(p.id)"
+          >
+            {{ p.icon }} {{ p.name }}
+          </button>
+        </div>
+        <button class="btn btn-primary" @click="openAddModal">新增店铺</button>
+      </div>
     </div>
 
     <div v-if="shops.length === 0" class="empty-state">
@@ -372,10 +385,47 @@ watch(() => platformStore.currentPlatform, () => {
   margin-bottom: 24px;
 }
 
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
 h1 {
   font-size: 28px;
   margin: 0;
   color: #1a1a2e;
+}
+
+.platform-tabs {
+  display: flex;
+  gap: 4px;
+  background: #2a2a3a;
+  border-radius: 8px;
+  padding: 3px;
+}
+
+.platform-tab {
+  padding: 6px 16px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: #999;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.platform-tab:hover {
+  color: #ddd;
+  background: #333345;
+}
+
+.platform-tab.active {
+  background: #4f46e5;
+  color: #fff;
+  font-weight: 500;
 }
 
 .btn {
@@ -394,30 +444,30 @@ h1 {
 }
 
 .btn-primary {
-  background: #3b82f6;
+  background: #4f46e5;
   color: white;
 }
 
 .btn-primary:hover {
-  background: #2563eb;
+  background: #4338ca;
 }
 
 .btn-secondary {
-  background: #0f3460;
+  background: #2a2a3a;
   color: #e0e0e0;
 }
 
 .btn-secondary:hover {
-  background: #1a4d7a;
+  background: #3a3a4a;
 }
 
 .empty-state {
   text-align: center;
   padding: 48px;
   color: #a0a0a0;
-  background: #16213e;
+  background: #1e1e2e;
   border-radius: 12px;
-  border: 1px solid #0f3460;
+  border: 1px solid #2a2a3a;
 }
 
 .shops-grid {
@@ -500,20 +550,26 @@ h1 {
   cursor: not-allowed;
 }
 
-.btn-secondary {
-  background: #2a2a3a;
-  color: #e0e0e0;
-}
-
-.btn-secondary:hover {
-  background: #3a3a4a;
-}
-
 .test-connection-wrapper {
   margin-top: 8px;
 }
 
 @media (max-width: 768px) {
+  .header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+
+  .header-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .platform-tabs {
+    overflow-x: auto;
+  }
+
   .form-row {
     flex-direction: column;
   }

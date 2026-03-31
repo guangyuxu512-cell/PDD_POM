@@ -2999,3 +2999,24 @@
 - [x] 全量回归通过：
   - `python -m pytest -c tests/pytest.ini tests/ -v`
   - `507 passed, 18 warnings`
+## Prompt 137：平台切换移入店铺页 Header 与灰紫配色统一 ✅
+- [x] 更新 `frontend/src/App.vue`
+- [x] 删除侧边栏中的 `PlatformSelector` import 与组件挂载
+- [x] 侧边栏背景、边框、导航 hover 与激活态统一改为深灰 + 紫色高亮
+- [x] 更新 `frontend/src/views/ShopManage.vue`
+- [x] header 右侧新增 `platform-tabs` 胶囊按钮组，与“新增店铺”按钮同排
+- [x] 点击平台按钮时调用 `platformStore.setPlatform(p.id)`
+- [x] `onMounted` 改为先执行 `platformStore.loadPlatforms()` 再执行 `loadShops()`
+- [x] 头部按钮、次按钮、空状态与移动端 header 布局同步收口为灰紫配色
+- [x] 更新 `frontend/src/components/PlatformSelector.vue`
+- [x] 组件保留为备用，但输入框背景、边框与 focus 高亮改为灰紫色系
+- [x] 更新 `tests/unit/test_platform_frontend_static.py`
+- [x] 静态回归改为断言 `App.vue` 不再挂载 `PlatformSelector`
+- [x] 新增店铺页 header 平台按钮组、平台切换调用与灰紫主题样式断言
+- [x] 定向验证通过：
+  - `python -m pytest -c tests/pytest.ini tests/unit/test_platform_frontend_static.py tests/unit/test_shop_platform_modal_static.py tests/unit/test_shop_restore.py tests/unit/test_frontend_management_page.py tests/unit/test_frontend_display_details.py -v`
+- [x] 前端类型校验通过：
+  - `npx --prefix frontend vue-tsc -b frontend/tsconfig.json`
+- [x] 全量回归通过：
+  - `python -m pytest -c tests/pytest.ini tests/ -v`
+  - `508 passed, 18 warnings`

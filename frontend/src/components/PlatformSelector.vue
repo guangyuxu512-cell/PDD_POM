@@ -44,7 +44,7 @@ onMounted(() => {
 
 .selector-label {
   font-size: 12px;
-  color: #9fb3c8;
+  color: #a1a1aa;
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
@@ -52,16 +52,16 @@ onMounted(() => {
 .selector-input {
   width: 100%;
   padding: 10px 12px;
-  border: 1px solid #1a4d7a;
+  border: 1px solid #3a3a4a;
   border-radius: 8px;
-  background: #0f3460;
+  background: #2a2a3a;
   color: #e0e0e0;
   font-size: 14px;
 }
 
 .selector-input:focus {
   outline: none;
-  border-color: #3b82f6;
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.18);
+  border-color: #4f46e5;
+  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.18);
 }
 </style>

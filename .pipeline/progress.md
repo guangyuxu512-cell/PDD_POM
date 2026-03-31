@@ -878,3 +878,42 @@
 - `.pipeline/task.md` 为既有本地改动，本轮未修改。
 
 ---
+
+## 任务摘要
+
+把平台切换入口从 `App.vue` 侧边栏移到店铺管理页 header，并把相关配色统一收口为深灰 + 紫色高亮，同时补齐前端静态回归。
+
+## 改动文件列表
+
+- `frontend/src/App.vue`
+- `frontend/src/views/ShopManage.vue`
+- `frontend/src/components/PlatformSelector.vue`
+- `tests/unit/test_platform_frontend_static.py`
+- `PLAN.md`
+- `改造进度.md`
+- `.pipeline/progress.md`
+
+## 改动说明
+
+- `frontend/src/App.vue`：移除 `PlatformSelector` 的 import 和侧边栏挂载；侧边栏背景、边框、导航 hover 与激活态全部去蓝化，统一改为深灰 + 紫色高亮。
+- `frontend/src/views/ShopManage.vue`：在 header 新增 `header-actions` 与 `platform-tabs` 胶囊按钮组，把平台切换和“新增店铺”按钮放到同一行；点击按钮直接调用 `platformStore.setPlatform(p.id)`；`onMounted` 改为先 `platformStore.loadPlatforms()` 再 `loadShops()`，避免移除侧边栏后平台数据未初始化；头部按钮、次按钮、空状态和移动端 header 布局同步收口为灰紫配色。
+- `frontend/src/components/PlatformSelector.vue`：组件保留为备用，但输入框背景、边框和 focus 高亮改为灰紫色系，移除原有蓝色调。
+- `tests/unit/test_platform_frontend_static.py`：静态回归改为断言 `App.vue` 不再挂载 `PlatformSelector`，并新增店铺页 header 平台按钮组、平台切换调用和灰紫主题样式断言。
+- `PLAN.md`、`改造进度.md`、`.pipeline/progress.md`：同步记录本轮前端改造与验证结果。
+
+## 影响范围
+
+- 侧边栏与店铺管理页的前端平台切换入口位置
+- 店铺管理页首次加载平台数据与按平台刷新列表的前端时序
+- 平台相关灰紫主题样式与静态回归覆盖范围
+
+## 注意事项
+
+- 已执行 `python -m pytest -c tests/pytest.ini tests/unit/test_platform_frontend_static.py tests/unit/test_shop_platform_modal_static.py tests/unit/test_shop_restore.py tests/unit/test_frontend_management_page.py tests/unit/test_frontend_display_details.py -v`。
+- 已执行 `npx --prefix frontend vue-tsc -b frontend/tsconfig.json`。
+- 已执行 `python -m pytest -c tests/pytest.ini tests/ -v`，结果为 `508 passed, 18 warnings`。
+- `PlatformSelector.vue` 当前仅作为备用组件保留，不再在 `App.vue` 中使用。
+- 18 条 warning 中，16 条仍来自既有第三方依赖 `celery` 与 `openpyxl` 的 `datetime.utcnow()` 弃用提示，另外 2 条为既有 `PytestUnraisableExceptionWarning`，不是本轮改动引入的问题。
+- `.pipeline/task.md` 为既有本地改动，本轮未修改。
+
+---
