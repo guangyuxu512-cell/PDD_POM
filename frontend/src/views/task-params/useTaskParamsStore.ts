@@ -548,13 +548,13 @@ export function useTaskParamsStore() {
 
   function getStepResultStatusClass(status: string) {
     const statusMap: Record<string, string> = {
-      completed: 'is-success',
-      failed: 'is-danger',
-      running: 'is-pending',
-      waiting_barrier: 'is-pending',
-      merged_skip: 'is-merge',
+      completed: 'bg-emerald-100 text-emerald-800',
+      failed: 'bg-rose-100 text-rose-800',
+      running: 'bg-amber-100 text-amber-800',
+      waiting_barrier: 'bg-gray-100 text-gray-700',
+      merged_skip: 'bg-gray-200 text-gray-700',
     }
-    return statusMap[status] || 'is-pending'
+    return statusMap[status] || 'bg-gray-100 text-gray-700'
   }
 
   function getStepResultToggleKey(flowParamId: number, stepName: string) {

@@ -1,4 +1,4 @@
-﻿<script setup lang="ts">
+<script setup lang="ts">
 import { computed } from 'vue'
 
 import { useTaskParamsContext } from './useTaskParamsStore'
@@ -20,7 +20,7 @@ const { jsonTooltip, keepJsonTooltipOpen, hideJsonTooltip } = useJsonTooltip()
   <Teleport to="body">
     <div
       v-if="jsonTooltip.visible"
-      class="json-tooltip-panel"
+      class="fixed z-50 max-w-md rounded-md border border-gray-200 bg-white p-3 shadow-lg"
       :style="{
         left: `${jsonTooltip.left}px`,
         top: `${jsonTooltip.top}px`,
@@ -29,32 +29,7 @@ const { jsonTooltip, keepJsonTooltipOpen, hideJsonTooltip } = useJsonTooltip()
       @mouseenter="keepJsonTooltipOpen"
       @mouseleave="hideJsonTooltip"
     >
-      <pre>{{ jsonTooltip.content }}</pre>
+      <pre class="max-h-64 overflow-auto whitespace-pre-wrap break-words text-xs text-gray-700">{{ jsonTooltip.content }}</pre>
     </div>
   </Teleport>
 </template>
-
-<style scoped>
-.json-tooltip-panel {
-  position: fixed;
-  z-index: 3000;
-  max-width: 500px;
-  padding: var(--spacing-md);
-  border-radius: var(--radius-md);
-  background: rgba(15, 23, 42, 0.96);
-  color: #e5eefc;
-  border: 1px solid rgba(148, 163, 184, 0.35);
-  box-shadow: var(--shadow-md);
-}
-
-.json-tooltip-panel pre {
-  margin: 0;
-  max-height: min(60vh, 420px);
-  overflow: auto;
-  font-size: var(--font-size-sm);
-  line-height: 1.5;
-  white-space: pre-wrap;
-  word-break: break-word;
-}
-</style>
-
