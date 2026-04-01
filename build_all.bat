@@ -3,10 +3,10 @@ chcp 65001 >nul
 cd /d %~dp0
 
 echo ========================================
-echo   自动化工作台 - 一键打包
+echo   PDD_POM - Build All
 echo ========================================
 
-echo [1/4] 构建前端...
+echo [1/4] Building frontend...
 pushd frontend
 call npm install
 if errorlevel 1 goto :error
@@ -14,29 +14,29 @@ call npm run build
 if errorlevel 1 goto :error
 popd
 
-echo [2/4] 打包 Python 后端...
+echo [2/4] Packing Python backend...
 call build_backend.bat
 if errorlevel 1 goto :error
 
-echo [3/4] 安装 Electron 依赖...
+echo [3/4] Installing Electron deps...
 pushd electron
 call npm install
 if errorlevel 1 goto :error
 
-echo [4/4] 打包 Electron 安装包...
+echo [4/4] Packing Electron installer...
 call npm run pack
 if errorlevel 1 goto :error
 popd
 
 echo ========================================
-echo   打包完成
-echo   输出目录: electron\dist\
+echo   Build complete
+echo   Output: electron\dist\
 echo ========================================
 goto :end
 
 :error
 popd >nul 2>nul
-echo 打包失败，请根据上面的报错信息排查。
+echo Build failed. Check the error messages above.
 exit /b 1
 
 :end

@@ -66,6 +66,42 @@ celery_app.conf.update(
 )
 
 
+def 刷新Celery配置() -> None:
+    """根据最新 settings 动态刷新 Celery 连接配置。"""
+    新Broker地址 = str(配置实例.REDIS_URL or "").strip()
+    新Backend地址 = str(配置实例.CELERY_RESULT_BACKEND or 新Broker地址 or "").strip()
+
+    Broker已变更 = any(
+        str(当前值 or "").strip() != 新Broker地址
+        for 当前值 in (
+            getattr(celery_app.conf, "broker_url", None),
+            getattr(celery_app.conf, "broker_read_url", None),
+            getattr(celery_app.conf, "broker_write_url", None),
+            getattr(celery_app.conf, "redbeat_redis_url", None),
+        )
+    )
+    Backend已变更 = str(getattr(celery_app.conf, "result_backend", "") or "").strip() != 新Backend地址
+
+    if not Broker已变更 and not Backend已变更:
+        return
+
+    if Broker已变更:
+        celery_app.conf.broker_url = 新Broker地址
+        celery_app.conf.broker_read_url = 新Broker地址
+        celery_app.conf.broker_write_url = 新Broker地址
+        celery_app.conf.redbeat_redis_url = 新Broker地址
+        celery_app._pool = None
+        celery_app.amqp._producer_pool = None
+        日志记录器.info(f"Celery broker 已刷新: {新Broker地址}")
+
+    if Backend已变更:
+        celery_app.conf.result_backend = 新Backend地址
+        celery_app._backend_cache = None
+        if hasattr(celery_app, "_local"):
+            setattr(celery_app._local, "backend", None)
+        日志记录器.info(f"Celery backend 已刷新: {新Backend地址}")
+
+
 def 获取Worker事件循环() -> asyncio.AbstractEventLoop:
     """获取当前线程复用的 Worker 事件循环。"""
     global Worker事件循环

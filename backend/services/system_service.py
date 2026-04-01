@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import asyncio
+import re
 from datetime import datetime
 from time import perf_counter
 from typing import Any, Dict
@@ -13,10 +14,14 @@ from typing import Any, Dict
 import redis.asyncio as aioredis
 
 from backend.config import 配置实例
+from backend.logging_config import get_logger
 from backend.models.database import 获取连接
 from backend.services.metrics_service import 指标服务实例
 from backend.utils.settings import batch_update_settings
-from tasks.celery_app import celery_app
+from tasks.celery_app import celery_app, 刷新Celery配置
+
+
+日志记录器 = get_logger()
 
 
 class 系统服务:
@@ -172,12 +177,27 @@ class 系统服务:
             "feishu_bitable_table_id": 配置实例.FEISHU_BITABLE_TABLE_ID or "",
         }
 
+    @staticmethod
+    def _规范化Redis地址(地址: Any) -> Any:
+        """修正常见的 Redis URL 端口分隔错误。"""
+        if not isinstance(地址, str):
+            return 地址
+
+        规范地址 = 地址.strip()
+        if not 规范地址:
+            return 规范地址
+
+        return re.sub(r"/:(\d+)(?=[/?]|$)", r":\1", 规范地址)
+
     async def 更新配置(self, 新配置: Dict[str, Any]) -> Dict[str, Any]:
         """将旧接口提交的配置更新到 settings 表。"""
         更新项: list[dict[str, Any]] = []
         for 前端字段, 值 in 新配置.items():
             if 前端字段 not in self._配置白名单:
                 raise ValueError(f"不允许更新字段: {前端字段}")
+
+            if 前端字段 == "redis_url":
+                值 = self._规范化Redis地址(值)
 
             设置键名 = self._配置白名单[前端字段]
             if isinstance(值, bool):
@@ -190,6 +210,12 @@ class 系统服务:
             更新项.append({"key": 设置键名, "value": 规范值})
 
         batch_update_settings(更新项)
+
+        try:
+            刷新Celery配置()
+        except Exception as 异常:
+            日志记录器.warning(f"刷新 Celery 配置失败（忽略）: {异常}")
+
         return await self.获取配置()
 
     async def 健康检查(self) -> Dict[str, Any]:

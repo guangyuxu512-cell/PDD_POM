@@ -4,9 +4,14 @@
 提供系统配置和健康检查的 REST API 接口。
 """
 import asyncio
+import base64
+import hashlib
+import hmac
+import time
 from time import perf_counter
 from typing import Dict, Any, Optional
 
+import httpx
 import redis.asyncio as aioredis
 from fastapi import APIRouter, Body
 
@@ -15,6 +20,8 @@ from backend.models.data_structure import (
     成功,
     失败,
     Redis连接测试请求,
+    验证码测试请求,
+    飞书Webhook测试请求,
 )
 from backend.config import 配置实例
 from backend.logging_config import get_logger
@@ -24,6 +31,13 @@ from backend.services.system_service import 系统服务实例
 # 创建路由
 路由 = APIRouter(prefix="/api/system", tags=["系统配置"])
 日志记录器 = get_logger()
+
+
+def _生成飞书签名(时间戳: str, 密钥: str) -> str:
+    """按飞书机器人签名规则生成 sign。"""
+    待签名字符串 = f"{时间戳}\n{密钥}"
+    签名摘要 = hmac.new(待签名字符串.encode("utf-8"), digestmod=hashlib.sha256).digest()
+    return base64.b64encode(签名摘要).decode("utf-8")
 
 
 @路由.get("/config", summary="获取系统配置")
@@ -107,6 +121,85 @@ async def 测试Redis连接(
                     await asyncio.wait_for(客户端.close(), timeout=5)
             except Exception as e:
                 日志记录器.warning(f"关闭 Redis 连接失败（忽略）: {e}")
+
+
+@路由.post("/test-captcha", summary="测试验证码服务")
+async def 测试验证码服务(
+    请求: Optional[验证码测试请求] = Body(default=None, description="验证码服务信息")
+) -> 统一响应:
+    """
+    测试验证码服务可用性。
+
+    参数:
+        请求: 验证码服务信息，可为空；为空时回退到系统配置
+    """
+    服务商 = ((请求.captcha_provider if 请求 else None) or 配置实例.CAPTCHA_PROVIDER or "yescaptcha").strip().lower()
+    API密钥 = ((请求.captcha_api_key if 请求 else None) or 配置实例.CAPTCHA_API_KEY or "").strip()
+
+    if not API密钥:
+        return 失败("验证码测试失败: API Key 不能为空")
+
+    if 服务商 != "yescaptcha":
+        return 失败(f"验证码测试失败: 暂不支持的服务商 {服务商}")
+
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as 客户端:
+            响应 = await 客户端.post(
+                "https://api.yescaptcha.com/getBalance",
+                json={"clientKey": API密钥},
+            )
+            响应.raise_for_status()
+            响应数据 = 响应.json()
+    except Exception as e:
+        return 失败(f"验证码测试失败: {str(e)}")
+
+    if 响应数据.get("errorId", 1) != 0:
+        错误描述 = 响应数据.get("errorDescription") or "未知错误"
+        return 失败(f"验证码测试失败: {错误描述}")
+
+    余额 = 响应数据.get("balance")
+    return 成功(data={"balance": 余额}, message="验证码服务连接成功")
+
+
+@路由.post("/test-feishu-webhook", summary="测试飞书 Webhook")
+async def 测试飞书Webhook(
+    请求: Optional[飞书Webhook测试请求] = Body(default=None, description="飞书 Webhook 信息")
+) -> 统一响应:
+    """
+    测试飞书 Webhook 连通性。
+
+    参数:
+        请求: Webhook 信息，可为空；为空时回退到系统配置
+    """
+    Webhook地址 = ((请求.webhook_url if 请求 else None) or 配置实例.FEISHU_WEBHOOK_URL or "").strip()
+    签名密钥 = ((请求.secret if 请求 else None) or 配置实例.FEISHU_SECRET or "").strip()
+
+    if not Webhook地址:
+        return 失败("飞书 Webhook 测试失败: Webhook 地址不能为空")
+
+    消息体: dict[str, Any] = {
+        "msg_type": "text",
+        "content": {"text": "RPA 系统连接测试，Webhook 配置正常。"},
+    }
+
+    if 签名密钥:
+        时间戳 = str(int(time.time()))
+        消息体["timestamp"] = 时间戳
+        消息体["sign"] = _生成飞书签名(时间戳, 签名密钥)
+
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as 客户端:
+            响应 = await 客户端.post(Webhook地址, json=消息体)
+            响应.raise_for_status()
+            响应数据 = 响应.json()
+    except Exception as e:
+        return 失败(f"飞书 Webhook 测试失败: {str(e)}")
+
+    if 响应数据.get("code") == 0 or 响应数据.get("StatusCode") == 0:
+        return 成功(message="飞书 Webhook 测试成功")
+
+    错误信息 = 响应数据.get("msg") or 响应数据.get("Message") or "未知错误"
+    return 失败(f"飞书 Webhook 测试失败: {错误信息}")
 
 
 @路由.get("/health", summary="健康检查")

@@ -476,6 +476,34 @@ class Redis连接测试请求(BaseModel):
     redis_url: Optional[str] = Field(default=None, description="Redis 连接地址")
 
 
+class 验证码测试请求(BaseModel):
+    """验证码服务测试请求"""
+    captcha_provider: Optional[str] = Field(
+        default=None,
+        description="验证码服务商",
+        validation_alias=AliasChoices("captcha_provider", "provider"),
+    )
+    captcha_api_key: Optional[str] = Field(
+        default=None,
+        description="验证码 API 密钥",
+        validation_alias=AliasChoices("captcha_api_key", "api_key"),
+    )
+
+
+class 飞书Webhook测试请求(BaseModel):
+    """飞书 Webhook 测试请求"""
+    webhook_url: Optional[str] = Field(
+        default=None,
+        description="飞书 Webhook 地址",
+        validation_alias=AliasChoices("webhook_url", "feishu_webhook_url"),
+    )
+    secret: Optional[str] = Field(
+        default=None,
+        description="飞书签名密钥",
+        validation_alias=AliasChoices("secret", "feishu_secret"),
+    )
+
+
 class 系统配置响应(BaseModel):
     """系统配置响应"""
     redis_url: str = Field(description="Redis 连接地址")

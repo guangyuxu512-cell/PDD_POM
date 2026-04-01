@@ -1402,3 +1402,56 @@
 - 已执行 `npm --prefix frontend run build`，当前环境仍因 `esbuild` 子进程 `spawn EPERM` 失败，属于环境限制，未完成前端构建验收。
 - 旧 `frontend/src/views/Settings.vue` 仍保留在仓库中，但路由已切换到 `frontend/src/views/SystemSettings.vue`。
 - `.pipeline/task.md` 为既有本地变更，本轮未修改。
+
+---
+
+## 任务摘要
+
+完成 settings 迁移后的跟进补丁：Celery 配置支持动态刷新，Redis URL 自动归一化，新增验证码/飞书测试接口，并补齐对应单元测试。
+
+## 改动文件列表
+
+- `backend/api/settings_api.py`
+- `backend/api/system_api.py`
+- `backend/models/data_structure.py`
+- `backend/services/system_service.py`
+- `tasks/celery_app.py`
+- `tasks/execute_task.py`
+- `tests/unit/test_celery_config_refresh.py`
+- `tests/unit/test_system_followup.py`
+- `tests/unit/test_system_api_followup.py`
+- `tests/unit/test_execute_task_refresh.py`
+- `tests/unit/test_settings_api_followup.py`
+- `PLAN.md`
+- `改造进度.md`
+- `.pipeline/progress.md`
+
+## 改动说明
+
+- `tasks/celery_app.py`：新增 `刷新Celery配置()`，从 `settings` 动态读取 broker / backend，并在地址变化时同步清理连接池、producer pool 和 backend 缓存。
+- `backend/services/system_service.py`：旧 `/api/system/config` 兼容层在保存 `redis_url` 前自动修正常见格式错误，保存后最佳努力刷新 Celery 配置。
+- `backend/api/settings_api.py`：给真实 `/settings` 页面使用的 `/api/settings`、`/api/settings/batch` 写入链路补上 Redis URL 规范化与按需刷新 Celery，避免只修兼容接口不修现用入口。
+- `backend/models/data_structure.py`：新增 `验证码测试请求`、`飞书Webhook测试请求`，并兼容旧参数别名。
+- `backend/api/system_api.py`：新增 `POST /api/system/test-captcha` 与 `POST /api/system/test-feishu-webhook`，支持请求体覆盖系统配置，飞书测试支持可选签名。
+- `tasks/execute_task.py`：在 `初始化Worker环境()` 后增加 `刷新Celery配置()`，让 Worker 每次执行任务前先同步最新配置。
+- `tests/unit/test_celery_config_refresh.py`、`tests/unit/test_system_followup.py`、`tests/unit/test_system_api_followup.py`、`tests/unit/test_execute_task_refresh.py`、`tests/unit/test_settings_api_followup.py`：补齐本轮新增行为的独立回归测试。
+
+## 影响范围
+
+- `/settings` 页面和旧 `/api/system/config` 的 Celery / Redis 设置更新链路
+- `/api/system/test-redis`、`/api/system/test-captcha`、`/api/system/test-feishu-webhook`
+- Celery 主进程派发任务时的配置读取
+- Worker 执行任务前的配置同步
+
+## 注意事项
+
+- 已执行新增定向测试与受影响回归：
+  - `python -m pytest tests/unit/test_celery_config_refresh.py tests/unit/test_system_followup.py tests/unit/test_system_api_followup.py tests/unit/test_execute_task_refresh.py tests/unit/test_settings_api_followup.py -q`
+  - `python -m pytest tests/unit/test_system_api.py tests/unit/test_settings_api.py tests/unit/test_execute_task.py tests/unit/test_celery_bridge.py tests/unit/test_system_set_machine_code.py -q`
+  - `python -m pytest tests/test_feishu_service.py -q`
+- 已执行全量回归：
+  - `python -m pytest -c tests/pytest.ini -q`
+  - 结果为 `525 passed, 18 warnings`
+- 18 条 warnings 仍来自既有第三方依赖 `celery`、`openpyxl` 与既有 `PytestUnraisableExceptionWarning`，不是本轮改动引入的问题。
+- `frontend/src/views/Settings.vue` 仍保留旧接口调用，但正式路由页为 `frontend/src/views/SystemSettings.vue`；本轮已确保当前 `/settings` 页面实际依赖的 `/api/settings` 链路具备 Celery 刷新能力。
+- `.pipeline/task.md`、`backend.spec`、`build_all.bat`、`build_backend.bat` 等为既有本地变更，本轮未修改其任务之外内容。

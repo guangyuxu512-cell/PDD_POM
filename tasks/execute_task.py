@@ -15,7 +15,7 @@ from backend.logging_config import get_logger
 from backend.services.metrics_service import 指标服务实例
 from browser.recovery import 浏览器恢复实例
 from tasks.async_utils import 运行异步任务 as _运行异步任务
-from tasks.celery_app import celery_app, 初始化Worker环境
+from tasks.celery_app import celery_app, 初始化Worker环境, 刷新Celery配置
 from tasks.registry import 获取任务类
 from backend.services.execute_service import (
     同步更新批次店铺状态,
@@ -117,6 +117,7 @@ def 执行任务(
         total_steps: 总步骤数
     """
     初始化Worker环境()
+    刷新Celery配置()
     获取任务类(task_name)
     追踪ID = (str(batch_id or "").strip() or str(getattr(self.request, "id", "") or "—"))[:8] or "—"
     日志记录器 = get_logger(追踪ID)
