@@ -2,6 +2,7 @@
 import { computed, onMounted, reactive, ref } from 'vue'
 
 import { batchUpdateSettings, listSettings } from '../api/settings'
+import { testCaptcha, testFeishu, testRedis } from '../api/system'
 import type { SettingItem } from '../api/types'
 import { toast } from '../utils/toast'
 
@@ -14,11 +15,14 @@ const categoryMap: Record<string, string> = {
 
 const numericKeys = new Set(['app_port', 'max_concurrency'])
 const booleanKeys = new Set(['browser_headless', 'auto_restart_browser'])
+const TEST_KEYS = new Set(['celery_broker_url', 'captcha_api_key', 'feishu_webhook_url'])
 
 const settingsList = ref<SettingItem[]>([])
 const activeCategory = ref('general')
 const isSaving = ref(false)
 const formData = reactive<Record<string, string>>({})
+const testResults = ref<Record<string, { ok: boolean; msg: string } | null>>({})
+const testLoading = ref<Record<string, boolean>>({})
 
 const categories = computed(() =>
   Object.entries(categoryMap)
@@ -90,6 +94,38 @@ onMounted(async () => {
     toast.error(error?.message || '加载系统设置失败')
   }
 })
+
+const runTest = async (key: string) => {
+  if (testLoading.value[key]) return
+  testLoading.value[key] = true
+  testResults.value[key] = null
+
+  let result: { success: boolean; message: string; data?: any }
+
+  if (key === 'celery_broker_url') {
+    result = await testRedis(formData[key] || undefined)
+    if (result.success && result.data?.latency_ms !== undefined) {
+      result.message = `连接成功，延迟 ${result.data.latency_ms}ms`
+    }
+  }
+  else if (key === 'captcha_api_key') {
+    result = await testCaptcha(formData[key] || undefined)
+  }
+  else if (key === 'feishu_webhook_url') {
+    result = await testFeishu(formData[key] || undefined, formData['feishu_secret'] || undefined)
+  }
+  else {
+    testLoading.value[key] = false
+    return
+  }
+
+  testResults.value[key] = { ok: result.success, msg: result.message }
+  testLoading.value[key] = false
+
+  setTimeout(() => {
+    testResults.value[key] = null
+  }, 3000)
+}
 </script>
 
 <template>
@@ -138,6 +174,31 @@ onMounted(async () => {
           <option value="true">true</option>
           <option value="false">false</option>
         </select>
+
+        <div v-else-if="TEST_KEYS.has(item.key)" class="space-y-1.5">
+          <div class="flex gap-2">
+            <input
+              v-model="formData[item.key]"
+              :type="resolveInputType(item)"
+              :placeholder="item.encrypted && item.has_value ? '••••••••（已设置，留空不修改）' : '请输入...'"
+              class="min-w-0 flex-1 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
+            />
+            <button
+              :disabled="testLoading[item.key]"
+              class="shrink-0 rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
+              @click="runTest(item.key)"
+            >
+              {{ testLoading[item.key] ? '测试中...' : '测试连接' }}
+            </button>
+          </div>
+          <p
+            v-if="testResults[item.key]"
+            :class="testResults[item.key]!.ok ? 'text-green-600' : 'text-red-600'"
+            class="text-xs"
+          >
+            {{ testResults[item.key]!.msg }}
+          </p>
+        </div>
 
         <input
           v-else
