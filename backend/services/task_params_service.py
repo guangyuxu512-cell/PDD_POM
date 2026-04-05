@@ -3,16 +3,11 @@
 
 提供 task_params 表的分页查询、CRUD、CSV 批量导入与执行状态更新能力。
 """
-import csv
-import io
-import json
-import re
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
-from openpyxl import load_workbook
-
 from backend.models.database import 获取连接
+from backend.services.import_parser_service import 导入解析服务实例
 
 
 from backend.logging_config import get_logger
@@ -20,34 +15,6 @@ from backend.logging_config import get_logger
 logger = get_logger()
 
 允许状态集合 = {"pending", "running", "success", "failed", "skipped"}
-
-科学计数法正则 = re.compile(r"^[+-]?\d+\.?\d*[eE][+\-]?\d+$")
-整数值正则 = re.compile(r"^\d+$")
-整数浮点正则 = re.compile(r"^\d+\.0+$")
-参数键名映射 = {
-    "父商品ID": "parent_product_id",
-    "parent_product_id": "parent_product_id",
-    "新标题": "new_title",
-    "new_title": "new_title",
-    "图片路径": "image_path",
-    "image_path": "image_path",
-    "批次ID": "batch_id",
-    "批次号": "batch_id",
-    "批次编号": "batch_id",
-    "batch_id": "batch_id",
-    "batchId": "batch_id",
-    "折扣": "discount",
-    "discount": "discount",
-    "投产比": "roi",
-    "roi": "roi",
-}
-保持字符串字段 = {
-    "parent_product_id",
-    "new_title",
-    "image_path",
-    "batch_id",
-}
-
 
 class 任务参数服务:
     """task_params 业务服务。"""
@@ -66,17 +33,10 @@ class 任务参数服务:
         return 状态列表
 
     def _序列化JSON(self, 数据: Optional[Dict[str, Any]]) -> str:
-        return json.dumps(数据 or {}, ensure_ascii=False)
+        return 导入解析服务实例.序列化JSON(数据)
 
     def _解析JSON(self, 数据: Any) -> Dict[str, Any]:
-        if not 数据:
-            return {}
-        if isinstance(数据, dict):
-            return 数据
-        try:
-            return json.loads(数据)
-        except (TypeError, json.JSONDecodeError):
-            return {}
+        return 导入解析服务实例.解析JSON(数据)
 
     @staticmethod
     def _读取非空参数值(参数: Dict[str, Any], *键名列表: str) -> Any:
@@ -108,149 +68,37 @@ class 任务参数服务:
         return 记录
 
     async def _店铺是否存在(self, 店铺ID: str) -> bool:
-        async with 获取连接() as 连接:
-            async with 连接.execute(
-                "SELECT 1 FROM shops WHERE id = ?",
-                (店铺ID,),
-            ) as 游标:
-                return await 游标.fetchone() is not None
+        return await 导入解析服务实例.店铺是否存在(店铺ID)
 
     async def _根据店铺名称获取ID(self, 店铺名称: str) -> Optional[str]:
-        async with 获取连接() as 连接:
-            async with 连接.execute(
-                "SELECT id FROM shops WHERE name = ? ORDER BY created_at DESC LIMIT 1",
-                (店铺名称,),
-            ) as 游标:
-                结果 = await 游标.fetchone()
-                if not 结果:
-                    return None
-                return str(结果["id"])
+        return await 导入解析服务实例.根据店铺名称获取ID(店铺名称)
 
     async def _解析店铺标识(self, 店铺标识: str, 行号: int) -> str:
-        if 店铺标识.isdigit():
-            if not await self._店铺是否存在(店铺标识):
-                raise ValueError(f"第 {行号} 行店铺ID不存在: {店铺标识}")
-            return 店铺标识
-
-        if await self._店铺是否存在(店铺标识):
-            return 店铺标识
-
-        店铺ID = await self._根据店铺名称获取ID(店铺标识)
-        if 店铺ID:
-            return 店铺ID
-
-        raise ValueError(f"第 {行号} 行店铺名称未找到: {店铺标识}")
+        return await 导入解析服务实例.解析店铺标识(店铺标识, 行号)
 
     def _解码CSV文本(self, 文件内容: bytes) -> str:
-        for 编码 in ("utf-8-sig", "utf-8", "gbk"):
-            try:
-                return 文件内容.decode(编码)
-            except (UnicodeDecodeError, ValueError):
-                continue
-        raise ValueError("CSV 文件编码不支持，请另存为 UTF-8 格式")
+        return 导入解析服务实例.解码CSV文本(文件内容)
 
     def _修复科学计数法(self, 值: str) -> str:
-        标准值 = str(值).strip()
-        if not 标准值:
-            return 标准值
-        if 科学计数法正则.match(标准值):
-            return str(int(float(标准值)))
-        return 标准值
+        return 导入解析服务实例.修复科学计数法(值)
 
     def _预处理CSV行(self, 行数据: Dict[str, str]) -> Dict[str, str]:
-        结果: Dict[str, str] = {}
-        for 列名, 原值 in 行数据.items():
-            字段值 = "" if 原值 is None else str(原值)
-            if 列名 and any(标记 in 列名 for 标记 in ("ID", "id", "Id")):
-                结果[列名] = self._修复科学计数法(字段值)
-            else:
-                结果[列名] = 字段值
-        return 结果
+        return 导入解析服务实例.预处理CSV行(行数据)
 
     def _解析CSV内容(self, 文件内容: bytes) -> List[Dict[str, str]]:
-        文本内容 = self._解码CSV文本(文件内容)
-
-        读取器 = csv.DictReader(io.StringIO(文本内容))
-        if not 读取器.fieldnames:
-            raise ValueError("CSV 文件缺少表头")
-        return [self._预处理CSV行(dict(行)) for 行 in 读取器]
+        return 导入解析服务实例.解析CSV内容(文件内容)
 
     def _解析XLSX内容(self, 文件内容: bytes) -> List[Dict[str, str]]:
-        """读取 xlsx 内容并转换为与 CSV 一致的行结构。"""
-        工作簿 = load_workbook(io.BytesIO(文件内容), read_only=True)
-        try:
-            工作表 = 工作簿.worksheets[0]
-            行迭代器 = 工作表.iter_rows()
-            表头行 = next(行迭代器, None)
-            if not 表头行:
-                raise ValueError("XLSX 文件缺少表头")
-
-            表头 = ["" if 单元格.value is None else str(单元格.value).strip() for 单元格 in 表头行]
-            if not any(表头):
-                raise ValueError("XLSX 文件缺少表头")
-
-            结果列表: List[Dict[str, str]] = []
-            for 数据行 in 行迭代器:
-                行数据: Dict[str, str] = {}
-                for 索引, 单元格 in enumerate(数据行):
-                    列名 = 表头[索引] if 索引 < len(表头) else ""
-                    if not 列名:
-                        continue
-
-                    if 单元格.value is None:
-                        行数据[列名] = ""
-                        continue
-
-                    if (
-                        单元格.data_type == "n"
-                        and 单元格.value > 9999999999
-                    ):
-                        行数据[列名] = str(int(单元格.value))
-                    else:
-                        行数据[列名] = str(单元格.value)
-
-                if any(str(值).strip() for 值 in 行数据.values()):
-                    结果列表.append(self._预处理CSV行(行数据))
-
-            return 结果列表
-        finally:
-            工作簿.close()
+        return 导入解析服务实例.解析XLSX内容(文件内容)
 
     def _解析发布次数(self, 行数据: Dict[str, str], 行号: int) -> int:
-        原始值 = str(行数据.get("发布次数", "")).strip()
-        if not 原始值:
-            return 1
-
-        if 整数值正则.match(原始值):
-            发布次数 = int(原始值)
-        elif 整数浮点正则.match(原始值):
-            发布次数 = int(float(原始值))
-        else:
-            raise ValueError(f"第 {行号} 行发布次数必须是正整数")
-
-        if 发布次数 <= 0:
-            raise ValueError(f"第 {行号} 行发布次数必须大于 0")
-        return 发布次数
+        return 导入解析服务实例.解析发布次数(行数据, 行号)
 
     def _规范参数键名(self, 列名: str) -> str:
-        标准列名 = str(列名).strip()
-        return 参数键名映射.get(标准列名, 标准列名)
+        return 导入解析服务实例.规范参数键名(列名)
 
     def _转换参数值(self, 参数键名: str, 原始值: str) -> Any:
-        清理值 = str(原始值).strip()
-        if not 清理值:
-            return 清理值
-
-        if 参数键名 in 保持字符串字段:
-            return 清理值
-
-        if 参数键名.endswith("_id"):
-            return 清理值
-
-        try:
-            return float(清理值) if "." in 清理值 else int(清理值)
-        except ValueError:
-            return 清理值
+        return 导入解析服务实例.转换参数值(参数键名, 原始值)
 
     async def _映射CSV行(self, 任务名称: str, 行数据: Dict[str, str], 行号: int) -> List[Dict[str, Any]]:
         # 提取店铺ID（必填）

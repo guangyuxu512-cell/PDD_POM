@@ -32,6 +32,37 @@ class 内部执行请求(BaseModel):
     flow_param_id: Optional[int] = Field(default=None, description="流程参数ID")
 
 
+async def _补齐内部执行流程上下文(
+    *,
+    shop_id: str,
+    task_name: str,
+    params: Dict[str, Any],
+    flow_param_id: Optional[int],
+    step_index: int,
+) -> None:
+    """为内部执行链路补齐 flow_context。"""
+    if flow_param_id is None:
+        return
+
+    await 流程参数服务实例.更新(
+        flow_param_id,
+        {
+            "status": "running",
+            "current_step": step_index,
+            "error": None,
+            "batch_id": params.get("batch_id"),
+        },
+    )
+    await 流程参数服务实例.更新步骤结果(
+        flow_param_id,
+        task_name,
+        步骤状态="running",
+        step_index=step_index,
+        当前步骤=step_index,
+    )
+    params["flow_context"] = await 流程参数服务实例.获取步骤上下文(flow_param_id, task_name)
+
+
 # 创建路由
 路由 = APIRouter(prefix="/api/tasks", tags=["任务管理"])
 
@@ -146,32 +177,13 @@ async def 内部执行任务(请求: 内部执行请求) -> 统一响应:
             elif not isinstance(params.get("flow_context"), dict):
                 params["flow_context"] = {}
 
-        if flow_param_id is not None:
-            await 流程参数服务实例.更新(
-                flow_param_id,
-                {
-                    "status": "running",
-                    "current_step": step_index,
-                    "error": None,
-                    "batch_id": params.get("batch_id"),
-                },
-            )
-            await 流程参数服务实例.更新步骤结果(
-                flow_param_id,
-                请求.task_name,
-                步骤状态="running",
-                step_index=step_index,
-                当前步骤=step_index,
-            )
-            flow_context = await 流程参数服务实例.获取步骤上下文(flow_param_id, 请求.task_name)
-            params["flow_context"] = flow_context
-
-            async def _准备流程上下文(_shop_id: str, _task_name: str, 店铺配置: Dict[str, Any]):
-                店铺配置["flow_context"] = dict(flow_context)
-                店铺配置["task_param"] = dict(flow_context)
-                return None
-
-            临时任务服务._准备任务参数 = _准备流程上下文  # type: ignore[method-assign]
+        await _补齐内部执行流程上下文(
+            shop_id=请求.shop_id,
+            task_name=请求.task_name,
+            params=params,
+            flow_param_id=flow_param_id,
+            step_index=step_index,
+        )
 
         任务记录 = await 临时任务服务.创建任务记录(
             shop_id=请求.shop_id,

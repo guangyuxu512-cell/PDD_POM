@@ -87,9 +87,9 @@ class 测试_Celery桥接:
 
         try:
             with patch("tasks.bridge_task.初始化Worker环境") as 模拟初始化Worker环境, \
-                    patch("tasks.bridge_task.获取Worker事件循环", return_value=假循环), \
-                    patch("tasks.bridge_task.asyncio.get_running_loop", side_effect=RuntimeError), \
-                    patch("tasks.bridge_task.asyncio.set_event_loop") as 模拟设置事件循环, \
+                    patch("tasks.async_utils.获取Worker事件循环", return_value=假循环), \
+                    patch("tasks.async_utils.asyncio.get_running_loop", side_effect=RuntimeError), \
+                    patch("tasks.async_utils.asyncio.set_event_loop") as 模拟设置事件循环, \
                     patch("tasks.bridge_task.任务服务实例.统一执行任务", new=AsyncMock(return_value={"status": "completed", "task_id": "task-1"})) as 模拟统一执行任务:
                 结果 = 桥接执行任务(
                     shop_id="shop-1",
@@ -121,9 +121,9 @@ class 测试_Celery桥接:
             协程对象.close()
             return "ok"
 
-        with patch("tasks.bridge_task.asyncio.get_running_loop", side_effect=RuntimeError), \
-                patch("tasks.bridge_task.获取Worker事件循环", side_effect=RuntimeError("loop failed")), \
-                patch("tasks.bridge_task.asyncio.run", side_effect=假运行) as 模拟临时运行:
+        with patch("tasks.async_utils.asyncio.get_running_loop", side_effect=RuntimeError), \
+                patch("tasks.async_utils.获取Worker事件循环", side_effect=RuntimeError("loop failed")), \
+                patch("tasks.async_utils.asyncio.run", side_effect=假运行) as 模拟临时运行:
             结果 = _运行异步任务(假协程())
 
         assert 结果 == "ok"

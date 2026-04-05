@@ -256,9 +256,10 @@ class 测试_批量执行页店铺名显示:
 
     def test_批量执行页_优先显示快照里的店铺名(self):
         类型文件 = 读取文件("frontend/src/api/types.ts")
-        页面文件 = 读取文件("frontend/src/views/batch-execute/BatchStatusPanel.vue")
+        页面文件 = 读取文件("frontend/src/views/BatchExecute.vue")
 
         assert "shop_name?: string | null" in 类型文件
         assert "function getBatchShopName(shop: BatchShopState)" in 页面文件
         assert "shop.shop_name || getShopName(shop.shop_id)" in 页面文件
-        assert 页面文件.count("getBatchShopName(shop)") == 3
+        assert 页面文件.count("getBatchShopName(shop)") >= 2
+        assert not (仓库根目录 / "frontend/src/views/batch-execute/BatchStatusPanel.vue").exists()

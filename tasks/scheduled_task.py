@@ -5,36 +5,15 @@
 """
 from __future__ import annotations
 
-import asyncio
 from typing import Any, Dict
 
 from backend.services.scheduled_execute_service import 定时执行服务实例
-from tasks.celery_app import celery_app, 初始化Worker环境, 获取Worker事件循环
-
-
-from backend.logging_config import get_logger
-
-logger = get_logger()
+from tasks.async_utils import 运行异步任务
+from tasks.celery_app import celery_app, 初始化Worker环境
 
 def _运行异步任务(协程):
-    """在同步 Celery Task 中执行异步协程。"""
-    try:
-        asyncio.get_running_loop()
-    except RuntimeError:
-        try:
-            事件循环 = 获取Worker事件循环()
-            asyncio.set_event_loop(事件循环)
-        except Exception as e:
-            logger.info(f"[Celery] 获取 Worker 事件循环失败，回退到临时事件循环: {e}")
-            return asyncio.run(协程)
-
-        try:
-            return 事件循环.run_until_complete(协程)
-        except Exception as e:
-            raise RuntimeError(f"Worker 事件循环执行协程失败: {e}") from e
-
-    协程.close()
-    raise RuntimeError("定时任务检测到已有运行中的事件循环，无法重复创建事件循环")
+    """兼容旧调用点，统一委托给共享异步桥接工具。"""
+    return 运行异步任务(协程)
 
 
 @celery_app.task(name="执行定时计划")

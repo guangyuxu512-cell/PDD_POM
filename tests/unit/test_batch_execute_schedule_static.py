@@ -19,6 +19,9 @@ class 测试_批量执行页静态结构:
             "type ExecuteMode = 'flow' | 'task'",
             "const mode = ref<ExecuteMode>('flow')",
             "selectedShopIds",
+            "selectedInputSetId",
+            "loadFlowInputSets",
+            "listFlowInputSets",
             "toggleSelectAll",
             "submitStart",
             "createBatchStatusEventSource",
@@ -26,6 +29,8 @@ class 测试_批量执行页静态结构:
             "执行配置",
             "流程模式",
             "单任务模式",
+            "流程输入集",
+            "不使用输入集，沿用 flow_params",
             "目标店铺",
             "已选择 {{ selectedShopIds.length }} / {{ totalShops }}",
             "执行状态",
@@ -43,6 +48,8 @@ class 测试_批量执行页静态结构:
             assert 关键字 in 页面文件
 
         assert "ExecuteConfigPanel" not in 页面文件
+        assert not (仓库根目录 / "frontend/src/views/batch-execute/ExecuteConfigPanel.vue").exists()
+        assert not (仓库根目录 / "frontend/src/views/batch-execute/BatchStatusPanel.vue").exists()
         assert "<style" not in 页面文件
 
     def test_批量执行页使用_brand_状态色与进度条(self):

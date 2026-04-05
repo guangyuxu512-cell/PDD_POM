@@ -5,36 +5,28 @@
 ### 1.1 后端
 
 - 语言：`Python`
-- 版本说明：
-  - 仓库未通过 `pyproject.toml` 显式锁定版本
-  - 当前环境缓存痕迹显示为 Python `3.12`
-- 框架与库：
-  - `fastapi>=0.115.0,<1.0`
-  - `uvicorn[standard]>=0.30.6,<1.0`
-  - `playwright>=1.40.0,<2.0`
-  - `celery>=5.3.4,<6.0`
-  - `celery-redbeat>=2.2.0,<3.0`
-  - `redis>=5.0.1,<6.0`
-  - `httpx>=0.28.1,<1.0`
-  - `python-dotenv>=1.0.1,<2.0`
-  - `pydantic>=2.12.5,<3.0`
-  - `pydantic-settings>=2.13.1,<3.0`
-  - `aiosqlite>=0.22.1,<1.0`
-  - `cryptography>=45.0.6,<46.0`
-  - `nest_asyncio>=1.6.0,<2.0`
-  - `openpyxl>=3.1.2,<4.0`
-  - `uiautomation>=2.0.0,<3.0`
-  - `loguru>=0.7.0,<1.0`
+- 运行环境：当前仓库与测试环境主要使用 Python `3.12`
+- 主要依赖：
+  - `fastapi`
+  - `uvicorn[standard]`
+  - `playwright`
+  - `celery`
+  - `celery-redbeat`
+  - `redis`
+  - `httpx`
+  - `pydantic`
+  - `aiosqlite`
+  - `cryptography`
+  - `openpyxl`
+  - `loguru`
 
 ### 1.2 前端
 
-- `vue ^3.5.25`
-- `vue-router ^5.0.3`
-- `pinia ^3.0.4`
-- `vite ^7.3.1`
-- `typescript ~5.9.3`
-- `@vitejs/plugin-vue ^6.0.2`
-- `vue-tsc ^3.1.5`
+- `vue`
+- `vue-router`
+- `pinia`
+- `vite`
+- `typescript`
 
 ### 1.3 数据与外部依赖
 
@@ -46,49 +38,43 @@
   - 邮箱 `IMAP/SMTP`
   - Agent 回调
   - Agent 心跳
-  - 抖店网页
 
-## 2. 环境变量
+## 2. 运行时配置来源
 
-环境变量定义集中在 `backend/配置.py`，通过 `.env` 读取。
+- 当前运行时配置主来源不是 `.env`
+- 系统配置保存在 `settings` 表
+- 代码统一通过 `backend/config.py` 的 `配置实例` 读取配置
+- `frontend/src/views/SystemSettings.vue` 对应当前活跃的配置管理页面
 
-| 变量名 | 默认值 | 是否必填 | 用途 |
-| --- | --- | --- | --- |
-| `REDIS_URL` | `redis://localhost:6379/0` | 否 | Celery broker/backend 与 Redis 测试地址 |
-| `CHROME_PATH` | `None` | 否 | 本地 Chrome 可执行文件路径 |
-| `MAX_BROWSER_INSTANCES` | `5` | 否 | 浏览器实例池上限 |
-| `CAPTCHA_PROVIDER` | `capsolver` | 否 | 验证码服务商选择 |
-| `CAPTCHA_API_KEY` | `None` | 条件必填 | 使用第三方验证码服务时需要 |
-| `DEFAULT_PROXY` | `None` | 否 | 默认代理配置 |
-| `LOG_LEVEL` | `INFO` | 否 | 日志等级 |
-| `DATA_DIR` | `./data` | 否 | 数据目录根路径 |
-| `ENCRYPTION_KEY` | `None` | 强烈建议配置 | 店铺敏感信息加解密；未配置时服务层会生成临时密钥，重启后可能导致解密不一致 |
-| `FRONTEND_PORT` | `3000` | 否 | 前端端口配置项 |
-| `BACKEND_PORT` | `8000` | 否 | 后端端口配置项 |
-| `AGENT_CALLBACK_URL` | `None` | 条件必填 | 开启 Agent 回调时需要 |
-| `AGENT_MACHINE_ID` | `None` | 条件必填 | 开启心跳上报时需要 |
-| `AGENT_HEARTBEAT_URL` | `None` | 条件必填 | 开启心跳上报时需要 |
+常见配置项包括：
+
+- `app_port`
+- `api_base_url`
+- `celery_broker_url`
+- `celery_result_backend`
+- `chrome_path`
+- `max_concurrency`
+- `browser_headless`
+- `captcha_provider`
+- `captcha_api_key`
+- `agent_callback_url`
+- `agent_heartbeat_url`
+- `x_rpa_key`
+- `feishu_webhook_url`
 
 ## 3. 本地开发与启动
 
 ### 3.1 安装依赖
 
-- 安装后端依赖：
-
 ```bash
 pip install -r requirements.txt -r requirements-dev.txt
+cd frontend && npm install
 ```
 
-- 生产环境安装锁定依赖：
+如需锁定安装：
 
 ```bash
 pip install -r requirements-lock.txt
-```
-
-- 安装前端依赖：
-
-```bash
-cd frontend && npm install
 ```
 
 ### 3.2 启动服务
@@ -96,19 +82,13 @@ cd frontend && npm install
 - 启动 FastAPI：
 
 ```bash
-python -m uvicorn backend.启动入口:app --reload
+python -m uvicorn backend.main:app --reload
 ```
 
 - 启动 Celery Worker：
 
 ```bash
-celery -A tasks.celery应用 worker --loglevel=info
-```
-
-- 按 `CLAUDE.md` 约束推荐的 Worker 启动方式：
-
-```bash
-celery -A tasks.celery应用 worker -Q machine_a -P solo
+celery -A tasks.celery_app worker -P solo --loglevel=info
 ```
 
 - 启动前端开发环境：
@@ -123,93 +103,69 @@ cd frontend && npm run dev
 cd frontend && npm run build
 ```
 
-## 4. 运行时依赖与目录
+## 4. 运行时目录
 
 - `data/ecom.db`
   - SQLite 主数据库
-- `data/cookies/`
-  - Cookie 文件
-- `data/profiles/`
+- `data/logs/`
+  - 应用日志目录
+- `data/browser_profiles/`
   - 浏览器用户目录
+- `data/cookies/`
+  - Cookie 存储目录
 - `data/screenshots/`
   - 截图输出目录
-- `data/logs/`
-  - 应用日志、错误日志与轮转归档
-- Redis
-  - Celery broker/backend
-- 本地 Chrome
-  - Playwright 驱动对象
 
-## 5. 外部集成配置
+以上目录由 `backend/config.py` 在运行时按需创建。
+
+## 5. 外部依赖说明
 
 ### 5.1 Redis
 
 - 用途：
   - Celery broker/backend
-  - 系统设置中的连接测试
+  - 批量执行状态、Worker 协作、系统测试接口
 - 关键配置：
-  - `REDIS_URL`
+  - `celery_broker_url`
+  - `celery_result_backend`
 
-### 5.2 本地 Chrome 与 Playwright
+### 5.2 Chrome 与 Playwright
 
 - 用途：
-  - 驱动浏览器自动化流程
+  - 驱动抖店自动化流程
 - 关键配置：
-  - `CHROME_PATH`
-  - `MAX_BROWSER_INSTANCES`
-  - `DEFAULT_PROXY`
+  - `chrome_path`
+  - `max_concurrency`
+  - `browser_headless`
 
-### 5.3 第三方验证码平台
+### 5.3 验证码平台
 
-- 当前代码出现的提供商：
-  - `capsolver`
-  - `2captcha`
-  - `超级鹰`
+- 用途：
+  - 处理登录或页面交互中的验证码能力
 - 关键配置：
-  - `CAPTCHA_PROVIDER`
-  - `CAPTCHA_API_KEY`
-- 说明：
-  - 部分提供商目前更接近接口占位或兼容入口，接入深度以实际代码实现为准。
+  - `captcha_provider`
+  - `captcha_api_key`
 
-### 5.4 邮箱 IMAP / SMTP
+### 5.4 飞书与 Agent 集成
 
-- 相关逻辑：
-  - `backend/services/邮箱服务.py`
-- 主要依赖店铺表中的邮箱配置字段：
-  - `smtp_host`
-  - `smtp_port`
-  - `smtp_user`
-  - `smtp_pass`
-  - `smtp_protocol`
-
-### 5.5 Agent 回调与心跳
-
-- 回调配置：
-  - `AGENT_CALLBACK_URL`
-- 心跳配置：
-  - `AGENT_MACHINE_ID`
-  - `AGENT_HEARTBEAT_URL`
+- 飞书：
+  - `feishu_webhook_url`
+  - `feishu_secret`
+- Agent：
+  - `agent_callback_url`
+  - `agent_heartbeat_url`
+  - `x_rpa_key`
 
 ## 6. 部署现状
 
-- 当前仓库主要表现为本地部署 + 局域网访问 + 外部 Agent 协作模式。
-- 需要本地可用的 Chrome、Redis、SQLite 文件目录与 `.env` 配置。
-- 负载均衡或探针可直接访问：
+- 当前仓库主要表现为本地部署 + 局域网访问 + 外部 Agent 协作模式
+- 当前项目暂无正式 Docker 编排文件
+- 健康检查与监控入口：
   - `GET /health`
   - `GET /api/system/health`
   - `GET /api/system/metrics`
-- `Dockerfile`：当前项目暂无此内容
-- `docker-compose.yml`：当前项目暂无此内容
-- 群晖部署脚本：当前项目暂无此内容
-- 云服务部署脚本：当前项目暂无此内容
 
-## 7. 迁移与脚本现状
-
-- 数据库迁移命令：当前项目暂无此内容
-- `pyproject.toml`：当前项目暂无此内容
-- `.env.example`：当前项目暂无此内容
-
-## 8. 安全与忽略项
+## 7. 安全与忽略项
 
 - 禁止提交：
   - `.env`
@@ -220,11 +176,10 @@ cd frontend && npm run build
   - 账号密码
   - Redis 地址
   - Cookie
-  - 浏览器配置目录
+  - Webhook
   - 数据库快照
 
-## 9. 页面目标地址
+## 8. 说明
 
-- 当前代码内确认的抖店页面地址：
-  - 登录页：`https://fxg.jinritemai.com/login/common`
-  - 首页：`https://fxg.jinritemai.com/ffa/mshop/homepage/index`
+- 文档中的启动命令描述当前主链路
+- 如需兼容旧脚本或历史入口，应优先核对 `PLAN.md` 与 `.pipeline/progress.md` 的最近记录

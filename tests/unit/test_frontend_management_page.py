@@ -19,6 +19,7 @@ class 测试_前端管理页:
         断言映射 = {
             "frontend/src/api/shops.ts": ["listShops", "createShop", "updateShop", "deleteShop"],
             "frontend/src/api/flows.ts": ["listFlows", "createFlow", "updateFlow", "deleteFlow"],
+            "frontend/src/api/flowInputs.ts": ["listFlowInputSets"],
             "frontend/src/api/execute.ts": ["createBatch", "stopBatch", "createBatchStatusEventSource"],
             "frontend/src/api/schedules.ts": [
                 "listSchedules",

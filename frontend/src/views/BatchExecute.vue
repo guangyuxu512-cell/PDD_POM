@@ -2,10 +2,11 @@
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 
 import { createBatch, createBatchStatusEventSource, stopBatch } from '../api/execute'
+import { listFlowInputSets } from '../api/flowInputs'
 import { listFlows } from '../api/flows'
 import { listShops } from '../api/shops'
 import { listAvailableTasks } from '../api/tasks'
-import type { AvailableTask, BatchShopState, BatchSnapshot, Flow, Shop } from '../api/types'
+import type { AvailableTask, BatchRequest, BatchShopState, BatchSnapshot, Flow, FlowInputSet, Shop } from '../api/types'
 import { toast } from '../utils/toast'
 
 interface ShopTimeline {
@@ -31,6 +32,9 @@ const expandedShopId = ref<string | null>(null)
 const shopTimeline = ref<Record<string, ShopTimeline>>({})
 const mode = ref<ExecuteMode>('flow')
 const selectedFlowId = ref('')
+const inputSets = ref<FlowInputSet[]>([])
+const isLoadingInputSets = ref(false)
+const selectedInputSetId = ref('')
 const selectedTaskName = ref('')
 const selectedShopIds = ref<string[]>([])
 const concurrency = ref(1)
@@ -62,6 +66,14 @@ watch(
     if (!selectedFlowId.value && items[0]) {
       selectedFlowId.value = items[0].id
     }
+  },
+  { immediate: true },
+)
+
+watch(
+  () => selectedFlowId.value,
+  (flowId) => {
+    void loadFlowInputSets(flowId)
   },
   { immediate: true },
 )
@@ -283,7 +295,43 @@ async function loadReferenceData() {
   }
 }
 
-async function startExecution(payload: { flow_id?: string; task_name?: string; shop_ids: string[]; concurrency: number }) {
+async function loadFlowInputSets(flowId: string) {
+  const normalizedFlowId = flowId.trim()
+  if (!normalizedFlowId) {
+    isLoadingInputSets.value = false
+    inputSets.value = []
+    selectedInputSetId.value = ''
+    return
+  }
+
+  isLoadingInputSets.value = true
+  try {
+    const result = await listFlowInputSets(normalizedFlowId)
+    if (selectedFlowId.value !== normalizedFlowId) return
+
+    const enabledInputSets = result.list.filter((item) => item.enabled)
+    inputSets.value = enabledInputSets
+
+    if (enabledInputSets.some((item) => item.id === selectedInputSetId.value)) {
+      return
+    }
+
+    const defaultInputSet = enabledInputSets.length === 1 ? enabledInputSets[0] : null
+    selectedInputSetId.value = defaultInputSet ? defaultInputSet.id : ''
+  } catch (error) {
+    if (selectedFlowId.value === normalizedFlowId) {
+      inputSets.value = []
+      selectedInputSetId.value = ''
+    }
+    toast.error(error instanceof Error ? error.message : '加载流程输入集失败')
+  } finally {
+    if (selectedFlowId.value === normalizedFlowId) {
+      isLoadingInputSets.value = false
+    }
+  }
+}
+
+async function startExecution(payload: BatchRequest) {
   isStarting.value = true
   try {
     batchSnapshot.value = null
@@ -329,6 +377,7 @@ function submitStart() {
     task_name: mode.value === 'task' ? selectedTaskName.value : undefined,
     shop_ids: selectedShopIds.value,
     concurrency: concurrency.value,
+    input_set_id: mode.value === 'flow' ? selectedInputSetId.value || undefined : undefined,
   })
 }
 
@@ -384,6 +433,32 @@ onUnmounted(() => {
               <option disabled value="">请选择流程模板</option>
               <option v-for="flow in flows" :key="flow.id" :value="flow.id">{{ flow.name }} · {{ flow.steps.length }} 步</option>
             </select>
+          </div>
+
+          <div v-if="mode === 'flow'" class="space-y-2">
+            <div class="flex items-center justify-between gap-3">
+              <label class="text-xs font-medium text-brand-700">流程输入集</label>
+              <span v-if="isLoadingInputSets" class="text-xs text-brand-500">加载中...</span>
+            </div>
+            <select
+              v-model="selectedInputSetId"
+              :class="inputClass"
+              :disabled="hasActiveBatch || isStarting || isLoadingInputSets"
+            >
+              <option value="">不使用输入集，沿用 flow_params</option>
+              <option v-for="inputSet in inputSets" :key="inputSet.id" :value="inputSet.id">
+                {{ inputSet.name }} · {{ inputSet.source_type }}
+              </option>
+            </select>
+            <p class="text-xs text-brand-500">
+              {{
+                inputSets.length === 0
+                  ? '当前流程没有可用输入集，执行时会读取已有 flow_params。'
+                  : selectedInputSetId
+                    ? '已选择输入集，执行时会先把输入行映射为兼容 flow_params。'
+                    : '未选择输入集时，执行会继续读取已有 flow_params。'
+              }}
+            </p>
           </div>
 
           <div v-else class="space-y-2">

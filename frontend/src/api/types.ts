@@ -90,6 +90,17 @@ export interface FlowPayload {
   description?: string
 }
 
+export interface FlowInputSet {
+  id: string
+  flow_id: string
+  name: string
+  description?: string | null
+  source_type: string
+  enabled: boolean
+  created_at?: string | null
+  updated_at?: string | null
+}
+
 export interface FlowParam {
   id: number
   shop_id: string
@@ -148,6 +159,7 @@ export interface BatchRequest {
   task_name?: string
   shop_ids: string[]
   concurrency: number
+  input_set_id?: string
 }
 
 export interface BatchResponse {

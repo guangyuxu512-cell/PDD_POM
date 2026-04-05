@@ -9,8 +9,8 @@ import uuid
 from typing import Any, Dict, List, Optional
 
 from backend.models.database import 获取连接
-from backend.services.task_params_service import 任务参数服务实例
 from backend.services.flow_service import 流程服务实例
+from backend.services.import_parser_service import 导入解析服务实例
 
 
 允许来源类型集合 = {"manual", "csv", "xlsx", "api"}
@@ -21,11 +21,11 @@ class 流程输入服务:
 
     @staticmethod
     def _序列化JSON(数据: Optional[Dict[str, Any]]) -> str:
-        return 任务参数服务实例._序列化JSON(数据)
+        return 导入解析服务实例.序列化JSON(数据)
 
     @staticmethod
     def _解析JSON(数据: Any) -> Dict[str, Any]:
-        return 任务参数服务实例._解析JSON(数据)
+        return 导入解析服务实例.解析JSON(数据)
 
     @staticmethod
     def _解析布尔值(原始值: Any, 默认值: bool = True) -> bool:
@@ -287,7 +287,7 @@ class 流程输入服务:
         shop_id = str(数据.get("shop_id") or "").strip()
         if not shop_id:
             raise ValueError("shop_id 不能为空")
-        if not await 任务参数服务实例._店铺是否存在(shop_id):
+        if not await 导入解析服务实例.店铺是否存在(shop_id):
             raise ValueError("店铺不存在")
 
         sort_order = self._解析整数值(数据.get("sort_order"), 0)
@@ -326,7 +326,7 @@ class 流程输入服务:
             shop_id = str(数据["shop_id"]).strip()
             if not shop_id:
                 raise ValueError("shop_id 不能为空")
-            if not await 任务参数服务实例._店铺是否存在(shop_id):
+            if not await 导入解析服务实例.店铺是否存在(shop_id):
                 raise ValueError("店铺不存在")
             更新字段.append("shop_id = ?")
             更新值.append(shop_id)
@@ -377,8 +377,8 @@ class 流程输入服务:
         if not 店铺标识:
             raise ValueError(f"第 {行号} 行店铺ID不能为空")
 
-        店铺ID = await 任务参数服务实例._解析店铺标识(店铺标识, 行号)
-        发布次数 = 任务参数服务实例._解析发布次数(行数据, 行号)
+        店铺ID = await 导入解析服务实例.解析店铺标识(店铺标识, 行号)
+        发布次数 = 导入解析服务实例.解析发布次数(行数据, 行号)
         是否启用 = self._解析布尔值(
             行数据.get("enabled", 行数据.get("启用")),
             True,
@@ -410,8 +410,8 @@ class 流程输入服务:
             if not 清理值:
                 continue
 
-            参数键名 = 任务参数服务实例._规范参数键名(列名)
-            输入数据[参数键名] = 任务参数服务实例._转换参数值(参数键名, 清理值)
+            参数键名 = 导入解析服务实例.规范参数键名(列名)
+            输入数据[参数键名] = 导入解析服务实例.转换参数值(参数键名, 清理值)
 
         记录列表: List[Dict[str, Any]] = []
         for 批次序号 in range(1, 发布次数 + 1):
@@ -448,9 +448,9 @@ class 流程输入服务:
 
         文件后缀 = file_name.lower().rsplit(".", 1)[-1] if "." in file_name else ""
         if 文件后缀 == "xlsx":
-            行列表 = 任务参数服务实例._解析XLSX内容(文件内容)
+            行列表 = 导入解析服务实例.解析XLSX内容(文件内容)
         else:
-            行列表 = 任务参数服务实例._解析CSV内容(文件内容)
+            行列表 = 导入解析服务实例.解析CSV内容(文件内容)
 
         成功数量 = 0
         失败数量 = 0
